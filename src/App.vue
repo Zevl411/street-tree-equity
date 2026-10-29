@@ -886,5 +886,6 @@ watch(drawerOpen, async (open) => {
   z-index: 5;
 }
 @media print { .fs-exit-btn { display: none !important; } }
-#map-stage:fullscreen { width: 100%; height: 100%; }
+#map-stage:fullscreen,
+#map-stage:-webkit-full-screen { width: 100%; height: 100%; }
 </style>
