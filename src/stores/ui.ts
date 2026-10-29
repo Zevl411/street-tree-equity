@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import type { ChoroplethMode } from '@/utils/choropleth'
 
 export type ThemeName = 'treeLight' | 'treeDark'
 export type Basemap = 'streets' | 'satellite'
@@ -12,6 +13,7 @@ const THEME_KEY = 'ste-theme'
 const BASEMAP_KEY = 'ste-basemap'
 const UNIT_KEY = 'ste-density-unit'
 const FILL_OPACITY_KEY = 'ste-fill-opacity'
+const CHOROPLETH_KEY = 'ste-choropleth'
 
 export const FILL_OPACITY_MIN = 0.3
 export const FILL_OPACITY_MAX = 1
@@ -78,6 +80,13 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity.value = clampFillOpacity(v)
   }
 
+  // #49: global choropleth color ramp; persisted locally (own key), not in deep links.
+  const choroplethMode = ref<ChoroplethMode>(read(CHOROPLETH_KEY) === 'contrast' ? 'contrast' : 'green')
+  watch(choroplethMode, (m) => write(CHOROPLETH_KEY, m))
+  function setChoroplethMode(m: ChoroplethMode): void {
+    choroplethMode.value = m === 'contrast' ? 'contrast' : 'green'
+  }
+
   const showTrees = ref(true)
   const showParks = ref(true)
   const showRoads = ref(true)
@@ -89,6 +98,7 @@ export const useUiStore = defineStore('ui', () => {
     basemap, setBasemap,
     densityUnit, setDensityUnit,
     fillOpacity, setFillOpacity,
+    choroplethMode, setChoroplethMode,
     showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen,
   }
 })

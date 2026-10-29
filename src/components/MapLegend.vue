@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Meta } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { choroplethColors } from '@/utils/choropleth'
 
 const props = defineProps<{ meta: Meta; dense?: boolean }>()
 
@@ -10,7 +11,7 @@ const isKm2 = computed(() => ui.densityUnit === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() => {
-  const { colors } = props.meta
+  const colors = choroplethColors(props.meta, ui.choroplethMode)
   const k = isKm2.value ? ACRES_PER_KM2 : 1
   const breaks = props.meta.breaks.map((b) => b * k)
   return colors.map((color, i) => {
