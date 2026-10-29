@@ -559,7 +559,16 @@ useKeyboardShortcuts({
   },
   help: () => { if (!anyOverlayOpen()) shortcutsOpen.value = true },
   jumpBelowMedian,
+  toggleStar,
 })
+// #84: `*` stars/unstars the selected tract (same toggle as TractDetails). Drawer/focus OK; overlays ignore.
+const starAnnounce = ref('')
+function toggleStar() {
+  if (anyOverlayOpen()) return
+  const id = city.value?.id ?? cityStore.cityId ?? null
+  if (!selectedGeoid.value || !id) { linkSnack.value = 'Select a tract to star'; return }
+  starAnnounce.value = allFavs.toggle(id, selectedGeoid.value) ? 'Starred' : 'Star removed'
+}
 // #77: n/p cycle the #59 below-median set (rank asc, geoid asc; wraps). Requires the toggle on; ignores #73 bin.
 const jumpAnnounce = ref('')
 function jumpBelowMedian(dir: 1 | -1) {
@@ -576,6 +585,7 @@ function jumpBelowMedian(dir: 1 | -1) {
 const SHORTCUTS: [string, string][] = [
   ['/', 'Find tract'], ['Esc', 'Close panel, clear selection, or exit focus'], ['d', 'Toggle dark mode'],
   ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
+  ['*', 'Star / unstar selected tract'],
   ['n', 'Next below-median tract'], ['p', 'Previous below-median tract'],
   ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
 ]
@@ -759,6 +769,7 @@ watch(drawerOpen, async (open) => {
       </v-menu>
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ jumpAnnounce }}</span>
+      <span class="sr-only" aria-live="polite">{{ starAnnounce }}</span>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
