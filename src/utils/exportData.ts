@@ -131,3 +131,35 @@ export function toAllTractsCsv(tracts: TractProps[], cityId: string, unit: 'acre
   })
   return ['geoid,city_id,density,density_unit,rank,vs_median,vs_median_pct,favorite', ...lines].join('\r\n') + '\r\n'
 }
+
+export const PLANT_HERE_HEADERS = ['city_id', 'geoid', 'street_name', 'highway', 'length_m', 'length_mi'] as const
+
+/** #92: every plant-here segment in the loaded roads-lowtree pack; length desc, name asc (blank last), geoid asc. */
+export function toPlantHereCsv(
+  roads: { features: Array<{ properties?: Record<string, unknown> | null }> },
+  cityId: string,
+): string {
+  const clean = (n: unknown): string => {
+    const s = n === null || n === undefined ? '' : String(n).trim()
+    return /^(unnamed|null|undefined)$/i.test(s) ? '' : s
+  }
+  const rows = roads.features.map((f) => {
+    const p = f.properties ?? {}
+    const len = Number(p.lengthM)
+    const ok = Number.isFinite(len)
+    return {
+      geoid: p.geoid == null ? '' : String(p.geoid),
+      name: clean(p.name),
+      highway: p.highway == null ? '' : String(p.highway),
+      m: ok ? Math.round(len) : null,
+      mi: ok ? (len * 0.000621371).toFixed(3) : '',
+    }
+  })
+  rows.sort((a, b) =>
+    (b.m ?? -Infinity) - (a.m ?? -Infinity)
+    || (a.name === '' ? 1 : 0) - (b.name === '' ? 1 : 0)
+    || a.name.localeCompare(b.name)
+    || a.geoid.localeCompare(b.geoid))
+  const lines = rows.map((r) => [cityId, r.geoid, r.name, r.highway, r.m ?? '', r.mi].map(cell).join(','))
+  return [PLANT_HERE_HEADERS.join(','), ...lines].join('\r\n') + '\r\n'
+}
