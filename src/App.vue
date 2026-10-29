@@ -199,7 +199,8 @@ const satFallback = ref(false)
         :total="tracts?.features.length ?? 0" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
     </v-navigation-drawer>
 
-    <v-main class="position-relative">
+    <v-main class="d-flex flex-column">
+      <div class="main-stage">
       <MapView
         @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
@@ -235,6 +236,7 @@ const satFallback = ref(false)
         </div>
         <div class="text-caption mt-1">Click a tract for details and nearby parks.</div>
       </v-sheet>
+      </div>
     </v-main>
 
     <v-dialog v-model="aboutOpen" :max-width="mdAndUp ? 560 : '100%'" :fullscreen="!mdAndUp" scrollable>
@@ -272,11 +274,19 @@ const satFallback = ref(false)
 </template>
 
 <style scoped>
+/* Normal-flow stage inside v-main's padded box, so absolute map/overlays
+   sit below the app bar instead of under it (#34). */
+.main-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
 .hint {
   position: absolute;
   left: 12px;
-  /* Clear the app bar on live Pages (16px still clipped): bar height + gap. */
-  top: calc(var(--v-layout-top, 0px) + 56px);
+  /* .main-stage already starts below the app bar (v-main padding). */
+  top: 12px;
   z-index: 2;
 }
 .sr-only {
