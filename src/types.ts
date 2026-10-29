@@ -39,6 +39,8 @@ export interface ParkProps {
 }
 
 export interface Meta {
+  /** Optional pack format version (UI prefers it over cities.json version). */
+  version?: number | string
   cityName: string
   subtitle: string
   bbox: [number, number, number, number]
