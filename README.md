@@ -95,6 +95,8 @@ Use the place button in the app bar to switch between packaged demo cities liste
 [`public/cities.json`](public/cities.json) (your choice is remembered in `localStorage` as `ste-city`,
 and `?city=<id>` links work). The browser never queries Overpass live.
 
+Layer presets — in Layers, one tap on **Equity**, **Plant-here**, or **Parks** sets the layer switches; **Copy link** includes layer visibility via `layers=` (e.g. `layers=trees,parks,bq`; omitted when it matches the default).
+
 Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
 Compare — optionally compare packaged city-level tree stats side by side. Uses the same static open data packs; no account or upload. Open it from **Compare two cities** in the city menu, or share `?compare=idA,idB` (two different ready ids; anything else is ignored).
