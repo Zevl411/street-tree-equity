@@ -91,3 +91,13 @@ export function toBelowMedianCsv(tracts: TractProps[], cityId: string, unit: 'ac
   ].map(cell).join(','))
   return [header.join(','), ...lines].join('\r\n') + '\r\n'
 }
+
+/** #68: hotspots CSV — exactly the rows passed in (panel's on-screen list, same order). */
+export function toHotspotsCsv(tracts: TractProps[], cityId: string, unit: 'acre' | 'km2'): string {
+  const km2 = unit === 'km2'
+  const dens = (t: TractProps) => (km2 ? (Number.isFinite(t.treesPerKm2) ? t.treesPerKm2 : t.treesPerAcre * ACRES_PER_KM2) : t.treesPerAcre)
+  const lines = tracts.map((t) => [
+    t.geoid, cityId, dens(t).toFixed(4), km2 ? 'trees_per_km2' : 'trees_per_acre', Number.isFinite(t.rank) ? t.rank : '',
+  ].map(cell).join(','))
+  return ['geoid,city_id,density,density_unit,rank', ...lines].join('\r\n') + '\r\n'
+}

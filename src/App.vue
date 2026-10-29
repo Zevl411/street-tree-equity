@@ -566,7 +566,8 @@ watch(drawerOpen, async (open) => {
       <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-id="city?.id ?? null" @pick="pickFromFinder" />
       <HotspotsPanel v-model="hotspotsOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
-        :city-name="meta?.cityName ?? ''" :unit="densityUnit" @pick="pickFromHotspots" />
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
+        @exported="linkSnack = 'Hotspots CSV downloaded'" />
       <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots" />
       <template v-if="mdAndUp">
