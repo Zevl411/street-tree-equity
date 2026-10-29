@@ -26,6 +26,17 @@ html { overflow-y: hidden !important; }
   }
 }
 
+/* #62 map scale bar: sit above the collapsed legend chip, clear of safe-area; never on the credit side. */
+.maplibregl-ctrl-bottom-left {
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  left: env(safe-area-inset-left, 0px);
+}
+.maplibregl-ctrl-scale {
+  background: rgba(var(--v-theme-surface), 0.88);
+  color: rgba(var(--v-theme-on-surface), 0.87);
+  border-color: rgba(var(--v-theme-on-surface), 0.4);
+}
+
 /* #55 print-friendly view: map + legend + credits only. */
 @page { size: landscape; margin: 12mm; }
 @media print {
@@ -39,5 +50,6 @@ html { overflow-y: hidden !important; }
   #map-stage .maplibregl-map, #map-stage canvas { width: 100% !important; height: 100% !important; }
   #legend-panel { display: block !important; }
   .map-legend-box, .credit-strip { position: absolute !important; box-shadow: none !important; border: 1px solid #999; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .maplibregl-ctrl-scale { background: #fff !important; color: #000 !important; border-color: #000 !important; }
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
