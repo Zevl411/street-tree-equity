@@ -14,7 +14,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 let failed = 0
 try {
   await sleep(1200)
-  for (const p of ['', 'api/health', 'api/meta', 'api/tracts', 'data/tracts-equity.geojson', 'data/trees.geojson']) {
+  for (const p of ['', 'api/health', 'api/meta', 'api/tracts', 'cities.json', 'data/tracts-equity.geojson', 'data/trees.geojson']) {
     const url = `http://localhost:${PORT}${prefix}${p}`
     const res = await fetch(url)
     const body = await res.text()

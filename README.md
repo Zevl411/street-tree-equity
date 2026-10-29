@@ -88,6 +88,20 @@ from the default branch: `https://<namespace>.gitlab.io/<project>/`. It sets
 `VITE_BASE=/$CI_PROJECT_NAME/` unless you define a `VITE_BASE` CI/CD variable. Set
 `REFRESH_DATA=true` on a manual or scheduled pipeline to re-fetch data.
 
+<a id="add-or-switch-cities"></a>
+## Add or switch cities
+
+Use the place button in the app bar to switch between packaged demo cities listed in
+[`public/cities.json`](public/cities.json) (your choice is remembered in `localStorage` as `ste-city`,
+and `?city=<id>` links work). The search box uses free OpenStreetMap Nominatim for discovery only
+(debounced, ≤1 request/second, per the [usage policy](https://operations.osmfoundation.org/policies/nominatim/)).
+If a place isn't packaged yet you'll see "Not built for this area yet" — the browser never queries Overpass live.
+
+To add a city: edit `city.config.json` (below), run `npm run data:refresh` to build its static files, put them
+in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `public/cities.json` with
+`id`, `cityName`, `subtitle`, `dataPath` (that folder, relative to the site root) and `bbox`.
+Portland uses `"dataPath": "data"`.
+
 ## Change the city / bbox
 
 Edit `city.config.json`:

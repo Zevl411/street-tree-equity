@@ -10,6 +10,7 @@ import { dataUrl } from '@/composables/useData'
 const BASEMAP_STYLE = import.meta.env.VITE_BASEMAP_STYLE || 'https://tiles.openfreemap.org/styles/positron'
 
 const props = defineProps<{
+  dataPath: string
   meta: Meta
   tracts: TractCollection
   parks: ParkCollection
@@ -42,7 +43,7 @@ function addDataLayers(m: MlMap) {
   const before = firstSymbolLayerId(m)
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
-  m.addSource('trees', { type: 'geojson', data: dataUrl('trees.geojson') })
+  m.addSource('trees', { type: 'geojson', data: dataUrl('trees.geojson', props.dataPath) })
   m.addSource('roads', { type: 'geojson', data: props.roads ?? { type: 'FeatureCollection', features: [] } })
 
   m.addLayer({
