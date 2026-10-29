@@ -46,6 +46,18 @@ const legendExpanded = computed({
   get: () => ui.legendExpandedPref ?? mdAndUp.value,
   set: (v: boolean) => ui.setLegendExpanded(v),
 })
+/** #54 focus mode: layout-only chrome trim (no Fullscreen API, not persisted). */
+const focusMode = ref(false)
+const focusLabel = computed(() => (focusMode.value ? 'Exit focus' : 'Focus map'))
+function setFocus(on: boolean) {
+  if (on) {
+    layersOpen.value = false; finderOpen.value = false; hotspotsOpen.value = false; favoritesOpen.value = false
+    compareOpen.value = false; shortcutsOpen.value = false; aboutOpen.value = false
+    cityStore.select(null)
+  }
+  focusMode.value = on
+}
+function toggleFocus() { setFocus(!focusMode.value) }
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const selectedTract = computed(() =>
@@ -98,6 +110,7 @@ async function init() {
   openCompareFromUrl()
   openHotspotsFromUrl()
   openFavoritesFromUrl()
+  openFocusFromUrl()
   // Keep the address bar shareable as the view changes.
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, densityUnit], syncUrl)
 }
@@ -232,6 +245,31 @@ function openFavoritesFromUrl() {
     })
   }
 }
+/** #54 ?focus=1: one-shot, entered once data is ready, then stripped (never written by Share). */
+const pendingFocusFromUrl = ref(false)
+function stripFocusParam() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('focus')) return
+  url.searchParams.delete('focus')
+  history.replaceState(history.state, '', url)
+}
+function tryFocusFromUrl() {
+  if (!pendingFocusFromUrl.value || !meta.value || loading.value) return
+  pendingFocusFromUrl.value = false
+  setFocus(true)
+  stripFocusParam()
+}
+function openFocusFromUrl() {
+  if (new URLSearchParams(window.location.search).get('focus') !== '1') { stripFocusParam(); return }
+  pendingFocusFromUrl.value = true
+  tryFocusFromUrl()
+  if (pendingFocusFromUrl.value) {
+    const stop = watch([meta, loading], () => {
+      tryFocusFromUrl()
+      if (!pendingFocusFromUrl.value) stop()
+    })
+  }
+}
 function pickFromHotspots(geoid: string) {
   cityStore.select(geoid)
 }
@@ -275,7 +313,12 @@ const anyOverlayOpen = () => layersOpen.value || finderOpen.value || hotspotsOpe
 const hotspotsAvailable = () => !!(meta.value && tracts.value?.features.length)
 useKeyboardShortcuts({
   find: () => { if (anyOverlayOpen()) return; finderOpen.value = true },
-  escape: () => { if (!anyOverlayOpen() && selectedGeoid.value) drawerOpen.value = false },
+  // #54: overlays → tract drawer → exit focus → no-op.
+  escape: () => {
+    if (anyOverlayOpen()) return
+    if (selectedGeoid.value) drawerOpen.value = false
+    else if (focusMode.value) setFocus(false)
+  },
   toggleTheme: () => ui.toggleTheme(),
   toggleBasemap: () => ui.setBasemap(basemap.value === 'satellite' ? 'streets' : 'satellite'),
   toggleHotspots: () => {
@@ -285,7 +328,7 @@ useKeyboardShortcuts({
   help: () => { if (!anyOverlayOpen()) shortcutsOpen.value = true },
 })
 const SHORTCUTS: [string, string][] = [
-  ['/', 'Find tract'], ['Esc', 'Close panel or clear selection'], ['d', 'Toggle dark mode'],
+  ['/', 'Find tract'], ['Esc', 'Close panel, clear selection, or exit focus'], ['d', 'Toggle dark mode'],
   ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
 ]
 const tractFromFinder = ref(false)
@@ -322,7 +365,7 @@ watch(drawerOpen, async (open) => {
         @open="selectCity" @copied="(m: string) => (linkSnack = m)" />
 
 
-      <component :is="mdAndUp ? VMenu : VBottomSheet" v-model="layersOpen" v-bind="mdAndUp ? { closeOnContentClick: false, location: 'bottom end' } : {}">
+      <component v-if="!focusMode" :is="mdAndUp ? VMenu : VBottomSheet" v-model="layersOpen" v-bind="mdAndUp ? { closeOnContentClick: false, location: 'bottom end' } : {}">
         <template #activator="{ props: act }">
           <v-btn v-bind="act" icon aria-label="Layers">
             <v-icon icon="mdi-layers-outline" />
@@ -392,11 +435,11 @@ watch(drawerOpen, async (open) => {
       <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots" />
       <template v-if="mdAndUp">
-        <v-btn id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
+        <v-btn v-if="!focusMode" id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
           <v-icon icon="mdi-magnify" />
           <v-tooltip activator="parent" location="bottom">Find tract</v-tooltip>
         </v-btn>
-        <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
+        <v-btn v-if="!focusMode" icon :aria-label="resetLabel" @click="mapRef?.fitData()">
           <v-icon icon="mdi-fit-to-screen-outline" />
           <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
         </v-btn>
@@ -404,7 +447,11 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-link-variant" />
           <v-tooltip activator="parent" location="bottom">Share map link</v-tooltip>
         </v-btn>
-        <v-btn icon aria-label="About" @click="aboutOpen = true">
+        <v-btn icon :aria-label="focusLabel" :aria-pressed="focusMode ? 'true' : 'false'" @click="toggleFocus">
+          <v-icon :icon="focusMode ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
+          <v-tooltip activator="parent" location="bottom">{{ focusLabel }}</v-tooltip>
+        </v-btn>
+        <v-btn v-if="!focusMode" icon aria-label="About" @click="aboutOpen = true">
           <v-icon icon="mdi-information-outline" />
           <v-tooltip activator="parent" location="bottom">About</v-tooltip>
         </v-btn>
@@ -413,7 +460,11 @@ watch(drawerOpen, async (open) => {
         <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" />
         <v-tooltip activator="parent" location="bottom">{{ themeLabel }}</v-tooltip>
       </v-btn>
-      <v-menu v-if="!mdAndUp" location="bottom end">
+      <template v-if="!mdAndUp && focusMode">
+        <v-btn icon aria-label="Share map link" @click="copyLink"><v-icon icon="mdi-link-variant" /></v-btn>
+        <v-btn icon aria-label="Exit focus" aria-pressed="true" @click="setFocus(false)"><v-icon icon="mdi-fullscreen-exit" /></v-btn>
+      </template>
+      <v-menu v-if="!mdAndUp && !focusMode" location="bottom end">
         <template #activator="{ props: act }">
           <v-btn id="more-actions-btn" v-bind="act" icon="mdi-dots-vertical" aria-label="More actions" />
         </template>
@@ -423,6 +474,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
+          <v-list-item prepend-icon="mdi-fullscreen" title="Focus map" @click="setFocus(true)" />
           <v-list-item prepend-icon="mdi-keyboard-outline" title="Keyboard shortcuts" @click="shortcutsOpen = true" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
         </v-list>
@@ -472,7 +524,7 @@ watch(drawerOpen, async (open) => {
           :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
       </v-sheet>
 
-      <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="320"
+      <v-sheet v-if="meta && !selectedTract && mdAndUp && !focusMode" class="hint pa-3" rounded elevation="2" color="surface" max-width="320"
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="text-subtitle-2">{{ meta.cityName }}</div>
         <div v-if="meta.subtitle" class="text-caption text-medium-emphasis">{{ meta.subtitle }}</div>
@@ -489,7 +541,7 @@ watch(drawerOpen, async (open) => {
           <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
         </div>
       </v-sheet>
-      <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp" class="overview-strip pa-2 d-flex align-center" rounded elevation="2" color="surface"
+      <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp && !focusMode" class="overview-strip pa-2 d-flex align-center" rounded elevation="2" color="surface"
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="d-flex flex-wrap ga-1 flex-grow-1 text-caption">
           <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>
