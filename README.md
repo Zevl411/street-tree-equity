@@ -108,6 +108,8 @@ in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `
 `id`, `cityName`, `subtitle`, `dataPath` (that folder, relative to the site root) and `bbox`.
 Portland uses `"dataPath": "data"`.
 
+Or build one in CI (no local Overpass): **Actions → City pack → Run workflow**, fill `cityId`, `cityName`, `subtitle`, `bbox` (W,S,E,N), `stateFips`, `countyFips` (optional `censusYear`). It runs `scripts/build-city-pack.mjs` (same `data:refresh` path), writes `public/data/<cityId>/`, uploads it as an artifact, and with `open_pr` (default on) opens/updates a `pack/<cityId>` PR with the pack and a ready `cities.json` entry. Size: warn > 5 MB, fail > 15 MB.
+
 ## Change the city / bbox
 
 Edit `city.config.json`:
