@@ -222,6 +222,10 @@ async function init() {
   if (link.bin !== null && meta.value) ui.setDensityBin(link.bin, choroplethColors(meta.value, ui.choroplethMode).length)
   // #73: bin filter is per-city session state.
   watch(() => cityStore.cityId, () => ui.setDensityBin(null))
+  // #73: re-clamp bin if the color ramp length changes (mode flip / new meta)
+  watch(() => (meta.value ? choroplethColors(meta.value, ui.choroplethMode).length : 0), (n) => {
+    if (ui.densityBinIndex !== null) ui.setDensityBin(ui.densityBinIndex, n)
+  })
   // Keep the address bar shareable as the view changes.
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
 }
