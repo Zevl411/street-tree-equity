@@ -18,7 +18,7 @@ const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-
 const cityStore = useCityStore()
 const { cities, city, notBuilt, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
+const { isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -58,6 +58,8 @@ async function init() {
 }
 
 onMounted(init)
+
+const satFallback = ref(false)
 </script>
 
 <template>
@@ -82,12 +84,22 @@ onMounted(init)
         <template #activator="{ props: act }">
           <v-btn v-bind="act" icon aria-label="Layers">
             <v-icon icon="mdi-layers-outline" />
-            <v-tooltip activator="parent" location="bottom">Layers</v-tooltip>
+            <v-tooltip activator="parent" location="bottom">Basemap and layers</v-tooltip>
           </v-btn>
         </template>
         <v-card min-width="260">
           <v-card-title class="text-subtitle-1">Layers</v-card-title>
           <v-card-text class="pt-0">
+            <div class="text-caption mb-1">Basemap</div>
+            <v-btn-toggle
+              :model-value="basemap"
+              mandatory divided density="compact" variant="outlined" aria-label="Basemap"
+              @update:model-value="(v: 'streets' | 'satellite') => ui.setBasemap(v)"
+            >
+              <v-btn value="streets">Streets</v-btn>
+              <v-btn value="satellite">Satellite</v-btn>
+            </v-btn-toggle>
+            <v-divider class="my-3" />
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
@@ -117,7 +129,8 @@ onMounted(init)
     </v-navigation-drawer>
 
     <v-main class="position-relative">
-      <MapView v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
+      <MapView
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -180,7 +193,8 @@ onMounted(init)
           <div class="text-caption">
             Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors<span class="sr-only"> (opens in new tab)</span></a> (ODbL) ·
             Tracts: U.S. Census Bureau {{ meta?.censusVintage }} ·
-            Basemap: <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> / OpenMapTiles.
+            Basemap: <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> / OpenMapTiles ·
+            Satellite: <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless<span class="sr-only"> (opens in new tab)</span></a> by EOX — modified Copernicus Sentinel data 2025 · CC BY-NC-SA (non-commercial).
             <span v-if="updated"> OSM data as of {{ updated }}.</span>
           </div>
         </v-card-text>
@@ -190,6 +204,7 @@ onMounted(init)
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <v-snackbar v-model="satFallback" timeout="5000">Satellite imagery unavailable — showing streets.</v-snackbar>
   </v-app>
 </template>
 

@@ -1,23 +1,38 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap } from 'maplibre-gl'
+import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap, type StyleSpecification } from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { storeToRefs } from 'pinia'
 import { dataUrl } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
-import { useUiStore } from '@/stores/ui'
+import { useUiStore, type Basemap } from '@/stores/ui'
 
 // Free, no-key basemap. OpenFreeMap is free to use with no registration or API key.
 // Swap via VITE_BASEMAP_STYLE (any MapLibre style URL that needs no key).
-// If VITE_BASEMAP_STYLE is set it wins for both themes (the theme toggle won't swap the basemap).
+// If VITE_BASEMAP_STYLE is set it wins for both streets themes (the theme toggle won't swap it).
+// Satellite always uses EOxCloudless 2025 (free, no key, CC BY-NC-SA).
 const ENV_STYLE: string | undefined = import.meta.env.VITE_BASEMAP_STYLE || undefined
 const STREETS_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
 const STREETS_DARK = 'https://tiles.openfreemap.org/styles/dark'
-function styleUrl(dark: boolean) {
+const SATELLITE_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    eox: {
+      type: 'raster',
+      tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg'],
+      tileSize: 256,
+      attribution: '<a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
+    },
+  },
+  layers: [{ id: 'eox', type: 'raster', source: 'eox' }],
+}
+function styleFor(b: Basemap, dark: boolean): string | StyleSpecification {
+  if (b === 'satellite') return SATELLITE_STYLE
   return ENV_STYLE ?? (dark ? STREETS_DARK : STREETS_LIGHT)
 }
-function palette(dark: boolean) {
+function palette(dark: boolean, sat: boolean) {
+  if (sat) return { outline: '#ffffff', outlineOpacity: 0.95, selected: '#ffeb3b', hover: 0.7, base: 0.55, treeStroke: '#ffffff' }
   return dark
     ? { outline: '#e0e0e0', outlineOpacity: 0.85, selected: '#fafafa', hover: 0.9, base: 0.75, treeStroke: '#212121' }
     : { outline: '#ffffff', outlineOpacity: 0.9, selected: '#212121', hover: 0.85, base: 0.65, treeStroke: '#ffffff' }
@@ -32,11 +47,15 @@ const props = defineProps<{
 }>()
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
-const { isDark, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(useUiStore())
+const ui = useUiStore()
+const { isDark, basemap, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
+const emit = defineEmits<{ satelliteError: [] }>()
 
 const el = ref<HTMLDivElement | null>(null)
 let map: MlMap | null = null
 let hoveredId: string | null = null
+let satErrors = 0
+const SAT_ERROR_LIMIT = 3
 const ready = ref(false)
 
 function fillColor(): ExpressionSpecification {
@@ -51,7 +70,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 }
 
 function addDataLayers(m: MlMap) {
-  const pal = palette(isDark.value)
+  const pal = palette(isDark.value, basemap.value === 'satellite')
   const before = firstSymbolLayerId(m)
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
@@ -132,7 +151,7 @@ onMounted(() => {
   const b = props.meta.dataBbox
   map = new maplibregl.Map({
     container: el.value,
-    style: styleUrl(isDark.value),
+    style: styleFor(basemap.value, isDark.value),
     bounds: [[b[0], b[1]], [b[2], b[3]]],
     fitBoundsOptions: { padding: 24 },
     attributionControl: {
@@ -144,7 +163,19 @@ onMounted(() => {
   map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left')
   map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), 'top-right')
 
-  // Fires on first load and after every setStyle (theme swap): re-add our layers each time.
+  // Satellite fallback: repeated EOX tile/source errors -> back to streets (persisted via store).
+  map.on('error', (e) => {
+    const sid = (e as unknown as { sourceId?: string }).sourceId
+    if (basemap.value !== 'satellite' || sid !== 'eox') return
+    satErrors += 1
+    if (satErrors >= SAT_ERROR_LIMIT) {
+      satErrors = 0
+      ui.setBasemap('streets')
+      emit('satelliteError')
+    }
+  })
+
+  // Fires on first load and after every setStyle (theme/basemap swap): re-add our layers each time.
   map.on('style.load', () => {
     if (!map) return
     hoveredId = null
@@ -186,11 +217,18 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }
 
-watch(isDark, (d) => {
-  if (!map || ENV_STYLE) return
+function reloadStyle() {
+  if (!map) return
   ready.value = false
+  satErrors = 0
   // Visibility/selection are read from the stores inside addDataLayers + applySelection on style.load.
-  map.setStyle(styleUrl(d))
+  map.setStyle(styleFor(basemap.value, isDark.value))
+}
+watch(basemap, reloadStyle)
+// Theme only swaps the map style for streets (and only when no env override); satellite is theme-independent.
+watch(isDark, () => {
+  if (basemap.value === 'satellite' || ENV_STYLE) return
+  reloadStyle()
 })
 watch(selectedGeoid, applySelection)
 watch(showTrees, (v) => setVis('trees', v))
