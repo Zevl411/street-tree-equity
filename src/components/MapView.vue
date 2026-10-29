@@ -5,6 +5,7 @@ import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { storeToRefs } from 'pinia'
 import { dataUrl } from '@/composables/useData'
+import { writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { useCityStore } from '@/stores/city'
 import { useUiStore, type Basemap } from '@/stores/ui'
 
@@ -43,6 +44,8 @@ const props = defineProps<{
   dataPath: string
   meta: Meta
   tracts: TractCollection
+  /** #44: restored camera for this city (first load only); null = fit to city. */
+  initialView?: SessionView | null
   parks: ParkCollection
   roads: FeatureCollection | null
 }>()
@@ -198,8 +201,9 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: el.value,
     style: styleFor(basemap.value, isDark.value),
-    bounds: [[b[0], b[1]], [b[2], b[3]]],
-    fitBoundsOptions: { padding: 24 },
+    ...(props.initialView
+      ? { center: [props.initialView.lng, props.initialView.lat] as [number, number], zoom: props.initialView.zoom }
+      : { bounds: [[b[0], b[1]], [b[2], b[3]]] as [[number, number], [number, number]], fitBoundsOptions: { padding: 24 } }),
     attributionControl: false, // credits live in CreditStrip (#42)
   })
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right')
@@ -219,6 +223,18 @@ onMounted(() => {
   })
 
   // Fires on first load and after every setStyle (theme/basemap swap): re-add our layers each time.
+  // #44: remember the camera for this city (debounced; never every frame).
+  let viewTimer: ReturnType<typeof setTimeout> | undefined
+  map.on('moveend', () => {
+    clearTimeout(viewTimer)
+    viewTimer = setTimeout(() => {
+      const id = cityStore.cityId
+      if (!map || !id) return
+      const c = map.getCenter()
+      writeSessionView({ cityId: id, lng: +c.lng.toFixed(5), lat: +c.lat.toFixed(5), zoom: +map.getZoom().toFixed(2) })
+    }, 400)
+  })
+
   map.on('style.load', () => {
     if (!map) return
     hoveredId = null
