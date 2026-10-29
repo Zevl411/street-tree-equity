@@ -5,6 +5,8 @@ export interface NearbyPark {
   name: string
   areaAcres: number
   distanceKm: number
+  /** Park centroid falls inside the tract polygon. */
+  inside?: boolean
 }
 
 export interface TractProps {

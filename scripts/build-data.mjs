@@ -208,16 +208,22 @@ if (roadsCfg.enabled) {
 // ---------------------------------------------------------------------------
 // 5. Tract metrics + nearest parks
 // ---------------------------------------------------------------------------
-function nearestParksTo(c, n = 6) {
+function parkInTract(pk, t) {
+  const pt = [pk.properties.lon, pk.properties.lat]
+  return pointInBbox(pt, t.bbox) && turf.booleanPointInPolygon(pt, t)
+}
+/** Nearest n parks plus every park inside the tract, each flagged `inside`. */
+function nearestParksTo(c, t, n = 6) {
   return parks
     .map((pk) => ({
       id: pk.properties.id,
       name: pk.properties.name,
       areaAcres: pk.properties.areaAcres,
       distanceKm: +turf.distance(c, [pk.properties.lon, pk.properties.lat]).toFixed(2),
+      inside: parkInTract(pk, t),
     }))
     .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, n)
+    .filter((p, i) => p.inside || i < n)
 }
 function countParksInside(t) {
   return parks.filter((pk) => {
@@ -249,7 +255,7 @@ const tractOut = tracts.map((t) => {
       treesPerAcre: +(treeCount / areaAcres).toFixed(3),
       treesPerKm2: +(treeCount / (p.ALAND / 1e6)).toFixed(1),
       parksInside: countParksInside(t),
-      nearestParks: nearestParksTo(c),
+      nearestParks: nearestParksTo(c, t),
       roadKm: rs ? +(rs.totalM / 1000).toFixed(2) : null,
       lowTreeRoadKm: rs ? +(rs.lowM / 1000).toFixed(2) : null,
       lowTreeRoadPct: rs && rs.totalM > 0 ? Math.round((rs.lowM / rs.totalM) * 100) : null,
