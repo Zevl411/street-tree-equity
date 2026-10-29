@@ -61,7 +61,7 @@ async function copyGeoid() {
 
       <v-chip v-if="vsCity !== null" :color="vsCity < 100 ? 'warning' : 'success'" variant="tonal" size="small"
         class="mb-3 stat-lead">
-        {{ vsCity }}% of the {{ areaLabel }} average ({{ meta.overall.treesPerAcre }}/acre)
+        {{ vsCity }}% of the {{ areaLabel }} average ({{ meta.overall.treesPerAcre.toFixed(2) }}/acre)
       </v-chip>
 
       <v-row dense>
