@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { VBottomSheet, VMenu } from 'vuetify/components'
 import { storeToRefs } from 'pinia'
 import { useCityStore } from '@/stores/city'
@@ -7,12 +7,17 @@ import { isReady, type CityEntry } from '@/types'
 
 defineProps<{ label: string; mobile?: boolean }>()
 // App loads the city's data on select, so city switches still go through the emit.
-const emit = defineEmits<{ select: [id: string] }>()
+const emit = defineEmits<{ select: [id: string]; compare: [] }>()
 const cityStore = useCityStore()
 const { cities, cityId: selectedId, manifestError } = storeToRefs(cityStore)
 
 const README_URL = 'https://github.com/Zevl411/street-tree-equity/blob/main/README.md#add-or-switch-cities'
 const open = ref(false)
+const canCompare = computed(() => cities.value.filter(isReady).length >= 2)
+function startCompare() {
+  open.value = false
+  emit('compare')
+}
 
 function pickCity(c: CityEntry) {
   if (!isReady(c)) return
@@ -51,6 +56,9 @@ function pickCity(c: CityEntry) {
           </v-list-item>
         </template>
       </v-list>
+      <div v-if="canCompare" class="px-2 pb-2">
+        <v-btn variant="text" class="text-none" prepend-icon="mdi-compare" @click="startCompare">Compare two cities</v-btn>
+      </div>
       <v-card-text class="pt-0 text-caption opacity-70">
         More cities coming. Packs are free open data —
         <a :href="README_URL" target="_blank" rel="noopener noreferrer">see how to add one in the README<span class="sr-only"> (opens in new tab)</span></a>.

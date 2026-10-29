@@ -97,6 +97,8 @@ and `?city=<id>` links work). The browser never queries Overpass live.
 
 Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
+Compare — optionally compare packaged city-level tree stats side by side. Uses the same static open data packs; no account or upload. Open it from **Compare two cities** in the city menu, or share `?compare=idA,idB` (two different ready ids; anything else is ignored).
+
 To add a city: edit `city.config.json` (below), run `npm run data:refresh` to build its static files, put them
 in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `public/cities.json` with
 `id`, `cityName`, `subtitle`, `dataPath` (that folder, relative to the site root) and `bbox`.

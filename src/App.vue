@@ -6,11 +6,12 @@ import MapView from '@/components/MapView.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
+import CompareCities from '@/components/CompareCities.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { useUiStore } from '@/stores/ui'
 import { readDeepLink, writeDeepLink } from '@/composables/useDeepLink'
-import type { NearbyPark } from '@/types'
+import { isReady, type NearbyPark } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
@@ -60,12 +61,30 @@ async function init() {
   await selectCity(cityStore.initialCityId())
   if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
   syncUrl()
+  openCompareFromUrl()
   // Keep the address bar shareable as the view changes.
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme], syncUrl)
 }
 
 function syncUrl() {
   writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value })
+}
+
+const compareOpen = ref(false)
+const compareInitial = ref<[string, string] | null>(null)
+function startCompare() {
+  compareInitial.value = null
+  compareOpen.value = true
+}
+/** ?compare=idA,idB with two different ready ids opens the dialog pre-filled; anything else is ignored. */
+function openCompareFromUrl() {
+  const raw = new URLSearchParams(window.location.search).get('compare')
+  const ids = raw?.split(',').map((s) => s.trim()) ?? []
+  const ok = (id: string) => cities.value.some((c) => c.id === id && isReady(c))
+  if (ids.length === 2 && ids[0] !== ids[1] && ids.every(ok)) {
+    compareInitial.value = [ids[0], ids[1]]
+    compareOpen.value = true
+  }
 }
 
 const linkSnack = ref('')
@@ -96,7 +115,9 @@ const satFallback = ref(false)
       </v-app-bar-title>
 
       <PlacePicker v-if="cities.length" :label="meta?.cityName ?? ''" :mobile="!mdAndUp"
-        @select="selectCity" />
+        @select="selectCity" @compare="startCompare" />
+      <CompareCities v-model="compareOpen" :initial="compareInitial" :mobile="!mdAndUp"
+        @open="selectCity" @copied="(m: string) => (linkSnack = m)" />
 
       <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="surface">
         <MapLegend :meta="meta" dense />
