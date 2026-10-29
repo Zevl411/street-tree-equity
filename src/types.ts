@@ -23,6 +23,11 @@ export interface TractProps {
   parksPerAcre?: number
   parksPerKm2?: number
   parkAreaAcres?: number
+  /** #99 supermarket|greengrocer point count in tract; per acre / km²; nearest km (soft) */
+  groceriesInside?: number
+  groceriesPerAcre?: number
+  groceriesPerKm2?: number
+  nearestGroceryKm?: number
   nearestParks: NearbyPark[]
   roadKm: number | null
   lowTreeRoadKm: number | null
@@ -53,11 +58,11 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; bottomQuartileMax: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; lowTreeRoadSegments: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[] }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string }

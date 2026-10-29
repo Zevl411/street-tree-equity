@@ -27,6 +27,7 @@ import * as shapefile from 'shapefile'
 import osmtogeojson from 'osmtogeojson'
 import * as turf from '@turf/turf'
 import { cachedDownload, overpass, setRawOptions } from './lib/sources.mjs'
+import { fetchGroceries, applyGroceries } from './lib/groceries.mjs'
 import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -151,6 +152,9 @@ for (const f of osmtogeojson(parksRaw).features) {
   )
 }
 log(`parks: ${parks.length} polygons`)
+// #99: OSM supermarket|greengrocer points
+const groceries = await fetchGroceries(ob)
+log(`groceries: ${groceries.length} points`)
 
 // ---------------------------------------------------------------------------
 // 4. Roads with no mapped tree nearby (stretch: "plant here" candidates)
@@ -284,9 +288,12 @@ for (const f of tractOut) f.properties.bottomQuartile = f.properties.treesPerAcr
 // ---------------------------------------------------------------------------
 // 6. Write outputs
 // ---------------------------------------------------------------------------
+// #99: groceries metric (count density; nearestGroceryKm soft)
+const gr = applyGroceries(tractOut, groceries)
 const sizes = {}
 sizes.tracts = await writeJson('tracts-equity.geojson', turf.featureCollection(tractOut))
 sizes.parks = await writeJson('parks.geojson', turf.featureCollection(parks))
+sizes.groceries = await writeJson('groceries.geojson', turf.featureCollection(groceries))
 sizes.trees = await writeJson('trees.geojson', turf.featureCollection(treeFeatures))
 sizes.roads = await writeJson('roads-lowtree.geojson', turf.featureCollection(lowRoads))
 const totalTrees = treeFeatures.length
@@ -300,15 +307,16 @@ const meta = {
   generatedAt: new Date().toISOString(),
   osmTimestamp,
   censusVintage: `${year} cartographic boundary (cb_${year}_${stateFips}_tract_500k)`,
-  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, lowTreeRoadSegments: lowRoads.length },
+  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, lowTreeRoadSegments: lowRoads.length },
   overall: {
     treesPerAcre: +(totalTrees / totalAcres).toFixed(3),
     parksPerAcre: +(tractOut.reduce((s, f) => s + f.properties.parksInside, 0) / totalAcres).toFixed(5),
+    groceriesPerAcre: gr.overall,
     bottomQuartileMax: q1,
   },
   breaks,
   // #98: per-metric breaks alongside trees `breaks` (unchanged)
-  metricBreaks: { parks: densityBreaks(tractOut.map((f) => f.properties.parksPerAcre), 5) },
+  metricBreaks: { parks: densityBreaks(tractOut.map((f) => f.properties.parksPerAcre), 5), groceries: gr.breaks },
   colors: ['#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#31a354', '#006837'].slice(-(breaks.length + 1)),
   roadsBufferMeters: roadsCfg.enabled ? roadsCfg.bufferMeters : null,
   sizesBytes: sizes,

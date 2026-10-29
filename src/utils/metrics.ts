@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks'
+export type MetricId = 'trees' | 'parks' | 'groceries'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre'
 
 export interface MetricDef {
   id: MetricId
@@ -19,6 +19,15 @@ export interface MetricDef {
   spreadUnit: (unit: MetricUnit) => string
   bmCaption: string
   bmSwitchLabel: string
+  /** #99: sparse amenity metric → finer precision (.toFixed(4) / km² max 2) */
+  fine: boolean
+  /** #99: meta.overall key for overview */
+  overallKey: 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre'
+  /** #99: hotspots panel title + announce noun (singular/plural); null = trees canopy copy */
+  hotspotNoun: [string, string] | null
+  hotspotTitle: string
+  /** #99: disabled caption when pack lacks the metric */
+  missingCaption: string
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -33,6 +42,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
     spreadUnit: (u) => (u === 'km2' ? 'trees/km²' : 'trees/acre'),
     bmCaption: 'Dims tracts above this city’s median trees/acre',
     bmSwitchLabel: 'Below city median',
+    fine: false, overallKey: 'treesPerAcre', hotspotNoun: null, hotspotTitle: 'Low-canopy hotspots', missingCaption: '',
   },
   parks: {
     id: 'parks',
@@ -43,8 +53,22 @@ export const METRICS: Record<MetricId, MetricDef> = {
     spreadUnit: (u) => (u === 'km2' ? 'parks/km²' : 'parks/acre'),
     bmCaption: 'Dims tracts above this city’s median parks/acre',
     bmSwitchLabel: 'Below city median',
+    fine: true, overallKey: 'parksPerAcre', hotspotNoun: ['low park access tract', 'low park access tracts'], hotspotTitle: 'Low park access', missingCaption: 'This pack has no park metric yet',
+  },
+  groceries: {
+    id: 'groceries',
+    shortLabel: 'Groceries',
+    valueKey: 'groceriesPerAcre',
+    legendTitle: (u) => (u === 'km2' ? 'Groceries / km²' : 'Groceries / acre'),
+    unitNoun: 'grocery density',
+    spreadUnit: (u) => (u === 'km2' ? 'groceries/km²' : 'groceries/acre'),
+    bmCaption: 'Dims tracts above this city’s median groceries/acre',
+    bmSwitchLabel: 'Below city median',
+    fine: true, overallKey: 'groceriesPerAcre', hotspotNoun: ['low grocery access tract', 'low grocery access tracts'], hotspotTitle: 'Low grocery access', missingCaption: 'This pack has no grocery metric yet',
   },
 }
+
+export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
 
 export function isMetricId(v: unknown): v is MetricId {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(METRICS, v)
@@ -58,7 +82,7 @@ export function metricDef(id: unknown): MetricDef {
   return METRICS[normalizeMetric(id)]
 }
 
-/** #98: pack carries this metric? trees always; parks needs tract `parksPerAcre`. */
+/** #98: pack carries this metric? trees always; others need tract valueKey + metricBreaks[id]. */
 export function metricAvailable(id: MetricId, meta: Meta | null | undefined, tracts: TractCollection | null | undefined): boolean {
   if (id === 'trees') return true
   const key = METRICS[id].valueKey
