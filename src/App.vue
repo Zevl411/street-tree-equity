@@ -145,13 +145,13 @@ onMounted(init)
       <div v-if="notBuilt" class="d-flex fill-height align-center justify-center pa-4">
         <v-card max-width="480" variant="outlined" title="Not built for this area yet">
           <v-card-text>
-            We don't have a tree map for <strong>{{ notBuilt.display_name }}</strong> yet. Each demo ships
-            prebuilt open data so the map stays free — new cities are added offline via
-            <code>city.config.json</code> and <code>npm run data:refresh</code>.
+            This map ships static open data so it stays free forever.
+            {{ notBuilt.display_name }} isn’t in the demo set. You can open Portland, OR, or add a city by
+            editing <code>city.config.json</code> and running <code>npm run data:refresh</code> (see README).
           </v-card-text>
           <v-card-actions>
-            <v-btn color="primary" variant="flat" @click="selectCity(DEFAULT_CITY)">Show {{ defaultCity?.cityName ?? 'Portland, OR' }}</v-btn>
-            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener">How to add a city</v-btn>
+            <v-btn color="primary" variant="flat" @click="selectCity(DEFAULT_CITY)">Show Portland, OR</v-btn>
+            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener noreferrer">How to add a city</v-btn>
           </v-card-actions>
         </v-card>
       </div>
