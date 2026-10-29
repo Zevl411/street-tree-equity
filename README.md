@@ -1,5 +1,7 @@
 # Street Tree Equity Map 🌳
 
+**[User guide](docs/user-guide.md)** — how to use the map.
+
 Choropleth of **OpenStreetMap-mapped trees per acre by U.S. Census tract**, with nearest parks and
 “plant here” streets (no mapped tree within 20 m). Demo city: **central Portland, OR**.
 
