@@ -116,7 +116,7 @@ async function copyLink() {
   url.searchParams.set('compare', `${a.value},${b.value}`)
   try {
     await navigator.clipboard.writeText(url.href)
-    emit('copied', 'Link copied')
+    emit('copied', 'Comparison link copied')
   } catch {
     emit('copied', 'Couldn’t copy link — copy it from the address bar.')
   }
@@ -149,14 +149,14 @@ async function copyLink() {
             <thead><tr><th scope="col"><span class="sr-only">Metric</span></th><th scope="col">{{ result.a.name }}</th><th scope="col">{{ result.b.name }}</th></tr></thead>
             <tbody><tr v-for="r in rows" :key="r.label"><th scope="row" class="font-weight-regular">{{ r.label }}</th><td>{{ r.a }}</td><td>{{ r.b }}</td></tr></tbody>
           </v-table>
-          <div class="text-caption text-medium-emphasis">Stats are from each city’s packaged open data. Not a controlled study.</div>
+          <div class="text-caption text-medium-emphasis">Stats are from each city’s packaged open data (OSM-derived where noted). Not a controlled study.</div>
         </template>
       </v-card-text>
       <v-card-actions class="flex-wrap compare-actions">
         <v-btn variant="text" prepend-icon="mdi-link-variant" :disabled="!canCompare" @click="copyLink">Copy comparison link</v-btn>
         <v-spacer />
-        <v-btn v-if="result" variant="tonal" @click="openSide('a')">Open {{ result.a.name }}</v-btn>
-        <v-btn v-if="result" variant="tonal" @click="openSide('b')">Open {{ result.b.name }}</v-btn>
+        <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.a.name} on the map`" @click="openSide('a')">Open {{ result.a.name }}</v-btn>
+        <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.b.name} on the map`" @click="openSide('b')">Open {{ result.b.name }}</v-btn>
         <v-btn color="primary" variant="flat" :disabled="!canCompare || loading" @click="compare">Compare</v-btn>
       </v-card-actions>
     </v-card>
