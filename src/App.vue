@@ -197,8 +197,8 @@ onMounted(init)
 .hint {
   position: absolute;
   left: 12px;
-  /* v-main already offsets the app bar; keep a clear gap so the first stats line is visible. */
-  top: 16px;
+  /* Clear the app bar on live Pages (16px still clipped): bar height + gap. */
+  top: calc(var(--v-layout-top, 0px) + 56px);
   z-index: 2;
 }
 .sr-only {

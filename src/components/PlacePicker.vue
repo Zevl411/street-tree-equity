@@ -12,13 +12,13 @@ const emit = defineEmits<{ select: [id: string] }>()
 const cityStore = useCityStore()
 const { cities, cityId: selectedId } = storeToRefs(cityStore)
 
-const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-cities'
+const README_URL = 'https://github.com/Zevl411/street-tree-equity/blob/main/README.md#add-or-switch-cities'
 const open = ref(false)
 const query = ref('')
 const notBuilt = ref<PlaceResult | null>(null)
-const { searching, results, failed, debounced, now, reset } = useNominatim()
+const { searching, results, failed, now, reset } = useNominatim()
 
-watch(query, (q) => debounced(q ?? ''))
+// Enter-to-search only (Nominatim usage policy: no autocomplete).
 watch(open, (o) => { if (!o) { reset(); query.value = '' } })
 
 function pickCity(id: string) {
@@ -51,8 +51,9 @@ function pickResult(r: PlaceResult) {
     <v-card :width="mobile ? undefined : 320" title="Choose a place">
       <v-card-text class="pb-0">
         <v-text-field v-model="query" label="Search for a city" prepend-inner-icon="mdi-magnify" autocomplete="off"
-          density="compact" variant="outlined" hide-details :loading="searching" @keydown.enter.prevent="now(query)" />
-        <div class="text-caption mt-1 opacity-70">Search uses OpenStreetMap Nominatim (free, no key).</div>
+          density="compact" variant="outlined" hide-details :loading="searching" hint="Press Enter to search" @keydown.enter.prevent="now(query)" />
+        <div v-if="searching" class="text-caption mt-1" role="status" aria-live="polite">Searching…</div>
+        <div class="text-caption mt-1 opacity-70">Press Enter to search. Search uses OpenStreetMap Nominatim (free, no key).</div>
         <v-alert v-if="failed" type="warning" density="compact" class="mt-2"
           text="Place search is temporarily unavailable. Pick a listed city or try again in a minute." />
         <div v-else-if="results && !results.length && !searching" class="text-body-2 mt-2">
@@ -61,8 +62,12 @@ function pickResult(r: PlaceResult) {
       </v-card-text>
       <v-list density="compact">
         <template v-if="results?.length">
-          <v-list-item v-for="r in results" :key="r.place_id" :title="r.display_name" lines="two"
-            prepend-icon="mdi-map-marker-outline" @click="pickResult(r)" />
+          <v-list-item v-for="r in results" :key="r.place_id" lines="two"
+            prepend-icon="mdi-map-marker-outline" :aria-label="r.display_name" @click="pickResult(r)">
+            <v-list-item-title class="text-wrap">{{ r.display_name.split(',')[0] }}</v-list-item-title>
+            <v-list-item-subtitle class="text-wrap">{{ r.display_name.split(',').slice(1).join(',').trim() }}</v-list-item-subtitle>
+            <v-tooltip activator="parent" location="end" open-delay="400">{{ r.display_name }}</v-tooltip>
+          </v-list-item>
           <v-divider />
         </template>
         <v-list-subheader>Available demos</v-list-subheader>
@@ -73,12 +78,17 @@ function pickResult(r: PlaceResult) {
         <template v-if="notBuilt">
           <v-list-subheader>Not built yet?</v-list-subheader>
           <v-list-item :title="notBuilt.display_name" lines="two" prepend-icon="mdi-help-circle-outline"
-            :href="README_URL" target="_blank" rel="noopener" />
+            :href="README_URL" target="_blank" rel="noopener noreferrer" />
         </template>
       </v-list>
       <v-card-text class="pt-0 text-caption opacity-70">
-        Demos ship static open data so the map stays free. Add a city via city.config.json — see README.
+        Only built demos are listed. Want another city?
+        <a :href="README_URL" target="_blank" rel="noopener noreferrer">See how to add one in the README<span class="sr-only"> (opens in new tab)</span></a>.
       </v-card-text>
     </v-card>
   </component>
 </template>
+
+<style scoped>
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
