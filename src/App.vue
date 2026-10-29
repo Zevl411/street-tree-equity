@@ -9,7 +9,7 @@ import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
 import TractDetails from '@/components/TractDetails.vue'
-import { cityMedian } from '@/utils/densityBins'
+import { cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
@@ -257,6 +257,25 @@ const overviewDensity = computed(() => {
   return densityUnit.value === 'km2'
     ? `${(m.overall.treesPerAcre * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} / km²`
     : `${m.overall.treesPerAcre.toFixed(2)} / acre`
+})
+// #72 inequality snapshot — p10/median/p90 of loaded tracts (acre math, display scaled).
+const spread = computed(() => {
+  if (loading.value) return null
+  const sorted = sortedDensities(tracts.value)
+  const med = cityMedian(tracts.value)
+  const p10 = densityPercentile(sorted, 0.1)
+  const p90 = densityPercentile(sorted, 0.9)
+  if (med == null || p10 == null || p90 == null) return null
+  const km2 = densityUnit.value === 'km2'
+  const k = km2 ? ACRES_PER_KM2 : 1
+  const f = (n: number) => fmtDensity(n * k, km2)
+  const unit = km2 ? '/km²' : '/acre'
+  const r = p10 > 0 ? p90 / p10 : NaN
+  const ratio = Number.isFinite(r) ? `×${r.toFixed(1)}` : ''
+  return {
+    p10: f(p10), med: f(med), p90: f(p90), unit, ratio,
+    aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} trees per ${km2 ? 'square kilometer' : 'acre'}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
+  }
 })
 const plantHere = computed<{ pct: number } | { segments: number } | null>(() => {
   let road = 0
@@ -746,6 +765,9 @@ watch(drawerOpen, async (open) => {
         <div class="text-body-2 mt-1">
           <div><strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees · <strong>{{ meta.counts.tracts }}</strong> tracts</div>
           <div>Avg <strong>{{ overviewDensity }}</strong></div>
+          <div v-if="spread" class="text-caption text-medium-emphasis" role="group" :aria-label="spread.aria">
+            <span aria-hidden="true">Spread&nbsp; p10 <strong>{{ spread.p10 }}</strong> · median <strong>{{ spread.med }}</strong> · p90 <strong>{{ spread.p90 }}</strong>&nbsp; {{ spread.unit }}<template v-if="spread.ratio"> · p90÷p10 ≈ {{ spread.ratio }}</template></span>
+          </div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
         <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
@@ -764,6 +786,7 @@ watch(drawerOpen, async (open) => {
           <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>
           <v-chip size="small" variant="tonal">{{ meta.counts.tracts }} tracts</v-chip>
           <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
+          <v-chip v-if="spread" size="small" variant="tonal" class="spread-chip" :aria-label="spread.aria"><span class="text-truncate">p10 {{ spread.p10 }} · med {{ spread.med }} · p90 {{ spread.p90 }}{{ spread.unit }}<template v-if="spread.ratio"> {{ spread.ratio }}</template></span></v-chip>
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
         </div>
         <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
@@ -951,4 +974,6 @@ watch(drawerOpen, async (open) => {
 @media print { .fs-exit-btn { display: none !important; } }
 #map-stage:fullscreen,
 #map-stage:-webkit-full-screen { width: 100%; height: 100%; }
+
+.spread-chip { max-width: 100%; }
 </style>

@@ -8,6 +8,17 @@ export function cityMedian(tracts: TractCollection | null | undefined): number |
   return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
 }
 
+/** #72: sorted finite treesPerAcre ascending. */
+export function sortedDensities(tracts: TractCollection | null | undefined): number[] {
+  return (tracts?.features ?? []).map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+}
+
+/** #72: nearest-rank percentile on ascending array — index round((n - 1) * p); null when < 2 values. */
+export function densityPercentile(sorted: number[], p: number): number | null {
+  if (sorted.length < 2) return null
+  return sorted[Math.round((sorted.length - 1) * p)]
+}
+
 /** #63: format a density value (already unit-scaled) like MapLegend. */
 export function fmtDensity(n: number, isKm2: boolean) {
   if (n === 0) return '0'
