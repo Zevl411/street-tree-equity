@@ -119,7 +119,7 @@ const rows = computed(() => {
   // #38: both columns always share the active unit.
   const km = ui.densityUnit === 'km2'
   const [aMed, bMed, aMean, bMean] = km ? [A.medianKm2, B.medianKm2, A.meanKm2, B.meanKm2] : [A.median, B.median, A.mean, B.mean]
-  const unit = km ? 'trees/km²' : 'trees/acre'
+  const unit = ui.metric.spreadUnit(ui.densityUnit)
   const d = km ? 1 : 3
   if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
   const sc = (n: number | null) => (n == null ? null : km ? n * ACRES_PER_KM2 : n)

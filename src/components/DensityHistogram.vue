@@ -37,7 +37,7 @@ function toggle(i: number) {
   if (bins.value[i]?.count === 0) return
   ui.setDensityBin(selected.value === i ? null : i, bins.value.length)
 }
-const unit = computed(() => (ui.densityUnit === 'km2' ? 'trees/km²' : 'trees/acre'))
+const unit = computed(() => ui.metric.spreadUnit(ui.densityUnit))
 const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
 </script>
 
@@ -47,7 +47,7 @@ const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
       <div class="text-caption font-weight-medium">Density ({{ unit }})</div>
       <div class="text-caption text-medium-emphasis">{{ total }} tracts</div>
     </div>
-    <div class="chart" role="group" aria-label="Filter map by tree density bin">
+    <div class="chart" role="group" :aria-label="`Filter map by ${ui.metric.unitNoun} bin`">
       <button
         v-for="(b, i) in bins" :key="b.label" type="button" class="track"
         :class="{ selected: selected === i, faded: selected !== null && selected !== i }"

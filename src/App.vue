@@ -225,6 +225,7 @@ async function init() {
   if (link.layers) applyLayers(link.layers)
   // #94: a trees-on deep link auto-loads points once on mobile.
   wantTreesFromLink = !!link.layers?.trees
+  ui.setActiveMetric(link.metric)
   if (link.unit) ui.setDensityUnit(link.unit)
   if (link.hc) ui.setChoroplethMode('contrast')
   if (link.legend !== null) ui.setLegendExpanded(link.legend)
@@ -298,7 +299,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, metric: ui.activeMetric, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
 }
 
 const compareOpen = ref(false)
@@ -333,7 +334,7 @@ const spread = computed(() => {
       width: Math.min(100, Math.max(0, ((p90 - p10) / p90) * 100)),
       med: Math.min(100, Math.max(0, (med / p90) * 100)),
     } : null,
-    aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} trees per ${km2 ? 'square kilometer' : 'acre'}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
+    aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} ${ui.metric.spreadUnit(densityUnit.value).replace('/km²', ' per square kilometer').replace('/acre', ' per acre')}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
   }
 })
 const plantHere = computed<{ pct: number } | { segments: number } | null>(() => {
@@ -756,9 +757,10 @@ watch(drawerOpen, async (open) => {
               >{{ p.label }}</v-chip>
             </div>
             <div class="text-caption text-medium-emphasis mt-1 mb-2">One tap sets the switches below. You can still tweak them.</div>
+            <div class="text-caption text-medium-emphasis mb-2">Metric · {{ ui.metric.shortLabel }}</div>
             <div class="text-caption mb-1">Density unit</div>
             <v-btn-toggle :model-value="densityUnit" mandatory density="compact" variant="outlined" divided color="primary"
-              class="mb-2 unit-toggle" aria-label="Tree density unit" @click.stop
+              class="mb-2 unit-toggle" :aria-label="`${ui.metric.unitNoun[0].toUpperCase()}${ui.metric.unitNoun.slice(1)} unit`" @click.stop
               @update:model-value="(v: 'acre' | 'km2') => ui.setDensityUnit(v)">
               <v-btn value="acre" size="small">Per acre</v-btn>
               <v-btn value="km2" size="small">Per km²</v-btn>
@@ -795,7 +797,7 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
             <v-switch v-model="belowMedian" label="Below city median" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
-            <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? 'Dims tracts above this city’s median trees/acre' : 'Needs at least 2 tracts with density data' }}</div>
+            <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? ui.metric.bmCaption : 'Needs at least 2 tracts with density data' }}</div>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" aria-label="Export all tracts CSV" :disabled="loading || !cityStore.cityId || !(tracts?.features.length)" @click="exportAllTracts">Export all tracts CSV</v-btn>

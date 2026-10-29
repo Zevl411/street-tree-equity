@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type { ChoroplethMode, ChoroplethPalette } from '@/utils/choropleth'
+import { DEFAULT_METRIC, METRICS, normalizeMetric, type MetricId } from '@/utils/metrics'
 
 export type ThemeName = 'treeLight' | 'treeDark'
 export type Basemap = 'streets' | 'satellite'
@@ -105,6 +106,10 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   // #38: display-only density unit; persisted locally, not in deep links.
+  // #97 A0: active metric (session only; trees is the only registered metric).
+  const activeMetric = ref<MetricId>(DEFAULT_METRIC)
+  const metric = computed(() => METRICS[activeMetric.value])
+  function setActiveMetric(id: unknown) { activeMetric.value = normalizeMetric(id) }
   const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
   watch(densityUnit, (u) => write(UNIT_KEY, u))
   function setDensityUnit(u: DensityUnit): void {
@@ -156,6 +161,7 @@ export const useUiStore = defineStore('ui', () => {
   const aboutOpen = ref(false)
 
   return {
+    activeMetric, metric, setActiveMetric,
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
     densityUnit, setDensityUnit,
