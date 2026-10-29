@@ -8,6 +8,8 @@ export const CSV_HEADERS = [
   'geoid', 'tract_name', 'county', 'tree_count', 'trees_per_acre', 'trees_per_km2', 'area_acres', 'area_km2',
   'rank', 'percentile', 'bottom_quartile', 'parks_inside', 'road_km', 'low_tree_road_km', 'low_tree_road_pct',
   'city_name', 'subtitle', 'census_vintage', 'generated_at',
+  // #98 soft: parks metric (appended; trees columns unchanged)
+  'parks_per_acre', 'park_area_acres',
 ] as const
 
 export const ODBL_NOTICE =
@@ -24,6 +26,7 @@ function row(t: TractProps, meta: Meta): string {
     t.geoid, t.name, t.county, t.treeCount, t.treesPerAcre, t.treesPerKm2, t.areaAcres, t.areaKm2,
     t.rank, t.percentile, t.bottomQuartile, t.parksInside, t.roadKm, t.lowTreeRoadKm, t.lowTreeRoadPct,
     meta.cityName, meta.subtitle, meta.censusVintage, meta.generatedAt,
+    t.parksPerAcre, t.parkAreaAcres,
   ].map(cell).join(',')
 }
 
@@ -69,6 +72,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           rank: t.rank, percentile: t.percentile, bottom_quartile: t.bottomQuartile, parks_inside: t.parksInside,
           road_km: t.roadKm, low_tree_road_km: t.lowTreeRoadKm, low_tree_road_pct: t.lowTreeRoadPct,
           city_name: meta.cityName, subtitle: meta.subtitle, census_vintage: meta.censusVintage, generated_at: meta.generatedAt,
+          parks_per_acre: t.parksPerAcre ?? null, park_area_acres: t.parkAreaAcres ?? null,
         },
       }
     }),

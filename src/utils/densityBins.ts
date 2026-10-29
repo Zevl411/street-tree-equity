@@ -1,16 +1,19 @@
 import type { TractCollection } from '@/types'
+import { metricValue, type MetricValueKey } from '@/utils/metrics'
+
+const TREES: MetricValueKey = 'treesPerAcre'
 
 /** #59/#63: median of finite treesPerAcre; null when < 2 values. */
-export function cityMedian(tracts: TractCollection | null | undefined): number | null {
-  const v = (tracts?.features ?? []).map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+export function cityMedian(tracts: TractCollection | null | undefined, key: MetricValueKey = TREES): number | null {
+  const v = (tracts?.features ?? []).map((f) => metricValue(f.properties, key)).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
   if (v.length < 2) return null
   const mid = v.length >> 1
   return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
 }
 
 /** #72: sorted finite treesPerAcre ascending. */
-export function sortedDensities(tracts: TractCollection | null | undefined): number[] {
-  return (tracts?.features ?? []).map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+export function sortedDensities(tracts: TractCollection | null | undefined, key: MetricValueKey = TREES): number[] {
+  return (tracts?.features ?? []).map((f) => metricValue(f.properties, key)).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
 }
 
 /** #72: nearest-rank percentile on ascending array — index round((n - 1) * p); null when < 2 values. */
@@ -48,10 +51,10 @@ export function binIndex(v: number, breaks: number[]) {
 }
 
 /** #93: full-pack tract counts per bin (finite treesPerAcre, binIndex clamped to last bin). */
-export function binCounts(tracts: TractCollection | null | undefined, breaks: number[]): number[] {
+export function binCounts(tracts: TractCollection | null | undefined, breaks: number[], key: MetricValueKey = TREES): number[] {
   const counts = new Array<number>(breaks.length + 1).fill(0)
   for (const f of tracts?.features ?? []) {
-    const v = f.properties.treesPerAcre
+    const v = metricValue(f.properties, key)
     if (!Number.isFinite(v)) continue
     counts[Math.min(binIndex(v, breaks), counts.length - 1)]++
   }
@@ -59,12 +62,12 @@ export function binCounts(tracts: TractCollection | null | undefined, breaks: nu
 }
 
 /** #77: #59 below-median set (finite treesPerAcre ≤ median), ordered rank asc then geoid asc. */
-export function belowMedianOrder(tracts: TractCollection | null | undefined): { geoid: string; name: string }[] {
-  const med = cityMedian(tracts)
+export function belowMedianOrder(tracts: TractCollection | null | undefined, key: MetricValueKey = TREES): { geoid: string; name: string }[] {
+  const med = cityMedian(tracts, key)
   if (med == null) return []
   return (tracts?.features ?? [])
     .map((f) => f.properties)
-    .filter((p) => Number.isFinite(p.treesPerAcre) && p.treesPerAcre <= med)
+    .filter((p) => Number.isFinite(metricValue(p, key)) && metricValue(p, key) <= med)
     .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0) || (a.geoid < b.geoid ? -1 : a.geoid > b.geoid ? 1 : 0))
     .map((p) => ({ geoid: p.geoid, name: p.name }))
 }

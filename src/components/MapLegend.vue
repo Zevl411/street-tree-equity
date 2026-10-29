@@ -14,7 +14,7 @@ const isKm2 = computed(() => ui.densityUnit === 'km2')
 const rows = computed(() =>
   binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1),
 )
-const counts = computed(() => binCounts(props.tracts, props.meta.breaks))
+const counts = computed(() => binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey))
 </script>
 
 <template>

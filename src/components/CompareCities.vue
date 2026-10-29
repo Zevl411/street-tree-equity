@@ -6,6 +6,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
 import { cityMedian, densityPercentile, sortedDensities } from '@/utils/densityBins'
+import { metricValue } from '@/utils/metrics'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
 const props = defineProps<{ mobile?: boolean; initial?: [string, string] | null }>()
@@ -65,15 +66,16 @@ async function stats(id: string): Promise<{ name: string; s: Stats }> {
     getJson<TractCollection>(dataUrl('tracts-equity.geojson', c.dataPath)),
   ])
   const props = tracts.features.map((f) => f.properties)
-  const tpa = props.map((p) => p.treesPerAcre).filter((n): n is number => typeof n === 'number')
-  const km2 = props.map((p) => p.treesPerKm2 ?? (typeof p.treesPerAcre === 'number' ? p.treesPerAcre * ACRES_PER_KM2 : null))
-    .filter((n): n is number => typeof n === 'number')
+  // #98: stats follow the active metric value key (acre math; km² = × ACRES_PER_KM2).
+  const key = ui.metric.valueKey
+  const tpa = props.map((p) => metricValue(p, key)).filter((n) => Number.isFinite(n))
+  const km2 = tpa.map((n) => n * ACRES_PER_KM2)
   const { median: localMedian, mean } = medMean(tpa)
   const { median: localMedianKm2, mean: meanKm2 } = medMean(km2)
   // #91: median/p10/p90 share overview #72 helpers (acre math).
-  const sorted = sortedDensities(tracts)
+  const sorted = sortedDensities(tracts, key)
   const spread = sorted.length >= 2
-  const cm = cityMedian(tracts)
+  const cm = cityMedian(tracts, key)
   const median = cm ?? localMedian
   const medianKm2 = cm != null ? cm * ACRES_PER_KM2 : localMedianKm2
   const p10 = spread ? densityPercentile(sorted, 0.1) : null
@@ -91,6 +93,9 @@ async function stats(id: string): Promise<{ name: string; s: Stats }> {
     },
   }
 }
+
+// #98: re-run an open comparison when the metric flips.
+watch(() => ui.activeMetric, () => { if (result.value) compare() })
 
 async function compare() {
   if (!canCompare.value) return
@@ -120,7 +125,7 @@ const rows = computed(() => {
   const km = ui.densityUnit === 'km2'
   const [aMed, bMed, aMean, bMean] = km ? [A.medianKm2, B.medianKm2, A.meanKm2, B.meanKm2] : [A.median, B.median, A.mean, B.mean]
   const unit = ui.metric.spreadUnit(ui.densityUnit)
-  const d = km ? 1 : 3
+  const d = ui.activeMetric === 'parks' ? (km ? 2 : 4) : km ? 1 : 3
   if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
   const sc = (n: number | null) => (n == null ? null : km ? n * ACRES_PER_KM2 : n)
   const ratio = (s: Stats) => (s.p10 != null && s.p90 != null && Number.isFinite(s.p10) && s.p10 > 0 && Number.isFinite(s.p90 / s.p10)

@@ -29,6 +29,7 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
+import { metricAvailable, metricMeta } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -65,7 +66,14 @@ const layersOpen = ref(false)
 const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
 // #90: shared hotspot set for map dim (same helper as HotspotsPanel).
-const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features)))
+// #98: active choropleth metric value key + meta view (breaks/colors follow metric).
+const vk = computed(() => ui.metric.valueKey)
+const viewMeta = computed(() => (meta.value ? metricMeta(meta.value, ui.activeMetric) : null))
+const parksMetricAvailable = computed(() => metricAvailable('parks', meta.value, tracts.value))
+watch([parksMetricAvailable, loading], ([ok, busy]) => {
+  if (!busy && meta.value && !ok && ui.activeMetric === 'parks') ui.setActiveMetric('trees')
+})
+const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value)))
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
 const resetConfirmOpen = ref(false)
@@ -308,6 +316,12 @@ const compareOpen = ref(false)
 const overviewDensity = computed(() => {
   const m = meta.value
   if (!m) return ''
+  const o = ui.activeMetric === 'parks' && m.overall.parksPerAcre != null ? m.overall.parksPerAcre : m.overall.treesPerAcre
+  if (ui.activeMetric === 'parks') {
+    return densityUnit.value === 'km2'
+      ? `${(o * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 2 })} / km²`
+      : `${o.toFixed(4)} / acre`
+  }
   return densityUnit.value === 'km2'
     ? `${(m.overall.treesPerAcre * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} / km²`
     : `${m.overall.treesPerAcre.toFixed(2)} / acre`
@@ -315,8 +329,8 @@ const overviewDensity = computed(() => {
 // #72 inequality snapshot — p10/median/p90 of loaded tracts (acre math, display scaled).
 const spread = computed(() => {
   if (loading.value) return null
-  const sorted = sortedDensities(tracts.value)
-  const med = cityMedian(tracts.value)
+  const sorted = sortedDensities(tracts.value, vk.value)
+  const med = cityMedian(tracts.value, vk.value)
   const p10 = densityPercentile(sorted, 0.1)
   const p90 = densityPercentile(sorted, 0.9)
   if (med == null || p10 == null || p90 == null) return null
@@ -376,7 +390,8 @@ function openCompareFromUrl() {
 
 /** #59: need ≥2 finite densities in the loaded pack for a median. */
 const medianAcre = computed(() => cityMedian(tracts.value))
-const medianAvailable = computed(() => medianAcre.value != null)
+/** #98: BM availability follows the active metric. */
+const medianAvailable = computed(() => cityMedian(tracts.value, vk.value) != null)
 /** #59 ?belowMedian=1: one-shot alias → turn the dim on, strip the param; `layers=…,bm` then owns it. */
 function applyBelowMedianFromUrl() {
   const url = new URL(window.location.href)
@@ -626,7 +641,7 @@ const jumpAnnounce = ref('')
 function jumpBelowMedian(dir: 1 | -1) {
   if (anyOverlayOpen()) return
   if (!medianAvailable.value) return
-  const set = belowMedianOrder(tracts.value)
+  const set = belowMedianOrder(tracts.value, vk.value)
   if (!set.length) return
   if (!belowMedian.value) { linkSnack.value = 'Turn on Below city median first'; return }
   const cur = set.findIndex((t) => t.geoid === selectedGeoid.value)
@@ -652,21 +667,22 @@ function announceFilter(text: string) {
 watch(() => cityStore.cityId, quietFilters, { flush: 'sync' })
 watch(loading, quietFilters, { flush: 'sync' })
 watch(belowMedian, (on) => {
-  announceFilter(on ? `Below city median on · ${plural(belowMedianOrder(tracts.value).length, 'tract', 'tracts')}` : 'Below city median off')
+  announceFilter(on ? `Below city median on · ${plural(belowMedianOrder(tracts.value, vk.value).length, 'tract', 'tracts')}` : 'Below city median off')
 })
 watch(() => ui.densityBinIndex, (i) => {
   if (i === null) { announceFilter('All density bins'); return }
-  const m = meta.value
+  const m = viewMeta.value
   if (!m) return
   const isKm2 = ui.densityUnit === 'km2'
   const rows = binRows(m.breaks, choroplethColors(m, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
   if (!rows[i]) return
-  announceFilter(`Density bin ${rows[i].label} · ${plural(binCounts(tracts.value, m.breaks)[i] ?? 0, 'tract', 'tracts')}`)
+  announceFilter(`Density bin ${rows[i].label} · ${plural(binCounts(tracts.value, m.breaks, vk.value)[i] ?? 0, 'tract', 'tracts')}`)
 })
 watch(hotspotsOpen, (open) => {
   if (!open) return
-  const n = hotspotTracts(tracts.value?.features).length
-  announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
+  const n = hotspotTracts(tracts.value?.features, vk.value).length
+  if (ui.activeMetric === 'parks') announceFilter(n ? plural(n, 'low park access tract', 'low park access tracts') : 'No low park access tracts')
+  else announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
 })
 // #89 grouped cheat sheet — single source of truth for on-screen + print. Labels match useKeyboardShortcuts handlers.
 type ShortcutGroup = { id: string; title: string; rows: [string, string][]; caption?: string }
@@ -757,7 +773,15 @@ watch(drawerOpen, async (open) => {
               >{{ p.label }}</v-chip>
             </div>
             <div class="text-caption text-medium-emphasis mt-1 mb-2">One tap sets the switches below. You can still tweak them.</div>
-            <div class="text-caption text-medium-emphasis mb-2">Metric · {{ ui.metric.shortLabel }}</div>
+            <div class="text-caption mb-1">Metric</div>
+            <v-btn-toggle :model-value="ui.activeMetric" mandatory density="compact" variant="outlined" divided color="primary"
+              class="mb-1 unit-toggle" aria-label="Choropleth metric" @click.stop
+              @update:model-value="(v: 'trees' | 'parks') => ui.setActiveMetric(v)">
+              <v-btn value="trees" size="small">Street trees</v-btn>
+              <v-btn value="parks" size="small" :disabled="!parksMetricAvailable">Parks</v-btn>
+            </v-btn-toggle>
+            <div v-if="!parksMetricAvailable && meta && !loading" class="text-caption text-medium-emphasis mb-1">This pack has no park metric yet</div>
+            <div class="mb-1" />
             <div class="text-caption mb-1">Density unit</div>
             <v-btn-toggle :model-value="densityUnit" mandatory density="compact" variant="outlined" divided color="primary"
               class="mb-2 unit-toggle" :aria-label="`${ui.metric.unitNoun[0].toUpperCase()}${ui.metric.unitNoun.slice(1)} unit`" @click.stop
@@ -898,7 +922,7 @@ watch(drawerOpen, async (open) => {
           <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
         </v-btn>
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center" role="status" aria-live="polite">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -927,7 +951,7 @@ watch(drawerOpen, async (open) => {
             <v-btn v-else variant="text" size="small" class="text-none legend-toggle" prepend-icon="mdi-chevron-down"
               :aria-expanded="true" aria-controls="legend-panel" @click="legendExpanded = false">Hide legend</v-btn>
           </div>
-          <MapLegend :tracts="loading ? null : tracts" :below-median="belowMedian && medianAvailable" :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
+          <MapLegend :tracts="loading ? null : tracts" :below-median="belowMedian && medianAvailable" :meta="viewMeta!" :trees-available="treesAvailable" :dense="mdAndUp" />
         </div>
         <v-btn v-else variant="tonal" size="small" class="text-none legend-toggle" prepend-icon="mdi-palette-swatch-outline"
           :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
@@ -950,7 +974,7 @@ watch(drawerOpen, async (open) => {
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
         <DensityAreaScatter :tracts="tracts" :loading="loading" />
-        <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
+        <DensityHistogram :meta="viewMeta!" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
           <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
@@ -973,7 +997,7 @@ watch(drawerOpen, async (open) => {
             <span class="spread-spark-range" aria-hidden="true" :style="{ left: spread.spark.left + '%', width: `max(${spread.spark.width}%, 2px)` }" />
             <span class="spread-spark-tick" aria-hidden="true" :style="{ left: spread.spark.med + '%' }" />
           </div>
-        <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
+        <DensityHistogram :meta="viewMeta!" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
         <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Low-canopy hotspots" @click="hotspotsOpen = true" />
