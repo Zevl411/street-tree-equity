@@ -101,3 +101,7 @@ export function toHotspotsCsv(tracts: TractProps[], cityId: string, unit: 'acre'
   ].map(cell).join(','))
   return ['geoid,city_id,density,density_unit,rank', ...lines].join('\r\n') + '\r\n'
 }
+
+/** #71: favorites CSV — same schema as #68 hotspots; rows = panel's on-screen (pack-joined) list, same order. */
+export const toFavoritesCsv = (tracts: TractProps[], cityId: string, unit: 'acre' | 'km2'): string =>
+  toHotspotsCsv(tracts, cityId, unit)
