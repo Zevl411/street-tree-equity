@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2 } from '@/stores/ui'
+import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
 /** #43 Low-canopy hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
 const props = defineProps<{
@@ -11,9 +12,10 @@ const props = defineProps<{
   loading: boolean
   cityName: string
   unit: 'acre' | 'km2'
+  cityId: string | null
 }>()
 const open = defineModel<boolean>({ default: false })
-const emit = defineEmits<{ pick: [geoid: string] }>()
+const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
 
 const MAX = 10
 const total = computed(() => props.tracts?.length ?? 0)
@@ -36,6 +38,14 @@ function density(tpa: number) {
 }
 const noTracts = computed(() => !props.loading && total.value === 0)
 const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} low-canopy tracts`))
+
+const canExport = computed(() => !props.loading && items.value.length > 0 && !!props.cityId)
+function exportCsv() {
+  if (!canExport.value || !props.cityId) return
+  downloadBlob(toHotspotsCsv(items.value.map((f) => f.properties), props.cityId, props.unit),
+    exportFilename(props.cityId, 'hotspots', 'csv'), 'text/csv;charset=utf-8')
+  emit('exported')
+}
 
 function pick(geoid: string) {
   open.value = false
@@ -70,6 +80,11 @@ function pick(geoid: string) {
           </v-list-item>
         </v-list>
       </v-card-text>
+      <v-card-actions class="flex-column align-start px-4 pt-0 pb-3">
+        <v-btn variant="text" size="small" prepend-icon="mdi-download" :disabled="!canExport"
+          aria-label="Export hotspots CSV" class="hotspots-export" @click="exportCsv">Export CSV</v-btn>
+        <span class="text-caption text-medium-emphasis">Includes OSM-derived values (ODbL).</span>
+      </v-card-actions>
     </v-card>
   </component>
 </template>
