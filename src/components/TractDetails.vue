@@ -5,6 +5,7 @@ import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { useOverlayFocus } from '@/composables/useOverlayFocus'
+import { useFavorites } from '@/composables/useFavorites'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
@@ -98,6 +99,14 @@ async function copyGeoid() {
 
 // #23 export (Blob download only)
 const cityStore = useCityStore()
+// #45 star toggle (ste-favorites, per city).
+const fav = useFavorites()
+const favCity = computed(() => cityStore.city?.id ?? cityStore.cityId ?? null)
+const starred = computed(() => fav.isStarred(favCity.value, props.tract.geoid))
+const starAnnounce = ref('')
+function toggleStar() {
+  starAnnounce.value = fav.toggle(favCity.value, props.tract.geoid) ? 'Starred' : 'Star removed'
+}
 const snack = ref(false)
 const snackText = ref('')
 async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
@@ -121,6 +130,14 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
 <template>
   <v-card id="tract-details-panel" flat>
     <v-card-item>
+      <template #prepend>
+        <v-btn icon :color="starred ? 'warning' : undefined" variant="text"
+          class="touch-44 tract-star" :aria-label="starred ? 'Remove star' : 'Star this tract'" :aria-pressed="starred" @click="toggleStar">
+          <v-icon :icon="starred ? 'mdi-star' : 'mdi-star-outline'" />
+          <v-tooltip activator="parent" location="bottom">{{ starred ? 'Starred' : 'Star' }}</v-tooltip>
+        </v-btn>
+        <span role="status" aria-live="polite" class="d-sr-only">{{ starAnnounce }}</span>
+      </template>
       <template #append>
         <v-btn icon="mdi-close" variant="text" class="touch-44 tract-close" aria-label="Close" @click="emit('close')" />
       </template>
