@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
-import { ACRES_PER_KM2 } from '@/stores/ui'
+import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { metricValue } from '@/utils/metrics'
 import { hotspotTracts } from '@/utils/hotspots'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
@@ -19,15 +20,19 @@ const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
 
 const total = computed(() => props.tracts?.length ?? 0)
-const items = computed(() => hotspotTracts(props.tracts))
+const ui = useUiStore()
+/** #98: parks metric → Low park access, sorted by parksPerAcre. */
+const isParks = computed(() => ui.activeMetric === 'parks')
+const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey))
+const val = (p: object) => metricValue(p, ui.metric.valueKey)
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
 function density(tpa: number) {
   return props.unit === 'km2'
     ? (tpa * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })
-    : tpa.toFixed(2)
+    : tpa.toFixed(isParks.value ? 4 : 2)
 }
 const noTracts = computed(() => !props.loading && total.value === 0)
-const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} low-canopy tracts`))
+const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${isParks.value ? 'low park access' : 'low-canopy'} tracts`))
 
 const canExport = computed(() => !props.loading && items.value.length > 0 && !!props.cityId)
 function exportCsv() {
@@ -47,7 +52,7 @@ function pick(geoid: string) {
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" :max-width="mobile ? undefined : 380" scrollable>
     <v-card id="hotspots-panel" :density="mobile ? 'comfortable' : 'compact'">
       <v-card-title class="d-flex align-center text-subtitle-1">
-        Low-canopy hotspots
+        {{ isParks ? 'Low park access' : 'Low-canopy hotspots' }}
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" class="hotspots-close" @click="open = false" />
       </v-card-title>
@@ -61,8 +66,8 @@ function pick(geoid: string) {
         <v-list v-else :density="mobile ? 'comfortable' : 'compact'" :disabled="loading" class="mt-1"
           style="max-height: 60vh; overflow-y: auto">
           <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="f.properties.name"
-            :subtitle="`${density(f.properties.treesPerAcre)} /${unitLabel} · #${f.properties.rank} of ${total}`"
-            :aria-label="`Open ${f.properties.name}, ${density(f.properties.treesPerAcre)} per ${unitLabel}, rank ${f.properties.rank} of ${total}`"
+            :subtitle="`${density(val(f.properties))} /${unitLabel} · #${f.properties.rank} of ${total}`"
+            :aria-label="`Open ${f.properties.name}, ${density(val(f.properties))} per ${unitLabel}, rank ${f.properties.rank} of ${total}`"
             @click="pick(f.properties.geoid)">
             <template v-if="f.properties.bottomQuartile" #append>
               <v-chip size="x-small" variant="tonal" color="warning">Bottom 25%</v-chip>

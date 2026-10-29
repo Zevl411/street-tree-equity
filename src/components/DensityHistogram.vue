@@ -11,12 +11,12 @@ const props = defineProps<{ meta: Meta; tracts: TractCollection | null; dense?: 
 
 const ui = useUiStore()
 
-const median = computed(() => (props.belowMedian ? cityMedian(props.tracts) : null))
+const median = computed(() => (props.belowMedian ? cityMedian(props.tracts, ui.metric.valueKey) : null))
 
 const bins = computed(() => {
   const isKm2 = ui.densityUnit === 'km2'
   const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
-  const raw = binCounts(props.tracts, props.meta.breaks)
+  const raw = binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey)
   const counts = rows.map((_, i) => raw[i] ?? 0)
   const max = Math.max(1, ...counts)
   const m = median.value

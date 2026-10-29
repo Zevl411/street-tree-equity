@@ -83,7 +83,7 @@ const ready = ref(false)
 function fillColor(): ExpressionSpecification {
   const { breaks } = props.meta
   const colors = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value)
-  const expr: unknown[] = ['step', ['get', 'treesPerAcre'], colors[0]]
+  const expr: unknown[] = ['step', ['to-number', ['get', ui.metric.valueKey], -1], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
   return expr as ExpressionSpecification
 }
@@ -95,7 +95,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 /** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims. */
 /** #59: median of finite treesPerAcre in the loaded pack; null when < 2 values. */
 function cityMedian(): number | null {
-  return sharedCityMedian(props.tracts)
+  return sharedCityMedian(props.tracts, ui.metric.valueKey)
 }
 const BELOW_MEDIAN_DIM = 0.22
 
@@ -124,7 +124,7 @@ function tractFillOpacity(): ExpressionSpecification {
     const dim = base * BELOW_MEDIAN_DIM
     // Same bin math as binIndex()/fill `step`: index = number of breaks <= v.
     const last = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value).length - 1
-    const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', 'treesPerAcre'], -1], b], 1, 0])]] as unknown as ExpressionSpecification
+    const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', ui.metric.valueKey], -1], b], 1, 0])]] as unknown as ExpressionSpecification
     return [
       'case',
       ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
@@ -139,7 +139,7 @@ function tractFillOpacity(): ExpressionSpecification {
   return [
     'case',
     ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
-    ['>', ['to-number', ['get', 'treesPerAcre'], -1], median],
+    ['>', ['to-number', ['get', ui.metric.valueKey], -1], median],
     ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, dim + 0.12), dim],
     ['boolean', ['feature-state', 'hover'], false], hover,
     base,
@@ -480,6 +480,11 @@ watch(belowMedian, refreshTractOpacity)
 watch(densityBinIndex, refreshTractOpacity)
 watch(() => [props.hotspotsOpen, props.hotspotGeoids], refreshTractOpacity)
 watch(() => props.tracts, refreshTractOpacity)
+// #98: metric switch repaints fill + opacity (meta prop swaps breaks/colors).
+watch(() => [ui.activeMetric, props.meta], () => {
+  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
+  refreshTractOpacity()
+})
 watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
   refreshTractOpacity()

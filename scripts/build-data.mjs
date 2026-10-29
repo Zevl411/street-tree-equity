@@ -9,7 +9,7 @@
  *   - US Census Bureau cartographic boundary tracts (public domain)
  *       https://www2.census.gov/geo/tiger/GENZ{year}/shp/cb_{year}_{state}_tract_500k.zip
  *   - OpenStreetMap via the public Overpass API (ODbL)
- *       natural=tree nodes, leisure=park polygons, highway=* ways
+ *       natural=tree nodes, leisure=park|playground polygons, highway=* ways
  *
  * Output (static files, committed to git, served by GitHub/GitLab Pages):
  *   public/data/tracts-equity.geojson
@@ -118,14 +118,14 @@ log(`trees: ${treeFeatures.length} inside selected tracts`)
 // 3. Parks (OSM leisure=park ways + multipolygon relations)
 // ---------------------------------------------------------------------------
 const parksRaw = await overpass(
-  'parks',
-  `[out:json][timeout:180];(way["leisure"="park"](${ob});relation["leisure"="park"](${ob}););out body;>;out skel qt;`,
+  'parks-playgrounds',
+  `[out:json][timeout:180];(way["leisure"~"^(park|playground)$"](${ob});relation["leisure"~"^(park|playground)$"](${ob}););out body;>;out skel qt;`,
 )
 const parks = []
 for (const f of osmtogeojson(parksRaw).features) {
   if (!f.geometry || !/Polygon/.test(f.geometry.type)) continue
   const tags = f.properties?.tags ?? f.properties ?? {}
-  if (tags.leisure !== 'park') continue
+  if (tags.leisure !== 'park' && tags.leisure !== 'playground') continue
   const areaM2 = turf.area(f)
   if (areaM2 < 50) continue
   const center = turf.pointOnFeature(f).geometry.coordinates
@@ -141,7 +141,8 @@ for (const f of osmtogeojson(parksRaw).features) {
       properties: {
         id: parks.length,
         osmId: String(f.id ?? ''),
-        name: tags.name || 'Unnamed park',
+        name: tags.name || (tags.leisure === 'playground' ? 'Unnamed playground' : 'Unnamed park'),
+        leisure: tags.leisure,
         areaAcres: +(areaM2 / SQM_PER_ACRE).toFixed(2),
         lon: +center[0].toFixed(5),
         lat: +center[1].toFixed(5),
@@ -225,11 +226,12 @@ function nearestParksTo(c, t, n = 6) {
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .filter((p, i) => p.inside || i < n)
 }
-function countParksInside(t) {
+/** #98: park|playground features whose centroid falls in the tract. */
+function parksIn(t) {
   return parks.filter((pk) => {
     const pt = [pk.properties.lon, pk.properties.lat]
     return pointInBbox(pt, t.bbox) && turf.booleanPointInPolygon(pt, t)
-  }).length
+  })
 }
 
 const tractOut = tracts.map((t) => {
@@ -238,6 +240,7 @@ const tractOut = tracts.map((t) => {
   const treeCount = treeCounts.get(p.GEOID) ?? 0
   const c = turf.centroid(t).geometry.coordinates
   const rs = roadStats.get(p.GEOID)
+  const inside = parksIn(t)
   let geometry = t.geometry
   try {
     geometry = turf.simplify(t, { tolerance: 0.0001 }).geometry
@@ -254,7 +257,10 @@ const tractOut = tracts.map((t) => {
       areaKm2: +(p.ALAND / 1e6).toFixed(3),
       treesPerAcre: +(treeCount / areaAcres).toFixed(3),
       treesPerKm2: +(treeCount / (p.ALAND / 1e6)).toFixed(1),
-      parksInside: countParksInside(t),
+      parksInside: inside.length,
+      parksPerAcre: +(inside.length / areaAcres).toFixed(5),
+      parksPerKm2: +(inside.length / (p.ALAND / 1e6)).toFixed(3),
+      parkAreaAcres: +inside.reduce((s, pk) => s + pk.properties.areaAcres, 0).toFixed(2),
       nearestParks: nearestParksTo(c, t),
       roadKm: rs ? +(rs.totalM / 1000).toFixed(2) : null,
       lowTreeRoadKm: rs ? +(rs.lowM / 1000).toFixed(2) : null,
@@ -295,8 +301,14 @@ const meta = {
   osmTimestamp,
   censusVintage: `${year} cartographic boundary (cb_${year}_${stateFips}_tract_500k)`,
   counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, lowTreeRoadSegments: lowRoads.length },
-  overall: { treesPerAcre: +(totalTrees / totalAcres).toFixed(3), bottomQuartileMax: q1 },
+  overall: {
+    treesPerAcre: +(totalTrees / totalAcres).toFixed(3),
+    parksPerAcre: +(tractOut.reduce((s, f) => s + f.properties.parksInside, 0) / totalAcres).toFixed(5),
+    bottomQuartileMax: q1,
+  },
   breaks,
+  // #98: per-metric breaks alongside trees `breaks` (unchanged)
+  metricBreaks: { parks: densityBreaks(tractOut.map((f) => f.properties.parksPerAcre), 5) },
   colors: ['#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#31a354', '#006837'].slice(-(breaks.length + 1)),
   roadsBufferMeters: roadsCfg.enabled ? roadsCfg.bufferMeters : null,
   sizesBytes: sizes,

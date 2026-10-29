@@ -19,6 +19,10 @@ export interface TractProps {
   treesPerAcre: number
   treesPerKm2: number
   parksInside: number
+  /** #98 park|playground centroid count per acre / km²; sum of their acres */
+  parksPerAcre?: number
+  parksPerKm2?: number
+  parkAreaAcres?: number
   nearestParks: NearbyPark[]
   roadKm: number | null
   lowTreeRoadKm: number | null
@@ -34,6 +38,7 @@ export interface ParkProps {
   osmId: string
   name: string
   areaAcres: number
+  leisure?: 'park' | 'playground'
   lon: number
   lat: number
 }
@@ -49,8 +54,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; bottomQuartileMax: number }
   breaks: number[]
+  /** #98: per-metric breaks (trees stay in `breaks`) */
+  metricBreaks?: { parks?: number[] }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string }
