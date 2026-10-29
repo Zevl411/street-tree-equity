@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 import { VBottomSheet, VMenu } from 'vuetify/components'
 import MapView from '@/components/MapView.vue'
+import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
@@ -317,6 +318,7 @@ watch(drawerOpen, async (open) => {
         </v-expansion-panels>
         <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
       </v-alert>
+      <CreditStrip v-if="city && meta" />
       <v-sheet v-if="meta && !mdAndUp && !drawerOpen" class="mobile-legend pa-2" rounded elevation="2" color="surface">
         <MapLegend v-if="legendExpanded" :meta="meta" />
         <v-btn variant="text" size="small" density="comfortable" class="text-none legend-toggle"

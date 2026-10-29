@@ -200,10 +200,7 @@ onMounted(() => {
     style: styleFor(basemap.value, isDark.value),
     bounds: [[b[0], b[1]], [b[2], b[3]]],
     fitBoundsOptions: { padding: 24 },
-    attributionControl: {
-      compact: false,
-      customAttribution: 'Tracts: <a href="https://www.census.gov/geographies/mapping-files.html" target="_blank">U.S. Census Bureau</a>',
-    },
+    attributionControl: false, // credits live in CreditStrip (#42)
   })
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right')
   map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left')
