@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
+import { cityMedian, densityPercentile, sortedDensities } from '@/utils/densityBins'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
 const props = defineProps<{ mobile?: boolean; initial?: [string, string] | null }>()
@@ -25,6 +26,7 @@ const canCompare = computed(() => !!a.value && !!b.value && !same.value)
 interface Stats {
   tracts: number; median: number | null; mean: number | null
   medianKm2: number | null; meanKm2: number | null
+  p10: number | null; p90: number | null
   bq: number | null; parks: number | null; roadKm: number | null
 }
 const loading = ref(false)
@@ -66,15 +68,23 @@ async function stats(id: string): Promise<{ name: string; s: Stats }> {
   const tpa = props.map((p) => p.treesPerAcre).filter((n): n is number => typeof n === 'number')
   const km2 = props.map((p) => p.treesPerKm2 ?? (typeof p.treesPerAcre === 'number' ? p.treesPerAcre * ACRES_PER_KM2 : null))
     .filter((n): n is number => typeof n === 'number')
-  const { median, mean } = medMean(tpa)
-  const { median: medianKm2, mean: meanKm2 } = medMean(km2)
+  const { median: localMedian, mean } = medMean(tpa)
+  const { median: localMedianKm2, mean: meanKm2 } = medMean(km2)
+  // #91: median/p10/p90 share overview #72 helpers (acre math).
+  const sorted = sortedDensities(tracts)
+  const spread = sorted.length >= 2
+  const cm = cityMedian(tracts)
+  const median = cm ?? localMedian
+  const medianKm2 = cm != null ? cm * ACRES_PER_KM2 : localMedianKm2
+  const p10 = spread ? densityPercentile(sorted, 0.1) : null
+  const p90 = spread ? densityPercentile(sorted, 0.9) : null
   const hasBq = props.some((p) => typeof p.bottomQuartile === 'boolean')
   const roads = props.map((p) => p.roadKm).filter((n): n is number => typeof n === 'number')
   return {
     name: c.cityName,
     s: {
       tracts: meta.counts?.tracts ?? props.length,
-      median, mean, medianKm2, meanKm2,
+      median, mean, medianKm2, meanKm2, p10, p90,
       bq: hasBq ? props.filter((p) => p.bottomQuartile).length : null,
       parks: meta.counts?.parks ?? null,
       roadKm: roads.length ? roads.reduce((s, n) => s + n, 0) : null,
@@ -112,6 +122,13 @@ const rows = computed(() => {
   const unit = km ? 'trees/km²' : 'trees/acre'
   const d = km ? 1 : 3
   if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
+  const sc = (n: number | null) => (n == null ? null : km ? n * ACRES_PER_KM2 : n)
+  const ratio = (s: Stats) => (s.p10 != null && s.p90 != null && Number.isFinite(s.p10) && s.p10 > 0 && Number.isFinite(s.p90 / s.p10)
+    ? (s.p90 / s.p10).toFixed(1) : null)
+  if (A.p10 != null || B.p10 != null) out.push({ label: `p10 ${unit}`, a: fmt(sc(A.p10), d), b: fmt(sc(B.p10), d) })
+  if (A.p90 != null || B.p90 != null) out.push({ label: `p90 ${unit}`, a: fmt(sc(A.p90), d), b: fmt(sc(B.p90), d) })
+  const ra = ratio(A), rb = ratio(B)
+  if (ra != null || rb != null) out.push({ label: 'p90÷p10', a: ra ? `≈ ${ra}` : '—', b: rb ? `≈ ${rb}` : '—' })
   if (aMean != null || bMean != null) out.push({ label: `Mean ${unit}`, a: fmt(aMean, d), b: fmt(bMean, d) })
   if (A.bq != null || B.bq != null) out.push({ label: 'Bottom-quartile tracts', a: bq(A), b: bq(B) })
   if (A.parks != null || B.parks != null) out.push({ label: 'Parks', a: fmt(A.parks, 0), b: fmt(B.parks, 0) })
@@ -161,7 +178,7 @@ async function copyLink() {
               </v-list>
             </v-card>
           </div>
-          <v-table v-else density="compact" class="my-3">
+          <v-table v-else density="compact" class="my-3" aria-label="Comparison including density spread p10, p90 and p90÷p10">
             <thead><tr><th scope="col"><span class="sr-only">Metric</span></th><th scope="col">{{ result.a.name }}</th><th scope="col">{{ result.b.name }}</th></tr></thead>
             <tbody><tr v-for="r in rows" :key="r.label"><th scope="row" class="font-weight-regular">{{ r.label }}</th><td>{{ r.a }}</td><td>{{ r.b }}</td></tr></tbody>
           </v-table>
