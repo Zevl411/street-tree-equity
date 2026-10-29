@@ -57,7 +57,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian } = storeToRefs(ui)
 const emit = defineEmits<{ satelliteError: [] }>()
 
 const el = ref<HTMLDivElement | null>(null)
@@ -80,9 +80,34 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 }
 
 /** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims. */
+/** #59: median of finite treesPerAcre in the loaded pack; null when < 2 values. */
+function cityMedian(): number | null {
+  const v = props.tracts.features.map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+  if (v.length < 2) return null
+  const mid = v.length >> 1
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
+}
+const BELOW_MEDIAN_DIM = 0.22
+
+/** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims.
+ *  #59: when Below city median is on, above-median tracts drop to base * 0.22 (selected stays full). */
 function tractFillOpacity(): ExpressionSpecification {
   const base = fillOpacity.value
-  return ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, base + 0.12), base]
+  const hover = Math.min(1, base + 0.12)
+  const median = belowMedian.value ? cityMedian() : null
+  if (median === null) return ['case', ['boolean', ['feature-state', 'hover'], false], hover, base]
+  const dim = base * BELOW_MEDIAN_DIM
+  return [
+    'case',
+    ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
+    ['>', ['to-number', ['get', 'treesPerAcre'], -1], median],
+    ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, dim + 0.12), dim],
+    ['boolean', ['feature-state', 'hover'], false], hover,
+    base,
+  ] as ExpressionSpecification
+}
+function refreshTractOpacity() {
+  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-opacity', tractFillOpacity())
 }
 
 function addDataLayers(m: MlMap) {
@@ -377,13 +402,15 @@ watch(isDark, () => {
 })
 watch(selectedGeoid, (g) => {
   applySelection()
+  if (belowMedian.value) refreshTractOpacity()
   if (g && ready.value) fitSelectedAboveSheet(g)
 })
-watch(fillOpacity, () => {
-  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-opacity', tractFillOpacity())
-})
+watch(fillOpacity, refreshTractOpacity)
+watch(belowMedian, refreshTractOpacity)
+watch(() => props.tracts, refreshTractOpacity)
 watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
+  refreshTractOpacity()
   applyTreePaint()
 })
 watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))

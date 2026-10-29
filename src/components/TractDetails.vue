@@ -159,7 +159,7 @@ function copyLink() {
     url = tractShareUrl({
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
       basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
-      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile },
+      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian },
     })
   } catch { url = window.location.href }
   void copyWithFallback(url, 'Link copied')

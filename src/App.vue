@@ -31,7 +31,7 @@ const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 const cityStore = useCityStore()
 const { cities, city, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
+const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -170,31 +170,34 @@ async function init() {
   syncUrl()
   openCompareFromUrl()
   openHotspotsFromUrl()
+  applyBelowMedianFromUrl()
   openFavoritesFromUrl()
   openFocusFromUrl()
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, densityUnit], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit], syncUrl)
 }
 
 function currentLayers(): LayerFlags {
-  return { trees: showTrees.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value }
+  return { trees: showTrees.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value, bm: belowMedian.value }
 }
-function applyLayers(f: LayerFlags) {
+/** Presets omit `bm` (#59) so they leave the median dim as-is. */
+function applyLayers(f: Omit<LayerFlags, 'bm'> & { bm?: boolean }) {
   showTrees.value = f.trees
   showParks.value = f.parks
   showRoads.value = f.roads
   highlightBottomQuartile.value = f.bq
+  if (f.bm !== undefined) belowMedian.value = f.bm
 }
 
 /** One-tap layer presets (#37). They only set the four switches; switches stay the source of truth. */
-const LAYER_PRESETS: { id: string; label: string; flags: LayerFlags }[] = [
+const LAYER_PRESETS: { id: string; label: string; flags: Omit<LayerFlags, 'bm'> }[] = [
   { id: 'equity', label: 'Equity', flags: { trees: true, parks: true, roads: false, bq: true } },
   { id: 'plant', label: 'Plant-here', flags: { trees: true, parks: false, roads: true, bq: false } },
   { id: 'parks', label: 'Parks', flags: { trees: true, parks: true, roads: false, bq: false } },
 ]
 const activePreset = computed(() => {
   const c = currentLayers()
-  return LAYER_PRESETS.find((p) => (Object.keys(c) as (keyof LayerFlags)[]).every((k) => p.flags[k] === c[k]))?.id ?? null
+  return LAYER_PRESETS.find((p) => (Object.keys(p.flags) as (keyof typeof p.flags)[]).every((k) => p.flags[k] === c[k]))?.id ?? null
 })
 
 function syncUrl() {
@@ -246,6 +249,18 @@ function openCompareFromUrl() {
     compareInitial.value = [ids[0], ids[1]]
     compareOpen.value = true
   }
+}
+
+/** #59: need ≥2 finite densities in the loaded pack for a median. */
+const medianAvailable = computed(() => (tracts.value?.features ?? []).filter((f) => Number.isFinite(f.properties.treesPerAcre)).length >= 2)
+/** #59 ?belowMedian=1: one-shot alias → turn the dim on, strip the param; `layers=…,bm` then owns it. */
+function applyBelowMedianFromUrl() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('belowMedian')) return
+  if (url.searchParams.get('belowMedian') === '1' && medianAvailable.value) belowMedian.value = true
+  url.searchParams.delete('belowMedian')
+  history.replaceState(history.state, '', url)
+  syncUrl()
 }
 
 /** #43 ?hotspots=1 opens the panel once tracts are ready, then the flag is stripped from the URL. */
@@ -487,6 +502,8 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
+            <v-switch v-model="belowMedian" label="Below city median" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
+            <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? 'Dims tracts above this city’s median trees/acre' : 'Needs at least 2 tracts with density data' }}</div>
           </v-card-text>
         </v-card>
       </component>
@@ -585,7 +602,7 @@ watch(drawerOpen, async (open) => {
             <v-btn v-else variant="text" size="small" class="text-none legend-toggle" prepend-icon="mdi-chevron-down"
               :aria-expanded="true" aria-controls="legend-panel" @click="legendExpanded = false">Hide legend</v-btn>
           </div>
-          <MapLegend :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
+          <MapLegend :below-median="belowMedian && medianAvailable" :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
         </div>
         <v-btn v-else variant="tonal" size="small" class="text-none legend-toggle" prepend-icon="mdi-palette-swatch-outline"
           :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
