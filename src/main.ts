@@ -1,22 +1,20 @@
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
+import { createPinia } from 'pinia'
 import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { createVuetify } from 'vuetify'
 import App from './App.vue'
+import { useUiStore } from './stores/ui'
 import './style.css'
 
-function initialTheme(): 'treeLight' | 'treeDark' {
-  try {
-    const saved = localStorage.getItem('ste-theme')
-    if (saved === 'treeLight' || saved === 'treeDark') return saved
-  } catch { /* storage unavailable */ }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'treeDark' : 'treeLight'
-}
+const pinia = createPinia()
+const app = createApp(App).use(pinia)
+const ui = useUiStore(pinia)
 
 const vuetify = createVuetify({
   theme: {
-    defaultTheme: initialTheme(),
+    defaultTheme: ui.theme,
     themes: {
       treeLight: {
         dark: false,
@@ -29,5 +27,7 @@ const vuetify = createVuetify({
     },
   },
 })
+// The ui store owns the theme; keep Vuetify in sync with it.
+watch(() => ui.theme, (name) => { vuetify.theme.global.name.value = name })
 
-createApp(App).use(vuetify).mount('#app')
+app.use(vuetify).mount('#app')

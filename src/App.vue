@@ -1,42 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useDisplay, useTheme } from 'vuetify'
+import { storeToRefs } from 'pinia'
+import { useDisplay } from 'vuetify'
 import MapView from '@/components/MapView.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
-import { loadCities, useData } from '@/composables/useData'
-import type { CityEntry, NearbyPark, PlaceResult } from '@/types'
+import { useData } from '@/composables/useData'
+import { DEFAULT_CITY, useCityStore } from '@/stores/city'
+import { useUiStore } from '@/stores/ui'
+import type { NearbyPark } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
-const DEFAULT_CITY = 'portland-or'
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-cities'
-const cities = ref<CityEntry[]>([])
-const cityId = ref<string | null>(null)
-const city = computed(() => cities.value.find((c) => c.id === cityId.value) ?? null)
-const notBuilt = ref<PlaceResult | null>(null)
-const defaultCity = computed(() => cities.value.find((c) => c.id === DEFAULT_CITY) ?? cities.value[0] ?? null)
+
+const cityStore = useCityStore()
+const { cities, city, notBuilt, selectedGeoid } = storeToRefs(cityStore)
+const ui = useUiStore()
+const { isDark, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
+
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
-const theme = useTheme()
-const isDark = computed(() => theme.global.name.value === 'treeDark')
 const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Switch to dark mode'))
-const themeAnnounce = ref('')
-function toggleTheme() {
-  const next = isDark.value ? 'treeLight' : 'treeDark'
-  theme.global.name.value = next
-  try { localStorage.setItem('ste-theme', next) } catch { /* storage unavailable */ }
-  themeAnnounce.value = next === 'treeDark' ? 'Dark mode on' : 'Light mode on'
-}
 const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.value?.cityName || 'the map'}`)
-
-const selectedGeoid = ref<string | null>(null)
-const showTrees = ref(true)
-const showParks = ref(true)
-const showRoads = ref(true)
-const highlightBottomQuartile = ref(false)
-const aboutOpen = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const selectedTract = computed(() =>
@@ -44,7 +31,7 @@ const selectedTract = computed(() =>
 )
 const drawerOpen = computed({
   get: () => selectedTract.value !== null,
-  set: (v: boolean) => { if (!v) selectedGeoid.value = null },
+  set: (v: boolean) => { if (!v) cityStore.select(null) },
 })
 
 function flyToPark(p: NearbyPark) {
@@ -55,17 +42,9 @@ function flyToPark(p: NearbyPark) {
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 
 async function selectCity(id: string) {
-  const c = cities.value.find((x) => x.id === id) ?? defaultCity.value
-  if (!c) return
-  notBuilt.value = null
-  selectedGeoid.value = null
-  const changed = c.id !== cityId.value
-  cityId.value = c.id
-  try { localStorage.setItem('ste-city', c.id) } catch { /* storage unavailable */ }
-  const url = new URL(window.location.href)
-  url.searchParams.set('city', c.id)
-  window.history.replaceState(null, '', url)
-  if (changed || !meta.value) await load(c.dataPath)
+  const res = cityStore.setCity(id)
+  if (!res) return
+  if (res.changed || !meta.value) await load(res.entry.dataPath)
   mapRef.value?.fitData()
 }
 
@@ -74,18 +53,8 @@ function retry() {
 }
 
 async function init() {
-  try {
-    cities.value = (await loadCities()).cities
-  } catch {
-    // Manifest missing: fall back to the built-in Portland pack in data/.
-    cities.value = [{ id: DEFAULT_CITY, cityName: 'Portland, OR', subtitle: 'Central Portland', dataPath: 'data',
-      bbox: [-122.75, 45.47, -122.58, 45.57] }]
-  }
-  const fromUrl = new URLSearchParams(window.location.search).get('city')
-  let stored: string | null = null
-  try { stored = localStorage.getItem('ste-city') } catch { /* ignore */ }
-  const known = (id: string | null) => !!id && cities.value.some((c) => c.id === id)
-  await selectCity([fromUrl, stored].find(known) ?? DEFAULT_CITY)
+  await cityStore.loadManifest()
+  await selectCity(cityStore.initialCityId())
 }
 
 onMounted(init)
@@ -102,8 +71,8 @@ onMounted(init)
         <span v-if="meta" class="text-body-2 ml-2 opacity-80">{{ meta.cityName }}<span v-if="mdAndUp && meta.subtitle"> · {{ meta.subtitle }}</span></span>
       </v-app-bar-title>
 
-      <PlacePicker v-if="cities.length" :cities="cities" :selected-id="cityId" :label="meta?.cityName ?? ''"
-        :mobile="!mdAndUp" @select="selectCity" @not-built="notBuilt = $event; selectedGeoid = null" />
+      <PlacePicker v-if="cities.length" :label="meta?.cityName ?? ''" :mobile="!mdAndUp"
+        @select="selectCity" />
 
       <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="surface">
         <MapLegend :meta="meta" dense />
@@ -134,7 +103,7 @@ onMounted(init)
         <v-icon icon="mdi-information-outline" />
         <v-tooltip activator="parent" location="bottom">About</v-tooltip>
       </v-btn>
-      <v-btn icon :aria-label="themeLabel" @click="toggleTheme">
+      <v-btn icon :aria-label="themeLabel" @click="ui.toggleTheme()">
         <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" />
         <v-tooltip activator="parent" location="bottom">{{ themeLabel }}</v-tooltip>
       </v-btn>
@@ -144,13 +113,11 @@ onMounted(init)
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
       :scrim="false" :class="{ 'bottom-drawer': !mdAndUp }">
       <TractDetails v-if="selectedTract && meta" :tract="selectedTract" :meta="meta"
-        :total="tracts?.features.length ?? 0" @close="selectedGeoid = null" @fly-to-park="flyToPark" />
+        :total="tracts?.features.length ?? 0" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
     </v-navigation-drawer>
 
     <v-main class="position-relative">
-      <MapView v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads"
-        :selected-geoid="selectedGeoid" :show-trees="showTrees" :show-parks="showParks" :show-roads="showRoads"
-        :highlight-bottom-quartile="highlightBottomQuartile" :dark="isDark" @select="selectedGeoid = $event" />
+      <MapView v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />

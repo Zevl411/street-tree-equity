@@ -2,10 +2,15 @@
 import { ref, watch } from 'vue'
 import { VBottomSheet, VMenu } from 'vuetify/components'
 import { matchCity, useNominatim } from '@/composables/useNominatim'
-import type { CityEntry, PlaceResult } from '@/types'
+import { storeToRefs } from 'pinia'
+import { useCityStore } from '@/stores/city'
+import type { PlaceResult } from '@/types'
 
-const props = defineProps<{ cities: CityEntry[]; selectedId: string | null; label: string; mobile?: boolean }>()
-const emit = defineEmits<{ select: [id: string]; notBuilt: [place: PlaceResult] }>()
+defineProps<{ label: string; mobile?: boolean }>()
+// App loads the city's data on select, so city switches still go through the emit.
+const emit = defineEmits<{ select: [id: string] }>()
+const cityStore = useCityStore()
+const { cities, cityId: selectedId } = storeToRefs(cityStore)
 
 const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-cities'
 const open = ref(false)
@@ -22,11 +27,11 @@ function pickCity(id: string) {
   emit('select', id)
 }
 function pickResult(r: PlaceResult) {
-  const c = matchCity(r, props.cities)
+  const c = matchCity(r, cities.value)
   if (c) return pickCity(c.id)
   notBuilt.value = r
   open.value = false
-  emit('notBuilt', r)
+  cityStore.setNotBuilt(r)
 }
 </script>
 
