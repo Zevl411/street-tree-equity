@@ -818,10 +818,11 @@ watch(drawerOpen, async (open) => {
           <div>Avg <strong>{{ overviewDensity }}</strong></div>
           <div v-if="spread" class="text-caption text-medium-emphasis" role="group" :aria-label="spread.aria">
             <span aria-hidden="true">Spread&nbsp; p10 <strong>{{ spread.p10 }}</strong> · median <strong>{{ spread.med }}</strong> · p90 <strong>{{ spread.p90 }}</strong>&nbsp; {{ spread.unit }}<template v-if="spread.ratio"> · p90÷p10 ≈ {{ spread.ratio }}</template></span>
-          </div>
-          <div v-if="spread?.spark" class="spread-spark" role="img" :aria-label="spread.aria">
-            <span class="spread-spark-range" aria-hidden="true" :style="{ left: spread.spark.left + '%', width: `max(${spread.spark.width}%, 2px)` }" />
-            <span class="spread-spark-tick" aria-hidden="true" :style="{ left: spread.spark.med + '%' }" />
+            <!-- #83: nested in the Spread group so AT hears spread.aria once -->
+            <div v-if="spread.spark" class="spread-spark" aria-hidden="true">
+              <span class="spread-spark-range" :style="{ left: spread.spark.left + '%', width: `max(${spread.spark.width}%, 2px)` }" />
+              <span class="spread-spark-tick" :style="{ left: spread.spark.med + '%' }" />
+            </div>
           </div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
