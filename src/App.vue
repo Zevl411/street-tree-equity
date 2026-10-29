@@ -8,6 +8,7 @@ import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
+import TractFinder from '@/components/TractFinder.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { useUiStore } from '@/stores/ui'
@@ -27,6 +28,7 @@ const { mdAndUp } = useDisplay()
 const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Switch to dark mode'))
 const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.value?.cityName || 'the map'}`)
 const layersOpen = ref(false)
+const finderOpen = ref(false)
 const legendExpanded = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
@@ -153,7 +155,13 @@ const satFallback = ref(false)
           </v-card-text>
         </v-card>
       </component>
+      <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
+        :city-id="city?.id ?? null" @pick="cityStore.select($event)" />
       <template v-if="mdAndUp">
+        <v-btn icon aria-label="Find tract" @click="finderOpen = true">
+          <v-icon icon="mdi-magnify" />
+          <v-tooltip activator="parent" location="bottom">Find tract</v-tooltip>
+        </v-btn>
         <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
           <v-icon icon="mdi-fit-to-screen-outline" />
           <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
@@ -176,6 +184,7 @@ const satFallback = ref(false)
           <v-btn v-bind="act" icon="mdi-dots-vertical" aria-label="More actions" />
         </template>
         <v-list density="comfortable">
+          <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />

@@ -99,6 +99,8 @@ Cities — the place control lists packaged demos from cities.json only (no map 
 
 Compare — optionally compare packaged city-level tree stats side by side. Uses the same static open data packs; no account or upload. Open it from **Compare two cities** in the city menu, or share `?compare=idA,idB` (two different ready ids; anything else is ignored).
 
+Find tract — search the open city’s tracts by name or GEOID and jump to one on the map. Runs entirely in your browser.
+
 To add a city: edit `city.config.json` (below), run `npm run data:refresh` to build its static files, put them
 in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `public/cities.json` with
 `id`, `cityName`, `subtitle`, `dataPath` (that folder, relative to the site root) and `bbox`.
