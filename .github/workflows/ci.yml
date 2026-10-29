@@ -14,7 +14,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: No JavaScript under src/ (TypeScript only)
+        run: |
+          if find src -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.cjs' \) | grep .; then
+            echo '::error::App code under src/ must be .ts or .vue'; exit 1
+          fi
       - run: npm ci
-      - run: npm run typecheck
+      - name: Typecheck (vue-tsc, required)
+        run: npm run typecheck
       - run: npm run build
       - run: npm run test:smoke

@@ -164,3 +164,7 @@ src/                      # Vue 3 + Vuetify app (App.vue, components/MapView.vue
 - Census tract boundaries: U.S. Census Bureau cartographic boundary files (public domain).
 - Basemap: [OpenFreeMap](https://openfreemap.org) · © [OpenMapTiles](https://www.openmaptiles.org/) · data © OpenStreetMap contributors.
 - Code: MIT.
+
+## TypeScript only
+
+App code under `src/` is TypeScript only (`.ts` / `.vue` with `<script setup lang="ts">`); no `.js` files. `tsconfig.json` runs in `strict` mode and CI fails on any JavaScript under `src/` and on `npm run typecheck` (`vue-tsc`) errors. Node tooling in `scripts/` and `server/` may stay `.mjs`.
