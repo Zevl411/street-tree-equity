@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { Meta } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
+import { binRows } from '@/utils/densityBins'
 
 const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean; belowMedian?: boolean }>()
 
@@ -10,24 +11,9 @@ const ui = useUiStore()
 const isKm2 = computed(() => ui.densityUnit === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
-const rows = computed(() => {
-  const colors = choroplethColors(props.meta, ui.choroplethMode)
-  const k = isKm2.value ? ACRES_PER_KM2 : 1
-  const breaks = props.meta.breaks.map((b) => b * k)
-  return colors.map((color, i) => {
-    const lo = i === 0 ? 0 : breaks[i - 1]
-    const hi = breaks[i]
-    const label = hi === undefined ? `≥ ${fmt(lo)}` : lo === hi ? `≈ ${fmt(lo)}` : `${fmt(lo)} – ${fmt(hi)}`
-    return { color, label }
-  })
-})
-
-function fmt(n: number) {
-  if (n === 0) return '0'
-  if (isKm2.value) return n.toLocaleString(undefined, { maximumFractionDigits: n < 10 ? 1 : 0 })
-  if (n < 0.1) return n.toFixed(3)
-  return n < 1 ? n.toFixed(2) : n.toFixed(1)
-}
+const rows = computed(() =>
+  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1),
+)
 </script>
 
 <template>

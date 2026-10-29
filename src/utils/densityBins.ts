@@ -1,0 +1,37 @@
+import type { TractCollection } from '@/types'
+
+/** #59/#63: median of finite treesPerAcre; null when < 2 values. */
+export function cityMedian(tracts: TractCollection | null | undefined): number | null {
+  const v = (tracts?.features ?? []).map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+  if (v.length < 2) return null
+  const mid = v.length >> 1
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
+}
+
+/** #63: format a density value (already unit-scaled) like MapLegend. */
+export function fmtDensity(n: number, isKm2: boolean) {
+  if (n === 0) return '0'
+  if (isKm2) return n.toLocaleString(undefined, { maximumFractionDigits: n < 10 ? 1 : 0 })
+  if (n < 0.1) return n.toFixed(3)
+  return n < 1 ? n.toFixed(2) : n.toFixed(1)
+}
+
+/** #63: legend bin rows. breaks are trees/acre; k scales display only. lo/hi stay trees/acre. */
+export function binRows(breaks: number[], colors: string[], isKm2: boolean, k: number) {
+  return colors.map((color, i) => {
+    const loA = i === 0 ? 0 : breaks[i - 1]
+    const hiA: number | undefined = breaks[i]
+    const lo = loA * k
+    const hi = hiA === undefined ? undefined : hiA * k
+    const f = (n: number) => fmtDensity(n, isKm2)
+    const label = hi === undefined ? `≥ ${f(lo)}` : lo === hi ? `≈ ${f(lo)}` : `${f(lo)} – ${f(hi)}`
+    return { color, label, lo: i === 0 ? -Infinity : loA, hi: hiA }
+  })
+}
+
+/** Mirrors MapView fill `step`: v < breaks[0] → 0; v >= breaks[i] → i + 1. */
+export function binIndex(v: number, breaks: number[]) {
+  let i = 0
+  while (i < breaks.length && v >= breaks[i]) i++
+  return i
+}

@@ -6,6 +6,7 @@ import { VBottomSheet, VMenu } from 'vuetify/components'
 import MapView from '@/components/MapView.vue'
 import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
+import DensityHistogram from '@/components/DensityHistogram.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
@@ -627,6 +628,7 @@ watch(drawerOpen, async (open) => {
           <div>Avg <strong>{{ overviewDensity }}</strong></div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
+        <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
           <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
@@ -637,11 +639,14 @@ watch(drawerOpen, async (open) => {
       </v-sheet>
       <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp && !focusMode" class="overview-strip no-print pa-2 d-flex align-center" rounded elevation="2" color="surface"
         role="region" :aria-label="`${meta.cityName} overview`">
-        <div class="d-flex flex-wrap ga-1 flex-grow-1 text-caption">
+        <div class="flex-grow-1" style="min-width: 0">
+        <div class="d-flex flex-wrap ga-1 text-caption">
           <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>
           <v-chip size="small" variant="tonal">{{ meta.counts.tracts }} tracts</v-chip>
           <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
+        </div>
+        <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
         <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Low-canopy hotspots" @click="hotspotsOpen = true" />

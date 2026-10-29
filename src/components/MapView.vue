@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap, type StyleSpecification } from 'maplibre-gl'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
+import { cityMedian as sharedCityMedian } from '@/utils/densityBins'
 import { storeToRefs } from 'pinia'
 import { writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { cameraDuration, usePrefersReducedMotion } from '@/composables/usePrefersReducedMotion'
@@ -84,10 +85,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 /** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims. */
 /** #59: median of finite treesPerAcre in the loaded pack; null when < 2 values. */
 function cityMedian(): number | null {
-  const v = props.tracts.features.map((f) => f.properties.treesPerAcre).filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
-  if (v.length < 2) return null
-  const mid = v.length >> 1
-  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
+  return sharedCityMedian(props.tracts)
 }
 const BELOW_MEDIAN_DIM = 0.22
 
