@@ -151,12 +151,36 @@ function openCompareFromUrl() {
 }
 
 /** #43 ?hotspots=1 opens the panel once tracts are ready, then the flag is stripped from the URL. */
-function openHotspotsFromUrl() {
+const pendingHotspotsFromUrl = ref(false)
+function stripHotspotsParam() {
   const url = new URL(window.location.href)
-  if (url.searchParams.get('hotspots') !== '1') return
+  if (!url.searchParams.has('hotspots')) return
   url.searchParams.delete('hotspots')
   history.replaceState(history.state, '', url)
-  if (tracts.value?.features.length && !selectedGeoid.value) hotspotsOpen.value = true
+}
+function tryOpenHotspotsFromUrl() {
+  if (!pendingHotspotsFromUrl.value) return
+  if (!tracts.value?.features.length) return
+  // Deep-link geoid wins; still strip the one-shot flag.
+  if (selectedGeoid.value) {
+    pendingHotspotsFromUrl.value = false
+    stripHotspotsParam()
+    return
+  }
+  pendingHotspotsFromUrl.value = false
+  hotspotsOpen.value = true
+  stripHotspotsParam()
+}
+function openHotspotsFromUrl() {
+  if (new URLSearchParams(window.location.search).get('hotspots') !== '1') return
+  pendingHotspotsFromUrl.value = true
+  tryOpenHotspotsFromUrl()
+  if (pendingHotspotsFromUrl.value) {
+    const stop = watch([() => tracts.value?.features.length ?? 0, selectedGeoid, loading], () => {
+      tryOpenHotspotsFromUrl()
+      if (!pendingHotspotsFromUrl.value) stop()
+    })
+  }
 }
 function pickFromHotspots(geoid: string) {
   cityStore.select(geoid)
