@@ -865,7 +865,7 @@ watch(drawerOpen, async (open) => {
             <v-btn v-else variant="text" size="small" class="text-none legend-toggle" prepend-icon="mdi-chevron-down"
               :aria-expanded="true" aria-controls="legend-panel" @click="legendExpanded = false">Hide legend</v-btn>
           </div>
-          <MapLegend :below-median="belowMedian && medianAvailable" :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
+          <MapLegend :tracts="loading ? null : tracts" :below-median="belowMedian && medianAvailable" :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
         </div>
         <v-btn v-else variant="tonal" size="small" class="text-none legend-toggle" prepend-icon="mdi-palette-swatch-outline"
           :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
