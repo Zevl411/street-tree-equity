@@ -600,13 +600,28 @@ function jumpBelowMedian(dir: 1 | -1) {
   cityStore.select(set[i].geoid)
   jumpAnnounce.value = `${set[i].name} · ${i + 1} of ${set.length} below median`
 }
-const SHORTCUTS: [string, string][] = [
-  ['/', 'Find tract'], ['Esc', 'Close panel, clear selection, or exit focus'], ['d', 'Toggle dark mode'],
-  ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
-  ['*', 'Star / unstar selected tract'],
-  ['n', 'Next below-median tract'], ['p', 'Previous below-median tract'],
-  ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
+// #89 grouped cheat sheet — single source of truth for on-screen + print. Labels match useKeyboardShortcuts handlers.
+type ShortcutGroup = { id: string; title: string; rows: [string, string][]; caption?: string }
+const SHORTCUT_GROUPS: ShortcutGroup[] = [
+  { id: 'map', title: 'Map', rows: [
+    ['s', 'Toggle satellite basemap'], ['d', 'Toggle dark mode'],
+    ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
+    ['Esc', 'Close panel, clear selection, or exit focus'],
+  ] },
+  { id: 'filters', title: 'Filters', rows: [
+    ['h', 'Low-canopy hotspots'], ['n', 'Next below-median tract'], ['p', 'Previous below-median tract'],
+  ], caption: 'n / p need Below city median on.' },
+  { id: 'find', title: 'Find & export', rows: [['/', 'Find tract'], ['*', 'Star / unstar selected tract']] },
+  { id: 'help', title: 'Help', rows: [['?', 'Keyboard shortcuts']] },
 ]
+function printShortcuts() {
+  const root = document.documentElement
+  root.classList.add('print-shortcuts')
+  const done = () => { root.classList.remove('print-shortcuts'); window.removeEventListener('afterprint', done) }
+  window.addEventListener('afterprint', done)
+  window.print()
+  setTimeout(done, 1000)
+}
 const tractFromFinder = ref(false)
 function pickFromFinder(geoid: string) {
   tractFromFinder.value = true
@@ -890,18 +905,25 @@ watch(drawerOpen, async (open) => {
       </div>
     </v-main>
 
-    <v-dialog v-model="shortcutsOpen" max-width="360">
+    <v-dialog v-model="shortcutsOpen" max-width="420">
       <v-card id="shortcuts-panel" title="Keyboard shortcuts">
         <v-card-text>
-          <dl class="shortcuts-list">
-            <template v-for="[k, label] in SHORTCUTS" :key="k">
-              <dt><kbd>{{ k }}</kbd></dt><dd>{{ label }}</dd>
-            </template>
-          </dl>
+          <p class="shortcuts-print-title">Street Tree Equity — Keyboard shortcuts</p>
+          <section v-for="g in SHORTCUT_GROUPS" :key="g.id" class="shortcuts-group" role="group" :aria-labelledby="`shortcuts-h-${g.id}`">
+            <h3 :id="`shortcuts-h-${g.id}`" class="text-subtitle-2 font-weight-bold mb-1">{{ g.title }}</h3>
+            <dl class="shortcuts-list">
+              <template v-for="[k, label] in g.rows" :key="k">
+                <dt><kbd>{{ k }}</kbd></dt><dd>{{ label }}</dd>
+              </template>
+            </dl>
+            <p v-if="g.caption" class="text-caption mt-1 text-medium-emphasis"><kbd>n</kbd> / <kbd>p</kbd> need <strong>Below city median</strong> on.</p>
+            <p v-if="g.id === 'find'" class="text-caption mt-1 text-medium-emphasis"><strong>Export:</strong> CSV from <strong>Layers → Export all tracts</strong>, or export from a selected tract. No keyboard shortcut.</p>
+          </section>
           <p class="text-caption mt-3 text-medium-emphasis">Shortcuts are off while typing in a field.</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
+          <v-btn class="shortcuts-print" variant="text" prepend-icon="mdi-printer" @click="printShortcuts">Print</v-btn>
           <v-btn class="shortcuts-close" color="primary" variant="text" @click="shortcutsOpen = false">Close</v-btn>
         </v-card-actions>
       </v-card>
@@ -1059,6 +1081,10 @@ watch(drawerOpen, async (open) => {
 }
 .shortcuts-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; align-items: center; margin: 0; }
 .shortcuts-list dd { margin: 0; }
+.shortcuts-group + .shortcuts-group { margin-top: 14px; }
+.shortcuts-group h3 { margin: 0; }
+.shortcuts-print-title { display: none; }
+.shortcuts-group .text-caption kbd { font-family: ui-monospace, monospace; }
 .shortcuts-list kbd { display: inline-block; min-width: 2em; text-align: center; padding: 2px 6px; border-radius: 4px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.3); font-family: ui-monospace, monospace; font-size: 0.85em; }
 .bottom-drawer {
