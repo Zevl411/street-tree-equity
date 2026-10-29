@@ -103,10 +103,11 @@ const rows = computed(() => {
   return out
 })
 
-function openB() {
-  if (!b.value) return
+function openSide(side: 'a' | 'b') {
+  const id = side === 'a' ? a.value : b.value
+  if (!id) return
   open.value = false
-  emit('open', b.value)
+  emit('open', id)
 }
 
 async function copyLink() {
@@ -124,12 +125,12 @@ async function copyLink() {
 
 <template>
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" v-bind="mobile ? {} : { maxWidth: 720 }">
-    <v-card title="Compare cities">
+    <v-card title="Compare cities" :class="{ 'compare-sheet': mobile }">
       <template #append><v-btn icon="mdi-close" variant="text" aria-label="Close" @click="open = false" /></template>
       <v-card-text>
         <v-row dense>
-          <v-col cols="12" sm="6"><v-select v-model="a" :items="items" label="City A" density="compact" hide-details="auto" /></v-col>
-          <v-col cols="12" sm="6"><v-select v-model="b" :items="items" label="City B" density="compact" hide-details="auto"
+          <v-col cols="12" :sm="mobile ? 12 : 6"><v-select v-model="a" :items="items" label="City A" density="compact" hide-details="auto" /></v-col>
+          <v-col cols="12" :sm="mobile ? 12 : 6"><v-select v-model="b" :items="items" label="City B" density="compact" hide-details="auto"
             :error-messages="same ? 'Pick two different cities.' : undefined" /></v-col>
         </v-row>
         <div v-if="loading" class="text-body-2 my-4" role="status">
@@ -137,17 +138,25 @@ async function copyLink() {
         </div>
         <v-alert v-else-if="failed" type="error" density="compact" class="my-4" text="Couldn't load one of the cities. Try again." />
         <template v-else-if="result">
-          <v-table density="compact" class="my-3">
+          <div v-if="mobile" class="my-3">
+            <v-card v-for="side in (['a', 'b'] as const)" :key="side" variant="outlined" class="mb-2" :title="result[side].name">
+              <v-list density="compact" class="py-0">
+                <v-list-item v-for="r in rows" :key="r.label" :title="r[side]" :subtitle="r.label" />
+              </v-list>
+            </v-card>
+          </div>
+          <v-table v-else density="compact" class="my-3">
             <thead><tr><th scope="col"><span class="sr-only">Metric</span></th><th scope="col">{{ result.a.name }}</th><th scope="col">{{ result.b.name }}</th></tr></thead>
             <tbody><tr v-for="r in rows" :key="r.label"><th scope="row" class="font-weight-regular">{{ r.label }}</th><td>{{ r.a }}</td><td>{{ r.b }}</td></tr></tbody>
           </v-table>
           <div class="text-caption text-medium-emphasis">Stats are from each city’s packaged open data. Not a controlled study.</div>
         </template>
       </v-card-text>
-      <v-card-actions class="flex-wrap">
+      <v-card-actions class="flex-wrap compare-actions">
         <v-btn variant="text" prepend-icon="mdi-link-variant" :disabled="!canCompare" @click="copyLink">Copy comparison link</v-btn>
         <v-spacer />
-        <v-btn v-if="result" variant="tonal" @click="openB">Open {{ result.b.name }} on the map</v-btn>
+        <v-btn v-if="result" variant="tonal" @click="openSide('a')">Open {{ result.a.name }}</v-btn>
+        <v-btn v-if="result" variant="tonal" @click="openSide('b')">Open {{ result.b.name }}</v-btn>
         <v-btn color="primary" variant="flat" :disabled="!canCompare || loading" @click="compare">Compare</v-btn>
       </v-card-actions>
     </v-card>
@@ -156,4 +165,6 @@ async function copyLink() {
 
 <style scoped>
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.compare-sheet { max-height: 90vh; overflow-y: auto; overflow-x: hidden; }
+.compare-actions { position: sticky; bottom: 0; background: rgb(var(--v-theme-surface)); z-index: 1; }
 </style>
