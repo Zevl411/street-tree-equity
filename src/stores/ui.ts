@@ -112,6 +112,8 @@ export const useUiStore = defineStore('ui', () => {
   function setActiveMetric(id: unknown) { activeMetric.value = normalizeMetric(id) }
   const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
   watch(densityUnit, (u) => write(UNIT_KEY, u))
+  /** #100: unitless metrics (risk) always read acre math (k = 1); preference kept. */
+  const effectiveUnit = computed<DensityUnit>(() => (metric.value.usesDensityUnit ? densityUnit.value : 'acre'))
   function setDensityUnit(u: DensityUnit): void {
     densityUnit.value = u
   }
@@ -164,7 +166,7 @@ export const useUiStore = defineStore('ui', () => {
     activeMetric, metric, setActiveMetric,
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
-    densityUnit, setDensityUnit,
+    densityUnit, effectiveUnit, setDensityUnit,
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,

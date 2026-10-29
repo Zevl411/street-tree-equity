@@ -14,7 +14,7 @@ const ui = useUiStore()
 const median = computed(() => (props.belowMedian ? cityMedian(props.tracts, ui.metric.valueKey) : null))
 
 const bins = computed(() => {
-  const isKm2 = ui.densityUnit === 'km2'
+  const isKm2 = ui.effectiveUnit === 'km2'
   const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
   const raw = binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey)
   const counts = rows.map((_, i) => raw[i] ?? 0)
@@ -25,7 +25,7 @@ const bins = computed(() => {
     count: counts[i],
     pct: (counts[i] / max) * 100,
     // Entire bin above median: lower bound (inclusive) strictly above median.
-    dimmed: m !== null && r.lo > m,
+    dimmed: m !== null && (ui.metric.higherIsBetter ? r.lo > m : r.hi !== undefined && r.hi <= m),
   }))
 })
 const selected = computed(() => {
@@ -37,14 +37,14 @@ function toggle(i: number) {
   if (bins.value[i]?.count === 0) return
   ui.setDensityBin(selected.value === i ? null : i, bins.value.length)
 }
-const unit = computed(() => ui.metric.spreadUnit(ui.densityUnit))
+const unit = computed(() => ui.metric.spreadUnit(ui.effectiveUnit))
 const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
 </script>
 
 <template>
   <div v-if="total > 0" class="density-hist" :class="{ dense }">
     <div v-if="!dense" class="d-flex align-baseline justify-space-between mt-2 mb-1">
-      <div class="text-caption font-weight-medium">Density ({{ unit }})</div>
+      <div class="text-caption font-weight-medium"><template v-if="ui.metric.usesDensityUnit">Density ({{ unit }})</template><template v-else>{{ ui.metric.legendTitle(ui.effectiveUnit) }}</template></div>
       <div class="text-caption text-medium-emphasis">{{ total }} tracts</div>
     </div>
     <div class="chart" role="group" :aria-label="`Filter map by ${ui.metric.unitNoun} bin`">

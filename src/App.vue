@@ -74,7 +74,7 @@ const metricOk = computed(() => Object.fromEntries(METRIC_IDS.map((id) => [id, m
 watch([metricOk, loading], ([ok, busy]) => {
   if (!busy && meta.value && !ok[ui.activeMetric]) ui.setActiveMetric('trees')
 })
-const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value)))
+const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value, ui.metric.higherIsBetter)))
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
 const resetConfirmOpen = ref(false)
@@ -180,12 +180,15 @@ function flyToPark(p: NearbyPark) {
   if (park) mapRef.value?.flyTo(park.properties.lon, park.properties.lat, 15)
 }
 
+// #100: FEMA NRI terms — citation + no-endorsement disclaimer (no FEMA/DHS seals).
+const NRI_DISCLAIMER = 'This product uses FEMA’s National Risk Index downloadable datasets but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for data or analyses derived after download.'
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
 const citationsText = computed(() => [
   'Street Tree Equity — data sources',
   `- Street trees & parks: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
+  ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
   '- Satellite: EOxCloudless 2025 by EOX IT Services GmbH — modified Copernicus Sentinel data 2025 — CC BY-NC-SA (non-commercial) — https://cloudless.eox.at',
   '- Code: https://github.com/Zevl411/street-tree-equity (MIT)',
@@ -319,6 +322,7 @@ const overviewDensity = computed(() => {
   if (!m) return ''
   const ov = m.overall[ui.metric.overallKey]
   const o = ov != null ? ov : m.overall.treesPerAcre
+  if (!ui.metric.usesDensityUnit) return o.toLocaleString(undefined, { maximumFractionDigits: 1 })
   if (ui.metric.fine) {
     return densityUnit.value === 'km2'
       ? `${(o * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 2 })} / km²`
@@ -336,10 +340,10 @@ const spread = computed(() => {
   const p10 = densityPercentile(sorted, 0.1)
   const p90 = densityPercentile(sorted, 0.9)
   if (med == null || p10 == null || p90 == null) return null
-  const km2 = densityUnit.value === 'km2'
+  const km2 = ui.effectiveUnit === 'km2'
   const k = km2 ? ACRES_PER_KM2 : 1
-  const f = (n: number) => fmtDensity(n * k, km2)
-  const unit = km2 ? '/km²' : '/acre'
+  const f = (n: number) => (ui.metric.usesDensityUnit ? fmtDensity(n * k, km2) : n.toFixed(1))
+  const unit = !ui.metric.usesDensityUnit ? '' : km2 ? '/km²' : '/acre'
   const r = p10 > 0 ? p90 / p10 : NaN
   const ratio = Number.isFinite(r) ? `×${r.toFixed(1)}` : ''
   return {
@@ -350,7 +354,7 @@ const spread = computed(() => {
       width: Math.min(100, Math.max(0, ((p90 - p10) / p90) * 100)),
       med: Math.min(100, Math.max(0, (med / p90) * 100)),
     } : null,
-    aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} ${ui.metric.spreadUnit(densityUnit.value).replace('/km²', ' per square kilometer').replace('/acre', ' per acre')}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
+    aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} ${ui.metric.spreadUnit(ui.effectiveUnit).replace('/km²', ' per square kilometer').replace('/acre', ' per acre')}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
   }
 })
 const plantHere = computed<{ pct: number } | { segments: number } | null>(() => {
@@ -643,13 +647,13 @@ const jumpAnnounce = ref('')
 function jumpBelowMedian(dir: 1 | -1) {
   if (anyOverlayOpen()) return
   if (!medianAvailable.value) return
-  const set = belowMedianOrder(tracts.value, vk.value)
+  const set = belowMedianOrder(tracts.value, vk.value, ui.metric.higherIsBetter)
   if (!set.length) return
-  if (!belowMedian.value) { linkSnack.value = 'Turn on Below city median first'; return }
+  if (!belowMedian.value) { linkSnack.value = `Turn on ${ui.metric.bmSwitchLabel} first`; return }
   const cur = set.findIndex((t) => t.geoid === selectedGeoid.value)
   const i = cur < 0 ? (dir === 1 ? 0 : set.length - 1) : (cur + dir + set.length) % set.length
   cityStore.select(set[i].geoid)
-  jumpAnnounce.value = `${set[i].name} · ${i + 1} of ${set.length} below median`
+  jumpAnnounce.value = `${set[i].name} · ${i + 1} of ${set.length} ${ui.metric.higherIsBetter ? 'below' : 'above'} median`
 }
 // #95: one polite live region for filter changes (below-median / density bin / hotspots). Skips restores.
 const filterAnnounce = ref('')
@@ -669,20 +673,20 @@ function announceFilter(text: string) {
 watch(() => cityStore.cityId, quietFilters, { flush: 'sync' })
 watch(loading, quietFilters, { flush: 'sync' })
 watch(belowMedian, (on) => {
-  announceFilter(on ? `Below city median on · ${plural(belowMedianOrder(tracts.value, vk.value).length, 'tract', 'tracts')}` : 'Below city median off')
+  announceFilter(on ? `${ui.metric.bmSwitchLabel} on · ${plural(belowMedianOrder(tracts.value, vk.value, ui.metric.higherIsBetter).length, 'tract', 'tracts')}` : `${ui.metric.bmSwitchLabel} off`)
 })
 watch(() => ui.densityBinIndex, (i) => {
   if (i === null) { announceFilter('All density bins'); return }
   const m = viewMeta.value
   if (!m) return
-  const isKm2 = ui.densityUnit === 'km2'
+  const isKm2 = ui.effectiveUnit === 'km2'
   const rows = binRows(m.breaks, choroplethColors(m, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
   if (!rows[i]) return
   announceFilter(`Density bin ${rows[i].label} · ${plural(binCounts(tracts.value, m.breaks, vk.value)[i] ?? 0, 'tract', 'tracts')}`)
 })
 watch(hotspotsOpen, (open) => {
   if (!open) return
-  const n = hotspotTracts(tracts.value?.features, vk.value).length
+  const n = hotspotTracts(tracts.value?.features, vk.value, ui.metric.higherIsBetter).length
   const hn = ui.metric.hotspotNoun
   if (hn) announceFilter(n ? plural(n, hn[0], hn[1]) : `No ${hn[1]}`)
   else announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
@@ -786,6 +790,7 @@ watch(drawerOpen, async (open) => {
               <div v-for="id in METRIC_IDS.filter((i) => !metricOk[i] && METRICS[i].missingCaption)" :key="`miss-${id}`" class="text-caption text-medium-emphasis mb-1">{{ METRICS[id].missingCaption }}</div>
             </template>
             <div class="mb-1" />
+            <template v-if="ui.metric.usesDensityUnit">
             <div class="text-caption mb-1">Density unit</div>
             <v-btn-toggle :model-value="densityUnit" mandatory density="compact" variant="outlined" divided color="primary"
               class="mb-2 unit-toggle" :aria-label="`${ui.metric.unitNoun[0].toUpperCase()}${ui.metric.unitNoun.slice(1)} unit`" @click.stop
@@ -793,6 +798,7 @@ watch(drawerOpen, async (open) => {
               <v-btn value="acre" size="small">Per acre</v-btn>
               <v-btn value="km2" size="small">Per km²</v-btn>
             </v-btn-toggle>
+            </template>
             <div class="text-caption mb-n1">Tract fill</div>
             <v-slider :model-value="fillOpacity" :min="0.3" :max="1" :step="0.05" density="compact" color="primary"
               hide-details thumb-label class="fill-opacity-slider mb-1" aria-label="Tract fill opacity" @click.stop
@@ -824,7 +830,7 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
-            <v-switch v-model="belowMedian" label="Below city median" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
+            <v-switch v-model="belowMedian" :label="ui.metric.bmSwitchLabel" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
             <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? ui.metric.bmCaption : 'Needs at least 2 tracts with density data' }}</div>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
@@ -1048,6 +1054,7 @@ watch(drawerOpen, async (open) => {
           <ul class="about-sources text-body-2 mb-4">
             <li><strong>Street trees &amp; parks</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
             <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
+            <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>
             <li><strong>Satellite</strong> — <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless 2025<span class="sr-only"> (opens in new tab)</span></a> by EOX · modified Copernicus Sentinel data 2025 · <strong>CC BY-NC-SA (non-commercial)</strong></li>
           </ul>

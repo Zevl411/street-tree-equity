@@ -122,10 +122,10 @@ const rows = computed(() => {
     { label: 'Tracts', a: fmt(A.tracts, 0), b: fmt(B.tracts, 0) },
   ]
   // #38: both columns always share the active unit.
-  const km = ui.densityUnit === 'km2'
+  const km = ui.effectiveUnit === 'km2'
   const [aMed, bMed, aMean, bMean] = km ? [A.medianKm2, B.medianKm2, A.meanKm2, B.meanKm2] : [A.median, B.median, A.mean, B.mean]
   const unit = ui.metric.spreadUnit(ui.densityUnit)
-  const d = ui.metric.fine ? (km ? 2 : 4) : km ? 1 : 3
+  const d = !ui.metric.usesDensityUnit ? 1 : ui.metric.fine ? (km ? 2 : 4) : km ? 1 : 3
   if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
   const sc = (n: number | null) => (n == null ? null : km ? n * ACRES_PER_KM2 : n)
   const ratio = (s: Stats) => (s.p10 != null && s.p90 != null && Number.isFinite(s.p10) && s.p10 > 0 && Number.isFinite(s.p90 / s.p10)

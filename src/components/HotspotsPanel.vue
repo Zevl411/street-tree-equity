@@ -23,10 +23,12 @@ const total = computed(() => props.tracts?.length ?? 0)
 const ui = useUiStore()
 /** #98/#99: amenity metrics → metric-def title, sorted by active valueKey. */
 const isParks = computed(() => ui.metric.fine)
-const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey))
+const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey, ui.metric.higherIsBetter))
 const val = (p: object) => metricValue(p, ui.metric.valueKey)
+const unitless = computed(() => !ui.metric.usesDensityUnit)
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
 function density(tpa: number) {
+  if (unitless.value) return tpa.toFixed(1)
   return props.unit === 'km2'
     ? (tpa * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })
     : tpa.toFixed(isParks.value ? 4 : 2)
@@ -66,8 +68,8 @@ function pick(geoid: string) {
         <v-list v-else :density="mobile ? 'comfortable' : 'compact'" :disabled="loading" class="mt-1"
           style="max-height: 60vh; overflow-y: auto">
           <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="f.properties.name"
-            :subtitle="`${density(val(f.properties))} /${unitLabel} · #${f.properties.rank} of ${total}`"
-            :aria-label="`Open ${f.properties.name}, ${density(val(f.properties))} per ${unitLabel}, rank ${f.properties.rank} of ${total}`"
+            :subtitle="`${density(val(f.properties))}${unitless ? '' : ` /${unitLabel}`} · #${f.properties.rank} of ${total}`"
+            :aria-label="`Open ${f.properties.name}, ${density(val(f.properties))} ${unitless ? ui.metric.unitNoun : `per ${unitLabel}`}, rank ${f.properties.rank} of ${total}`"
             @click="pick(f.properties.geoid)">
             <template v-if="f.properties.bottomQuartile" #append>
               <v-chip size="x-small" variant="tonal" color="warning">Bottom 25%</v-chip>

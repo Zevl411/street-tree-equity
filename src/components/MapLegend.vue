@@ -8,7 +8,7 @@ import { binCounts, binRows } from '@/utils/densityBins'
 const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean; belowMedian?: boolean; tracts?: TractCollection | null }>()
 
 const ui = useUiStore()
-const isKm2 = computed(() => ui.densityUnit === 'km2')
+const isKm2 = computed(() => ui.effectiveUnit === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() =>
@@ -19,7 +19,7 @@ const counts = computed(() => binCounts(props.tracts, props.meta.breaks, ui.metr
 
 <template>
   <div class="legend" :class="{ dense }">
-    <div class="text-caption font-weight-medium mb-1">{{ ui.metric.legendTitle(ui.densityUnit) }}<template v-if="ui.metric.id === 'trees'"> (OSM-mapped)</template></div>
+    <div class="text-caption font-weight-medium mb-1">{{ ui.metric.legendTitle(ui.effectiveUnit) }}<template v-if="ui.metric.id === 'trees'"> (OSM-mapped)</template></div>
     <div class="d-flex" :class="dense ? 'flex-row align-center ga-2' : 'flex-column ga-1'">
       <div v-for="(r, i) in rows" :key="r.label" class="d-flex align-center ga-1">
         <span class="swatch" :style="{ background: r.color }" />

@@ -27,6 +27,11 @@ export interface TractProps {
   groceriesInside?: number
   groceriesPerAcre?: number
   groceriesPerKm2?: number
+  /** #100 FEMA NRI (tract join) */
+  nriRiskScore?: number
+  nriRiskRating?: string
+  nriSoviScore?: number
+  nriEalScore?: number
   nearestGroceryKm?: number
   nearestParks: NearbyPark[]
   roadKm: number | null
@@ -59,13 +64,15 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; nriRiskScore?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[] }
+  /** #100: FEMA NRI provenance for About */
+  nri?: { version: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string }
+  attribution: { osm: string; census: string; fema?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>

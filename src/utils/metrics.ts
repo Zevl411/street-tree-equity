@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore'
 
 export interface MetricDef {
   id: MetricId
@@ -22,12 +22,16 @@ export interface MetricDef {
   /** #99: sparse amenity metric → finer precision (.toFixed(4) / km² max 2) */
   fine: boolean
   /** #99: meta.overall key for overview */
-  overallKey: 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre'
+  overallKey: MetricValueKey
   /** #99: hotspots panel title + announce noun (singular/plural); null = trees canopy copy */
   hotspotNoun: [string, string] | null
   hotspotTitle: string
   /** #99: disabled caption when pack lacks the metric */
   missingCaption: string
+  /** #100: false → hotspots sort desc, BM dims below median */
+  higherIsBetter: boolean
+  /** #100: false → unitless (no acre/km² toggle, 1 decimal) */
+  usesDensityUnit: boolean
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -43,6 +47,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmCaption: 'Dims tracts above this city’s median trees/acre',
     bmSwitchLabel: 'Below city median',
     fine: false, overallKey: 'treesPerAcre', hotspotNoun: null, hotspotTitle: 'Low-canopy hotspots', missingCaption: '',
+    higherIsBetter: true, usesDensityUnit: true,
   },
   parks: {
     id: 'parks',
@@ -54,6 +59,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmCaption: 'Dims tracts above this city’s median parks/acre',
     bmSwitchLabel: 'Below city median',
     fine: true, overallKey: 'parksPerAcre', hotspotNoun: ['low park access tract', 'low park access tracts'], hotspotTitle: 'Low park access', missingCaption: 'This pack has no park metric yet',
+    higherIsBetter: true, usesDensityUnit: true,
   },
   groceries: {
     id: 'groceries',
@@ -65,6 +71,19 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmCaption: 'Dims tracts above this city’s median groceries/acre',
     bmSwitchLabel: 'Below city median',
     fine: true, overallKey: 'groceriesPerAcre', hotspotNoun: ['low grocery access tract', 'low grocery access tracts'], hotspotTitle: 'Low grocery access', missingCaption: 'This pack has no grocery metric yet',
+    higherIsBetter: true, usesDensityUnit: true,
+  },
+  risk: {
+    id: 'risk',
+    shortLabel: 'Risk (NRI)',
+    valueKey: 'nriRiskScore',
+    legendTitle: () => 'NRI risk score',
+    unitNoun: 'risk score',
+    spreadUnit: () => 'risk score',
+    bmCaption: 'Dims tracts below this city’s median NRI risk score',
+    bmSwitchLabel: 'Above city median',
+    fine: true, overallKey: 'nriRiskScore', hotspotNoun: ['highest-risk tract', 'highest-risk tracts'], hotspotTitle: 'Highest risk', missingCaption: 'This pack has no risk metric yet',
+    higherIsBetter: false, usesDensityUnit: false,
   },
 }
 
@@ -103,4 +122,10 @@ export function metricMeta(meta: Meta, id: MetricId): Meta {
 export function metricValue(p: object, key: MetricValueKey): number {
   const v = (p as Record<string, unknown>)[key]
   return typeof v === 'number' ? v : NaN
+}
+
+/** #100: display a metric value (acre-based); unitless metrics → 1 decimal, no scaling. */
+export function fmtMetric(def: MetricDef, acreValue: number, km2: boolean, acresPerKm2: number): string {
+  if (!def.usesDensityUnit) return acreValue.toLocaleString(undefined, { maximumFractionDigits: 1 })
+  return km2 ? (acreValue * acresPerKm2).toLocaleString(undefined, { maximumFractionDigits: 2 }) : acreValue.toFixed(4)
 }
