@@ -11,7 +11,7 @@ import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
-import { useUiStore } from '@/stores/ui'
+import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 
@@ -21,7 +21,7 @@ const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 const cityStore = useCityStore()
 const { cities, city, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { theme, isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
+const { theme, isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -63,13 +63,14 @@ async function init() {
   if (link.theme && link.theme !== ui.theme) ui.setTheme(link.theme)
   if (link.basemap) ui.setBasemap(link.basemap)
   if (link.layers) applyLayers(link.layers)
+  if (link.unit) ui.setDensityUnit(link.unit)
   await cityStore.loadManifest()
   await selectCity(cityStore.initialCityId())
   if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
   syncUrl()
   openCompareFromUrl()
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, densityUnit], syncUrl)
 }
 
 function currentLayers(): LayerFlags {
@@ -94,7 +95,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers() })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value })
 }
 
 const compareOpen = ref(false)
@@ -183,6 +184,13 @@ const satFallback = ref(false)
               >{{ p.label }}</v-chip>
             </div>
             <div class="text-caption text-medium-emphasis mt-1 mb-2">One tap sets the switches below. You can still tweak them.</div>
+            <div class="text-caption mb-1">Density unit</div>
+            <v-btn-toggle :model-value="densityUnit" mandatory density="compact" variant="outlined" divided color="primary"
+              class="mb-2 unit-toggle" aria-label="Tree density unit" @click.stop
+              @update:model-value="(v: 'acre' | 'km2') => ui.setDensityUnit(v)">
+              <v-btn value="acre" size="small">Per acre</v-btn>
+              <v-btn value="km2" size="small">Per km²</v-btn>
+            </v-btn-toggle>
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
@@ -267,7 +275,9 @@ const satFallback = ref(false)
         <div class="text-body-2">
           <strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees across
           <strong>{{ meta.counts.tracts }}</strong> census tracts
-          (avg {{ meta.overall.treesPerAcre.toFixed(2) }} / acre).
+          (avg {{ ui.densityUnit === 'km2'
+            ? `${(meta.overall.treesPerAcre * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} / km²`
+            : `${meta.overall.treesPerAcre.toFixed(2)} / acre` }}).
         </div>
         <div class="text-caption mt-1">Click a tract for details and nearby parks.</div>
       </v-sheet>
@@ -309,6 +319,7 @@ const satFallback = ref(false)
 </template>
 
 <style scoped>
+.unit-toggle .v-btn { min-height: 44px; }
 .preset-chip-touch { min-height: 44px; }
 /* Normal-flow stage inside v-main's padded box, so absolute map/overlays
    sit below the app bar instead of under it (#34). */

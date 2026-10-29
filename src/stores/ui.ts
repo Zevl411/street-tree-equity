@@ -3,9 +3,14 @@ import { computed, ref, watch } from 'vue'
 
 export type ThemeName = 'treeLight' | 'treeDark'
 export type Basemap = 'streets' | 'satellite'
+export type DensityUnit = 'acre' | 'km2'
+
+/** Acres per km² — converts trees/acre → trees/km². */
+export const ACRES_PER_KM2 = 1 / 0.0040468564224
 
 const THEME_KEY = 'ste-theme'
 const BASEMAP_KEY = 'ste-basemap'
+const UNIT_KEY = 'ste-density-unit'
 
 function read(key: string): string | null {
   try { return localStorage.getItem(key) } catch { return null }
@@ -47,6 +52,13 @@ export const useUiStore = defineStore('ui', () => {
     basemap.value = b
   }
 
+  // #38: display-only density unit; persisted locally, not in deep links.
+  const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
+  watch(densityUnit, (u) => write(UNIT_KEY, u))
+  function setDensityUnit(u: DensityUnit): void {
+    densityUnit.value = u
+  }
+
   const showTrees = ref(true)
   const showParks = ref(true)
   const showRoads = ref(true)
@@ -56,6 +68,7 @@ export const useUiStore = defineStore('ui', () => {
   return {
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
+    densityUnit, setDensityUnit,
     showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen,
   }
 })
