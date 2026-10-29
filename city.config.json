@@ -1,0 +1,20 @@
+{
+  "$comment": "Edit this file to change the demo city, then run `npm run data:refresh`. Keep the bbox modest (Overpass is a free shared service).",
+  "cityName": "Portland, OR",
+  "subtitle": "Central Portland",
+  "bbox": [-122.75, 45.47, -122.58, 45.57],
+  "stateFips": "41",
+  "countyFips": ["051"],
+  "censusYear": 2023,
+  "roadsLowTree": {
+    "enabled": true,
+    "highwayTypes": ["primary", "secondary", "tertiary", "residential", "living_street"],
+    "bufferMeters": 20,
+    "minLengthMeters": 120
+  },
+  "overpassEndpoints": [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"
+  ]
+}

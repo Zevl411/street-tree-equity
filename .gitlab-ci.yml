@@ -1,0 +1,44 @@
+# GitLab CI: build on every push/MR; deploy to GitLab Pages from the default branch.
+# GitLab Pages (free on gitlab.com) serves https://<namespace>.gitlab.io/<project>/
+# Set CI/CD variable REFRESH_DATA=true on a manual/scheduled pipeline to re-fetch OSM + Census data.
+
+image: node:22-alpine
+
+stages:
+  - build
+  - deploy
+
+cache:
+  key:
+    files: [package-lock.json]
+  paths: [.npm/]
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  REFRESH_DATA: "false"
+
+build:
+  stage: build
+  script:
+    - npm ci
+    - if [ "$REFRESH_DATA" = "true" ]; then npm run data:refresh; fi
+    # Project Pages live under /<project-name>/ ; set a VITE_BASE CI variable of "/" for a custom domain.
+    - export VITE_BASE="${VITE_BASE:-/$CI_PROJECT_NAME/}"
+    - npm run build
+  artifacts:
+    paths: [dist]
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+pages:
+  stage: deploy
+  needs: [build]
+  script:
+    # GitLab Pages publishes a folder named public/ (Vite already copied its source public/ into dist).
+    - rm -rf public && mv dist public
+  artifacts:
+    paths: [public]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
