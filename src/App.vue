@@ -503,7 +503,7 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
             <v-switch v-model="belowMedian" label="Below city median" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
-            <div class="text-caption text-medium-emphasis ms-1 mb-1">Dims tracts above this city’s median trees/acre</div>
+            <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? 'Dims tracts above this city’s median trees/acre' : 'Needs at least 2 tracts with density data' }}</div>
           </v-card-text>
         </v-card>
       </component>
