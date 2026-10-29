@@ -47,6 +47,17 @@ export function binIndex(v: number, breaks: number[]) {
   return i
 }
 
+/** #93: full-pack tract counts per bin (finite treesPerAcre, binIndex clamped to last bin). */
+export function binCounts(tracts: TractCollection | null | undefined, breaks: number[]): number[] {
+  const counts = new Array<number>(breaks.length + 1).fill(0)
+  for (const f of tracts?.features ?? []) {
+    const v = f.properties.treesPerAcre
+    if (!Number.isFinite(v)) continue
+    counts[Math.min(binIndex(v, breaks), counts.length - 1)]++
+  }
+  return counts
+}
+
 /** #77: #59 below-median set (finite treesPerAcre ≤ median), ordered rank asc then geoid asc. */
 export function belowMedianOrder(tracts: TractCollection | null | undefined): { geoid: string; name: string }[] {
   const med = cityMedian(tracts)

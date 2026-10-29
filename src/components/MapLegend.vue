@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Meta } from '@/types'
+import type { Meta, TractCollection } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
-import { binRows } from '@/utils/densityBins'
+import { binCounts, binRows } from '@/utils/densityBins'
 
-const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean; belowMedian?: boolean }>()
+const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean; belowMedian?: boolean; tracts?: TractCollection | null }>()
 
 const ui = useUiStore()
 const isKm2 = computed(() => ui.densityUnit === 'km2')
@@ -14,15 +14,16 @@ const isKm2 = computed(() => ui.densityUnit === 'km2')
 const rows = computed(() =>
   binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1),
 )
+const counts = computed(() => binCounts(props.tracts, props.meta.breaks))
 </script>
 
 <template>
   <div class="legend" :class="{ dense }">
     <div class="text-caption font-weight-medium mb-1">{{ isKm2 ? 'Trees / km²' : 'Trees / acre' }} (OSM-mapped)</div>
     <div class="d-flex" :class="dense ? 'flex-row align-center ga-2' : 'flex-column ga-1'">
-      <div v-for="r in rows" :key="r.label" class="d-flex align-center ga-1">
+      <div v-for="(r, i) in rows" :key="r.label" class="d-flex align-center ga-1">
         <span class="swatch" :style="{ background: r.color }" />
-        <span class="text-caption">{{ r.label }}</span>
+        <span class="text-caption" :aria-label="`${r.label}, ${(counts[i] ?? 0).toLocaleString()} tracts`">{{ r.label }} <span class="text-medium-emphasis">· {{ (counts[i] ?? 0).toLocaleString() }}</span></span>
       </div>
       <div class="d-flex align-center ga-1">
         <span class="swatch line" style="background: #ef6c00" />

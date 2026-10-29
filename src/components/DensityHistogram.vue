@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import type { Meta, TractCollection } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
-import { binIndex, binRows, cityMedian } from '@/utils/densityBins'
+import { binCounts, binRows, cityMedian } from '@/utils/densityBins'
 
 /** #63: city-level histogram of tracts per legend break.
  *  #73: bars are toggle buttons that isolate one bin on the map (ui.densityBinIndex; bin wins over #59). */
@@ -16,12 +16,8 @@ const median = computed(() => (props.belowMedian ? cityMedian(props.tracts) : nu
 const bins = computed(() => {
   const isKm2 = ui.densityUnit === 'km2'
   const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
-  const counts = rows.map(() => 0)
-  for (const f of props.tracts?.features ?? []) {
-    const v = f.properties.treesPerAcre
-    if (!Number.isFinite(v)) continue
-    counts[Math.min(binIndex(v, props.meta.breaks), counts.length - 1)]++
-  }
+  const raw = binCounts(props.tracts, props.meta.breaks)
+  const counts = rows.map((_, i) => raw[i] ?? 0)
   const max = Math.max(1, ...counts)
   const m = median.value
   return rows.map((r, i) => ({
@@ -41,13 +37,14 @@ function toggle(i: number) {
   if (bins.value[i]?.count === 0) return
   ui.setDensityBin(selected.value === i ? null : i, bins.value.length)
 }
+const unit = computed(() => (ui.densityUnit === 'km2' ? 'trees/km²' : 'trees/acre'))
 const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
 </script>
 
 <template>
   <div v-if="total > 0" class="density-hist" :class="{ dense }">
     <div v-if="!dense" class="d-flex align-baseline justify-space-between mt-2 mb-1">
-      <div class="text-caption font-weight-medium">Density across tracts</div>
+      <div class="text-caption font-weight-medium">Density ({{ unit }})</div>
       <div class="text-caption text-medium-emphasis">{{ total }} tracts</div>
     </div>
     <div class="chart" role="group" aria-label="Filter map by tree density bin">
@@ -62,6 +59,9 @@ const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
       >
         <span class="bar" :style="{ background: b.color, height: `max(4px, ${b.pct}%)`, opacity: selected === i ? 1 : b.dimmed && selected === null ? 0.35 : 1 }" />
       </button>
+    </div>
+    <div v-if="!dense" class="counts" aria-hidden="true">
+      <span v-for="b in bins" :key="b.label" class="count text-caption text-medium-emphasis">{{ b.count.toLocaleString() }}</span>
     </div>
     <div class="sr-only" role="status" aria-live="polite">{{ status }}</div>
     <ul class="sr-only">
@@ -88,6 +88,8 @@ const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
 .density-hist.dense .track { min-height: 44px; padding-top: 8px; background-clip: content-box; }
 .density-hist.dense .chart { height: 44px; max-height: 44px; }
 .clear-dense { min-width: 44px; min-height: 44px; }
+.counts { display: flex; gap: 2px; }
+.count { flex: 1; min-width: 0; text-align: center; font-size: 0.6875rem !important; line-height: 1.2; }
 .bar { width: 100%; border-radius: 2px 2px 0 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
 </style>
