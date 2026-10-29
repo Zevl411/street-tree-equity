@@ -18,7 +18,7 @@ import HotspotsPanel from '@/components/HotspotsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
-import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { ACRES_PER_KM2, persistBin, storedBin, useUiStore } from '@/stores/ui'
 import { readSessionView, writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { copyText } from '@/utils/clipboard'
 import { choroplethColors } from '@/utils/choropleth'
@@ -219,10 +219,14 @@ async function init() {
   applyBelowMedianFromUrl()
   openFavoritesFromUrl()
   openFocusFromUrl()
-  // #73 stretch: `?bin=i` clamped to this city's legend bins once meta is ready.
-  if (link.bin !== null && meta.value) ui.setDensityBin(link.bin, choroplethColors(meta.value, ui.choroplethMode).length)
-  // #73: bin filter is per-city session state.
-  watch(() => cityStore.cityId, () => ui.setDensityBin(null))
+  // #79 precedence: valid `?bin=` (explicit override, persisted) > ste-bin[city] > null. Clamped once meta is ready.
+  const binCount = () => (meta.value ? choroplethColors(meta.value, ui.choroplethMode).length : undefined)
+  ui.setDensityBin(link.bin !== null ? link.bin : storedBin(cityStore.cityId), binCount())
+  persistBin(cityStore.cityId, ui.densityBinIndex)
+  // #79: on city change restore that city's stored bin (or null); no cross-pack bleed.
+  watch(() => cityStore.cityId, (c) => ui.setDensityBin(storedBin(c), binCount()))
+  // #79: mirror bin into ste-bin for the active city (clear / clamp→null deletes the key).
+  watch(() => ui.densityBinIndex, (i) => persistBin(cityStore.cityId, i))
   // #73: re-clamp bin if the color ramp length changes (mode flip / new meta)
   watch(() => (meta.value ? choroplethColors(meta.value, ui.choroplethMode).length : 0), (n) => {
     if (ui.densityBinIndex !== null) ui.setDensityBin(ui.densityBinIndex, n)
