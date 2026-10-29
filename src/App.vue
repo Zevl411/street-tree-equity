@@ -295,7 +295,7 @@ function openCompareFromUrl() {
 
 /** #59: need ≥2 finite densities in the loaded pack for a median. */
 const medianAcre = computed(() => cityMedian(tracts.value))
-const medianAvailable = computed(() => (tracts.value?.features ?? []).filter((f) => Number.isFinite(f.properties.treesPerAcre)).length >= 2)
+const medianAvailable = computed(() => medianAcre.value != null)
 /** #59 ?belowMedian=1: one-shot alias → turn the dim on, strip the param; `layers=…,bm` then owns it. */
 function applyBelowMedianFromUrl() {
   const url = new URL(window.location.href)
