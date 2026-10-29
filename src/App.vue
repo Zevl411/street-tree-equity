@@ -143,13 +143,22 @@ async function selectCity(id: string, restore: SessionView | null = null) {
   const res = cityStore.setCity(id)
   if (!res) return
   initialView.value = restore && restore.cityId === res.entry.id ? restore : null
-  if (res.changed || !meta.value) await load(res.entry.dataPath)
+  if (res.changed || !meta.value) {
+    const ok = await load(res.entry.dataPath)
+    if (!ok || cityStore.city?.id !== res.entry.id) return
+    await nextTick()
+  }
   if (!initialView.value) mapRef.value?.fitData()
 }
 
 function retry() {
   if (city.value) load(city.value.dataPath)
 }
+
+// #61: move focus to Try again once when the error alert appears.
+watch(error, (e, prev) => {
+  if (e && !prev) focusSoon('#pack-error .pack-retry')
+})
 
 async function init() {
   const link = readDeepLink()
@@ -577,20 +586,21 @@ watch(drawerOpen, async (open) => {
       <MapView
         @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" />
 
-      <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
+      <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center" role="status" aria-live="polite">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
         <div class="text-body-2 mt-3">Loading tree data for {{ loadingName }}…</div>
+        <div class="text-caption mt-1 opacity-80">Census tracts and map layers</div>
       </div>
-      <v-alert v-if="error" type="error" class="ma-4" title="Map data didn't load">
-        <p>Check your connection and try again. If it keeps happening, the data files may be updating — please open an issue.</p>
+      <v-alert v-if="error && !loading" id="pack-error" type="error" class="ma-4" title="Couldn’t load this city’s data">
+        <p>{{ loadingName }} didn’t load. Check your connection, then try again. Packaged files may also be missing or updating.</p>
         <div class="d-flex flex-wrap ga-2 mt-3">
-          <v-btn variant="flat" color="white" @click="retry">Try again</v-btn>
+          <v-btn class="pack-retry" variant="flat" color="white" @click="retry">Try again</v-btn>
           <v-btn variant="outlined" :href="ISSUE_URL" target="_blank" rel="noopener noreferrer">Open a GitHub issue<span class="sr-only"> (opens in new tab)</span></v-btn>
         </div>
         <v-expansion-panels class="mt-3" variant="accordion">
           <v-expansion-panel title="Details" :text="error" />
         </v-expansion-panels>
-        <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
+        <div class="text-body-2 mt-2">Or pick another city from the place menu above.</div>
       </v-alert>
       <CreditStrip v-if="city && meta" />
       <v-sheet v-if="meta && (mdAndUp || !drawerOpen || printing)" class="map-legend-box pa-2" rounded elevation="2" color="surface">

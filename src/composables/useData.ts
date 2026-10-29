@@ -7,8 +7,8 @@ import type { CityManifest, Meta, ParkCollection, TractCollection } from '@/type
 // has a dataPath (Portland: "data", i.e. public/data/).
 export const dataUrl = (file: string, dataPath = 'data') => `${import.meta.env.BASE_URL}${dataPath}/${file}`
 
-async function getJson<T>(url: string, label: string): Promise<T> {
-  const res = await fetch(url)
+async function getJson<T>(url: string, label: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Failed to load ${label}: HTTP ${res.status}`)
   return (await res.json()) as T
 }
@@ -25,10 +25,28 @@ export function useData() {
   const loading = ref(true)
   const error = ref<string | null>(null)
 
-  async function load(dataPath = 'data') {
+  // #61: one controller per load(); a newer load aborts the older so only the latest sets refs/error.
+  let controller: AbortController | null = null
+
+  function clearPack() {
+    meta.value = null
+    tracts.value = null
+    parks.value = null
+    roads.value = null
+    trees.value = null
+  }
+
+  /** Resolves true when this load won and succeeded. */
+  async function load(dataPath = 'data'): Promise<boolean> {
+    controller?.abort()
+    const ctl = new AbortController()
+    controller = ctl
+    const { signal } = ctl
     loading.value = true
     error.value = null
-    const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f)
+    // Clear the previous city's pack so MapView unmounts (no wrong-city map while loading).
+    clearPack()
+    const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal)
     try {
       const [m, t, p, r, tr] = await Promise.all([
         get<Meta>('meta.json'),
@@ -38,15 +56,23 @@ export function useData() {
         // Missing/invalid trees.geojson is not an error: overlay just hides.
         get<FeatureCollection>('trees.geojson').catch(() => null),
       ])
+      if (controller !== ctl) return false
       meta.value = m
       tracts.value = t
       parks.value = p
       roads.value = r
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
+      return true
     } catch (e) {
+      if (controller !== ctl || (e instanceof DOMException && e.name === 'AbortError')) return false
+      clearPack()
       error.value = e instanceof Error ? e.message : String(e)
+      return false
     } finally {
-      loading.value = false
+      if (controller === ctl) {
+        loading.value = false
+        controller = null
+      }
     }
   }
 
