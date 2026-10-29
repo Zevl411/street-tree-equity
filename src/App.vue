@@ -9,6 +9,7 @@ import MapView from '@/components/MapView.vue'
 import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
+import DensityAreaScatter from '@/components/DensityAreaScatter.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import { belowMedianOrder, cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
 import PlacePicker from '@/components/PlacePicker.vue'
@@ -836,6 +837,7 @@ watch(drawerOpen, async (open) => {
           </div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
+        <DensityAreaScatter :tracts="tracts" :loading="loading" />
         <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
