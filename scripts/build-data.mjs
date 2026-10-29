@@ -27,7 +27,7 @@ import * as shapefile from 'shapefile'
 import osmtogeojson from 'osmtogeojson'
 import * as turf from '@turf/turf'
 import { cachedDownload, overpass, setRawOptions } from './lib/sources.mjs'
-import { roundCoords, roundFeature, pointInBbox, quantileBreaks } from './lib/geo-utils.mjs'
+import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -271,7 +271,7 @@ sorted.forEach((f, i) => {
   f.properties.percentile = Math.round((1 - i / Math.max(1, sorted.length - 1)) * 100)
 })
 const densities = tractOut.map((f) => f.properties.treesPerAcre)
-const breaks = quantileBreaks(densities, 5)
+const breaks = densityBreaks(densities, 5)
 const q1 = quantileBreaks(densities, 4)[0] ?? 0
 for (const f of tractOut) f.properties.bottomQuartile = f.properties.treesPerAcre <= q1
 
