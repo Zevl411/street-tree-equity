@@ -105,6 +105,8 @@ Density unit — in Layers, **Per acre** / **Per km²** switches displayed tree 
 
 City overview — with no tract selected, a card (desktop, top-left) or slim strip (mobile, top) summarizes the city: mapped trees, tracts, average density in your chosen unit, and plant-here share, with shortcuts to **Compare cities** and **About**.
 
+Low-canopy hotspots — **Hotspots** on the city overview (or **Low-canopy hotspots** in More) lists the 10 lowest-density tracts in the active city, in your chosen unit; tap one to open it. Share `?hotspots=1` to open the list on load (the flag is dropped after opening).
+
 Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
 Compare — optionally compare packaged city-level tree stats side by side. Uses the same static open data packs; no account or upload. Open it from **Compare two cities** in the city menu, or share `?compare=idA,idB` (two different ready ids; anything else is ignored).
