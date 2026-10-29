@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2 } from '@/stores/ui'
+import { hotspotTracts } from '@/utils/hotspots'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
 /** #43 Low-canopy hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
@@ -17,19 +18,8 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
 
-const MAX = 10
 const total = computed(() => props.tracts?.length ?? 0)
-const items = computed(() =>
-  [...(props.tracts ?? [])]
-    .filter((f) => Number.isFinite(f.properties.treesPerAcre))
-    .sort((a, b) => {
-      const pa = a.properties, pb = b.properties
-      return pa.treesPerAcre - pb.treesPerAcre
-        || (pb.rank ?? 0) - (pa.rank ?? 0)
-        || (pa.name ?? '').localeCompare(pb.name ?? '', undefined, { numeric: true })
-    })
-    .slice(0, MAX),
-)
+const items = computed(() => hotspotTracts(props.tracts))
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
 function density(tpa: number) {
   return props.unit === 'km2'
