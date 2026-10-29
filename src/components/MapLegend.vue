@@ -9,12 +9,14 @@ const rows = computed(() => {
   return colors.map((color, i) => {
     const lo = i === 0 ? 0 : breaks[i - 1]
     const hi = breaks[i]
-    const label = hi === undefined ? `≥ ${fmt(lo)}` : `${fmt(lo)} – ${fmt(hi)}`
+    const label = hi === undefined ? `≥ ${fmt(lo)}` : lo === hi ? `≈ ${fmt(lo)}` : `${fmt(lo)} – ${fmt(hi)}`
     return { color, label }
   })
 })
 
 function fmt(n: number) {
+  if (n === 0) return '0'
+  if (n < 0.1) return n.toFixed(3)
   return n < 1 ? n.toFixed(2) : n.toFixed(1)
 }
 </script>
