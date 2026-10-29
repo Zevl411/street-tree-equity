@@ -14,6 +14,7 @@ import HotspotsPanel from '@/components/HotspotsPanel.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { readSessionView, writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
@@ -51,11 +52,15 @@ function flyToPark(p: NearbyPark) {
 
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 
-async function selectCity(id: string) {
+/** #44: stored camera for the first city shown (cleared after boot so city switches fit). */
+const initialView = ref<SessionView | null>(null)
+
+async function selectCity(id: string, restore: SessionView | null = null) {
   const res = cityStore.setCity(id)
   if (!res) return
+  initialView.value = restore && restore.cityId === res.entry.id ? restore : null
   if (res.changed || !meta.value) await load(res.entry.dataPath)
-  mapRef.value?.fitData()
+  if (!initialView.value) mapRef.value?.fitData()
 }
 
 function retry() {
@@ -69,8 +74,15 @@ async function init() {
   if (link.layers) applyLayers(link.layers)
   if (link.unit) ui.setDensityUnit(link.unit)
   await cityStore.loadManifest()
-  await selectCity(cityStore.initialCityId())
-  if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
+  // #44 precedence per field: URL param > localStorage (ready packs only) > default.
+  const stored = readSessionView()
+  const bootCity = cityStore.initialCityId()
+  const inPack = (g: string | null | undefined) => !!g && !!tracts.value?.features.some((f) => f.properties.geoid === g)
+  // A URL geoid owns the camera; otherwise restore the stored camera only for the same city.
+  await selectCity(bootCity, !link.geoid && stored?.cityId === bootCity ? stored : null)
+  if (link.geoid && inPack(link.geoid)) cityStore.select(link.geoid)
+  else if (!link.geoid && stored?.cityId === cityStore.cityId && inPack(stored.geoid)) cityStore.select(stored.geoid!)
+  watch(selectedGeoid, (g) => { if (cityStore.cityId) writeSessionView({ cityId: cityStore.cityId, geoid: g }) }, { immediate: true })
   syncUrl()
   openCompareFromUrl()
   openHotspotsFromUrl()
@@ -344,7 +356,7 @@ watch(drawerOpen, async (open) => {
     <v-main class="d-flex flex-column">
       <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
