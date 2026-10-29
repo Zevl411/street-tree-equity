@@ -53,6 +53,8 @@ const props = defineProps<{
   roads: FeatureCollection | null
   /** #51: pack tree points; null = pack has none (layer not added). */
   trees?: FeatureCollection | null
+  /** #60 stretch: #54 focus mode bumps the selected outline. */
+  focusMode?: boolean
 }>()
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
@@ -179,11 +181,39 @@ function addDataLayers(m: MlMap) {
       paint: { 'text-color': cp.text },
     }, before)
   }
-  m.addLayer({
-    id: 'tracts-selected', type: 'line', source: 'tracts',
-    filter: ['==', ['get', 'geoid'], selectedGeoid.value ?? ''],
-    paint: { 'line-color': pal.selected, 'line-width': 3 },
-  })
+  // #60: halo + core, added last so the ring sits above trees/clusters and #36 dashes.
+  const sp = selectedPaint()
+  const selFilter = ['==', ['get', 'geoid'], selectedGeoid.value ?? ''] as any
+  const layout = { 'line-join': 'round', 'line-cap': 'round' } as const
+  m.addLayer({ id: 'tracts-selected-halo', type: 'line', source: 'tracts', filter: selFilter, layout, paint: sp.halo as any })
+  m.addLayer({ id: 'tracts-selected', type: 'line', source: 'tracts', filter: selFilter, layout, paint: sp.core as any })
+}
+
+/** #60: selected-tract halo/core tokens by basemap/theme/contrast/focus; width zoom-interpolated around z12–14. */
+function selectedPaint() {
+  const sat = basemap.value === 'satellite'
+  const dark = !sat && isDark.value
+  const hc = choroplethMode.value === 'contrast'
+  const t = sat
+    ? { hc: '#000000', hw: 8, ho: 0.7, cc: '#ffeb3b', cw: 3.5 }
+    : dark
+      ? { hc: '#000000', hw: 7, ho: 0.75, cc: '#fafafa', cw: 3 }
+      : { hc: '#ffffff', hw: 7, ho: 0.9, cc: '#212121', cw: 3 }
+  const k = props.focusMode ? 1.25 : 1
+  const hw = (t.hw + (hc ? 1 : 0)) * k
+  const cw = (t.cw + (hc ? 0.5 : 0)) * k
+  const w = (b: number) => ['interpolate', ['linear'], ['zoom'], 10, b * 0.75, 12, b, 14, b, 17, b * 1.25]
+  return {
+    halo: { 'line-color': t.hc, 'line-opacity': t.ho, 'line-width': w(hw) },
+    core: { 'line-color': t.cc, 'line-opacity': 1, 'line-width': w(cw) },
+  }
+}
+
+function applySelectedPaint() {
+  if (!map?.getLayer('tracts-selected') || !map.getLayer('tracts-selected-halo')) return
+  const sp = selectedPaint()
+  for (const [k, v] of Object.entries(sp.halo)) map.setPaintProperty('tracts-selected-halo', k, v)
+  for (const [k, v] of Object.entries(sp.core)) map.setPaintProperty('tracts-selected', k, v)
 }
 
 /** #51: tree dots — independent of #48 fill opacity; satellite gets light fill + dark stroke. */
@@ -274,6 +304,7 @@ function fitSelectedAboveSheet(g: string) {
 function applySelection() {
   if (!map || !ready.value) return
   const g = selectedGeoid.value
+  map.setFilter('tracts-selected-halo', ['==', ['get', 'geoid'], g ?? ''])
   map.setFilter('tracts-selected', ['==', ['get', 'geoid'], g ?? ''])
   // Low-tree road segments: only the selected tract, or all of them when nothing is selected.
   map.setFilter('roads-low', g ? ['==', ['get', 'geoid'], g] : null)
@@ -412,7 +443,10 @@ watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
   refreshTractOpacity()
   applyTreePaint()
+  applySelectedPaint()
 })
+watch(isDark, applySelectedPaint)
+watch(() => props.focusMode, applySelectedPaint)
 watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
