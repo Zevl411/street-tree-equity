@@ -11,6 +11,8 @@ export interface ShortcutHandlers {
   toggleFullscreen?: () => void
   /** #77: n/p cycle below-median tracts. */
   jumpBelowMedian?: (dir: 1 | -1) => void
+  /** #84: `*` (Shift+8 / numpad) toggles star on the selected tract. */
+  toggleStar?: () => void
 }
 
 /** True when the key should be left to a text field / editable element. */
@@ -40,6 +42,7 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
       case 'f': h.toggleFullscreen?.(); break
       case 'n': h.jumpBelowMedian?.(1); break
       case 'p': h.jumpBelowMedian?.(-1); break
+      case '*': e.preventDefault(); h.toggleStar?.(); break
     }
   }
   onMounted(() => window.addEventListener('keydown', onKey, { capture: true }))
