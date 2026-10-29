@@ -348,7 +348,6 @@ onMounted(() => {
   })
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right')
   mountScale()
-  map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), 'top-right')
 
   // Satellite fallback: repeated EOX tile/source errors -> back to streets (persisted via store).
   map.on('error', (e) => {
