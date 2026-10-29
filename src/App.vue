@@ -28,6 +28,7 @@ import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useD
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
+import { hotspotGeoids } from '@/utils/hotspots'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load } = useData()
@@ -63,6 +64,8 @@ const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.va
 const layersOpen = ref(false)
 const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
+// #90: shared hotspot set for map dim (same helper as HotspotsPanel).
+const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features)))
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
 const resetConfirmOpen = ref(false)
@@ -820,7 +823,7 @@ watch(drawerOpen, async (open) => {
           <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
         </v-btn>
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center" role="status" aria-live="polite">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />

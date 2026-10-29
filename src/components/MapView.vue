@@ -56,6 +56,9 @@ const props = defineProps<{
   trees?: FeatureCollection | null
   /** #60 stretch: #54 focus mode bumps the selected outline. */
   focusMode?: boolean
+  /** #90: while the Hotspots panel is open, dim tracts not in this set. */
+  hotspotsOpen?: boolean
+  hotspotGeoids?: string[]
 }>()
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
@@ -104,6 +107,18 @@ function tractFillOpacity(): ExpressionSpecification {
   const hoverOf = (d: number): ExpressionSpecification => ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, d + 0.12), d] as ExpressionSpecification
   // #73: bin wins — while a histogram bin is selected, opacity follows the bin only and the
   // #59 median dim is suspended (no AND). Clearing the bin restores #59 paint.
+  // #90: hotspot dim wins while the panel is open — suspends #73 bin and #59 median paint.
+  const hot = props.hotspotsOpen ? (props.hotspotGeoids ?? []) : []
+  if (hot.length) {
+    const dim = base * BELOW_MEDIAN_DIM
+    return [
+      'case',
+      ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
+      ['!', ['in', ['to-string', ['get', 'geoid']], ['literal', hot]]], hoverOf(dim),
+      ['boolean', ['feature-state', 'hover'], false], hover,
+      base,
+    ] as ExpressionSpecification
+  }
   const bin = densityBinIndex.value
   if (bin !== null) {
     const dim = base * BELOW_MEDIAN_DIM
@@ -459,6 +474,7 @@ watch(selectedGeoid, (g) => {
 watch(fillOpacity, refreshTractOpacity)
 watch(belowMedian, refreshTractOpacity)
 watch(densityBinIndex, refreshTractOpacity)
+watch(() => [props.hotspotsOpen, props.hotspotGeoids], refreshTractOpacity)
 watch(() => props.tracts, refreshTractOpacity)
 watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
