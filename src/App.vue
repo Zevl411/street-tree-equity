@@ -312,7 +312,7 @@ const satFallback = ref(false)
         </div>
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
-          <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="compareOpen = true">Compare cities</v-btn>
+          <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
           <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
         </div>
       </v-sheet>
@@ -324,7 +324,7 @@ const satFallback = ref(false)
           <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
         </div>
-        <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="compareOpen = true" />
+        <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
         <v-btn icon="mdi-information-outline" variant="text" size="small" class="overview-icon" aria-label="About" @click="aboutOpen = true" />
       </v-sheet>
       </div>
