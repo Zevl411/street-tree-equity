@@ -15,6 +15,34 @@ const UNIT_KEY = 'ste-density-unit'
 const FILL_OPACITY_KEY = 'ste-fill-opacity'
 const CHOROPLETH_KEY = 'ste-choropleth'
 const LEGEND_KEY = 'ste-legend-open'
+const BIN_KEY = 'ste-bin'
+
+/** #79: ste-bin = { [cityId]: 0-based legend index }. Bad JSON / bad values → dropped. */
+function readBinMap(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(BIN_KEY)
+    const o = raw ? JSON.parse(raw) : {}
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return {}
+    const out: Record<string, number> = {}
+    for (const [k, v] of Object.entries(o)) if (Number.isInteger(v) && (v as number) >= 0) out[k] = v as number
+    return out
+  } catch { return {} }
+}
+export function storedBin(cityId: string | null | undefined): number | null {
+  if (!cityId) return null
+  return readBinMap()[cityId] ?? null
+}
+/** #79: write/merge (i ≥ 0 int) or delete the city's key; removes ste-bin when empty. */
+export function persistBin(cityId: string | null | undefined, i: number | null) {
+  if (!cityId) return
+  try {
+    const m = readBinMap()
+    if (i !== null && Number.isInteger(i) && i >= 0) m[cityId] = i
+    else delete m[cityId]
+    if (Object.keys(m).length) localStorage.setItem(BIN_KEY, JSON.stringify(m))
+    else localStorage.removeItem(BIN_KEY)
+  } catch { /* storage unavailable */ }
+}
 
 export const FILL_OPACITY_MIN = 0.3
 export const FILL_OPACITY_MAX = 1
@@ -110,7 +138,7 @@ export const useUiStore = defineStore('ui', () => {
   const highlightBottomQuartile = ref(false)
   /** #59: not persisted — session + share link (`bm`) only. */
   const belowMedian = ref(false)
-  /** #73: histogram bin filter — session only (never ste-*). null = all bins. */
+  /** #73: histogram bin filter — persisted per city in ste-bin (#79) by App. null = all bins. */
   const densityBinIndex = ref<number | null>(null)
   function setDensityBin(i: number | null, binCount?: number) {
     densityBinIndex.value = i !== null && Number.isInteger(i) && i >= 0 && (binCount === undefined || i < binCount) ? i : null
