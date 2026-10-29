@@ -317,7 +317,7 @@ function applySelection() {
 
 function fitData() {
   const b = props.meta.dataBbox
-  map?.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 24, duration: 0 })
+  map?.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 24, duration: cameraDuration(600) })
 }
 
 defineExpose({
