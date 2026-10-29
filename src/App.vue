@@ -27,7 +27,7 @@ const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 const cityStore = useCityStore()
 const { cities, city, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit } = storeToRefs(ui)
+const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -361,6 +361,14 @@ watch(drawerOpen, async (open) => {
               <template #prepend><span class="text-caption text-medium-emphasis">Fainter</span></template>
               <template #append><span class="text-caption text-medium-emphasis">Stronger</span></template>
             </v-slider>
+            <div class="text-caption mb-1">Color ramp</div>
+            <v-btn-toggle :model-value="choroplethMode" mandatory density="compact" variant="outlined" divided color="primary"
+              class="unit-toggle" aria-label="Choropleth color ramp" @click.stop
+              @update:model-value="(v: 'green' | 'contrast') => ui.setChoroplethMode(v)">
+              <v-btn value="green" size="small">Green</v-btn>
+              <v-btn value="contrast" size="small">High contrast</v-btn>
+            </v-btn-toggle>
+            <div class="text-caption text-medium-emphasis mt-1 mb-1">Same density bins — different colors.</div>
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />

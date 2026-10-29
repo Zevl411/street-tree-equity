@@ -8,6 +8,7 @@ import { dataUrl } from '@/composables/useData'
 import { writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { useCityStore } from '@/stores/city'
 import { useUiStore, type Basemap } from '@/stores/ui'
+import { choroplethColors } from '@/utils/choropleth'
 
 // Free, no-key basemap. OpenFreeMap is free to use with no registration or API key.
 // Swap via VITE_BASEMAP_STYLE (any MapLibre style URL that needs no key).
@@ -52,7 +53,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
 const emit = defineEmits<{ satelliteError: [] }>()
 
 const el = ref<HTMLDivElement | null>(null)
@@ -63,7 +64,8 @@ const SAT_ERROR_LIMIT = 3
 const ready = ref(false)
 
 function fillColor(): ExpressionSpecification {
-  const { breaks, colors } = props.meta
+  const { breaks } = props.meta
+  const colors = choroplethColors(props.meta, choroplethMode.value)
   const expr: unknown[] = ['step', ['get', 'treesPerAcre'], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
   return expr as ExpressionSpecification
@@ -301,6 +303,9 @@ watch(selectedGeoid, (g) => {
 })
 watch(fillOpacity, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-opacity', tractFillOpacity())
+})
+watch(choroplethMode, () => {
+  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
 })
 watch(showTrees, (v) => setVis('trees', v))
 watch(showParks, (v) => setVis('parks-fill', v))
