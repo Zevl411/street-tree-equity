@@ -1,7 +1,8 @@
 /**
  * #58 Reset saved preferences.
  * Known keys (as of #58): ste-city, ste-view, ste-favorites, ste-theme, ste-basemap,
- * ste-density-unit, ste-fill-opacity, ste-choropleth, ste-legend-open, ste-bin (#79, per-city map).
+ * ste-density-unit, ste-fill-opacity, ste-choropleth, ste-legend-open, ste-bin (#79, per-city map),
+ * ste-palette (#81, `cb` when colorblind-safe ramp is on).
  * We sweep every `ste-*` key so future prefs aren't orphaned. Never touches non-ste-* keys.
  */
 export function wipeSavedPrefs(): void {

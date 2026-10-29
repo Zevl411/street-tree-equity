@@ -60,7 +60,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -79,7 +79,7 @@ const ready = ref(false)
 
 function fillColor(): ExpressionSpecification {
   const { breaks } = props.meta
-  const colors = choroplethColors(props.meta, choroplethMode.value)
+  const colors = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value)
   const expr: unknown[] = ['step', ['get', 'treesPerAcre'], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
   return expr as ExpressionSpecification
@@ -108,7 +108,7 @@ function tractFillOpacity(): ExpressionSpecification {
   if (bin !== null) {
     const dim = base * BELOW_MEDIAN_DIM
     // Same bin math as binIndex()/fill `step`: index = number of breaks <= v.
-    const last = choroplethColors(props.meta, choroplethMode.value).length - 1
+    const last = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value).length - 1
     const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', 'treesPerAcre'], -1], b], 1, 0])]] as unknown as ExpressionSpecification
     return [
       'case',
@@ -465,6 +465,10 @@ watch(choroplethMode, () => {
   refreshTractOpacity()
   applyTreePaint()
   applySelectedPaint()
+})
+watch(choroplethPalette, () => {
+  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
+  refreshTractOpacity()
 })
 watch(isDark, applySelectedPaint)
 watch(() => props.focusMode, applySelectedPaint)

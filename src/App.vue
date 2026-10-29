@@ -220,7 +220,7 @@ async function init() {
   openFavoritesFromUrl()
   openFocusFromUrl()
   // #79 precedence: valid `?bin=` (explicit override, persisted) > ste-bin[city] > null. Clamped once meta is ready.
-  const binCount = () => (meta.value ? choroplethColors(meta.value, ui.choroplethMode).length : undefined)
+  const binCount = () => (meta.value ? choroplethColors(meta.value, ui.choroplethMode, ui.choroplethPalette).length : undefined)
   ui.setDensityBin(link.bin !== null ? link.bin : storedBin(cityStore.cityId), binCount())
   persistBin(cityStore.cityId, ui.densityBinIndex)
   // #79: on city change restore that city's stored bin (or null); no cross-pack bleed.
@@ -663,6 +663,10 @@ watch(drawerOpen, async (open) => {
               <v-btn value="contrast" size="small">High contrast</v-btn>
             </v-btn-toggle>
             <div class="text-caption text-medium-emphasis mt-1 mb-1">Same density bins — different colors.</div>
+            <v-switch :model-value="ui.choroplethPalette === 'cb'" label="Colorblind-safe colors" aria-label="Colorblind-safe choropleth colors"
+              color="primary" hide-details density="compact"
+              @update:model-value="(v: boolean | null) => ui.setChoroplethPalette(v ? 'cb' : 'default')" />
+            <div class="text-caption text-medium-emphasis ms-1 mb-1">Blues–greens ramp; High contrast still uses its own colors.</div>
             <v-switch v-if="treesAvailable" v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />

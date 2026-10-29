@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import type { ChoroplethMode } from '@/utils/choropleth'
+import type { ChoroplethMode, ChoroplethPalette } from '@/utils/choropleth'
 
 export type ThemeName = 'treeLight' | 'treeDark'
 export type Basemap = 'streets' | 'satellite'
@@ -14,6 +14,7 @@ const BASEMAP_KEY = 'ste-basemap'
 const UNIT_KEY = 'ste-density-unit'
 const FILL_OPACITY_KEY = 'ste-fill-opacity'
 const CHOROPLETH_KEY = 'ste-choropleth'
+const PALETTE_KEY = 'ste-palette'
 const LEGEND_KEY = 'ste-legend-open'
 const BIN_KEY = 'ste-bin'
 
@@ -124,6 +125,15 @@ export const useUiStore = defineStore('ui', () => {
     choroplethMode.value = m === 'contrast' ? 'contrast' : 'green'
   }
 
+  // #81: colorblind-safe ramp family; orthogonal to choroplethMode; local only.
+  const choroplethPalette = ref<ChoroplethPalette>(read(PALETTE_KEY) === 'cb' ? 'cb' : 'default')
+  watch(choroplethPalette, (p) => {
+    try { if (p === 'cb') localStorage.setItem(PALETTE_KEY, 'cb'); else localStorage.removeItem(PALETTE_KEY) } catch { /* ignore */ }
+  })
+  function setChoroplethPalette(p: ChoroplethPalette): void {
+    choroplethPalette.value = p === 'cb' ? 'cb' : 'default'
+  }
+
   // #53: legend expand/collapse; null = no stored choice (default by viewport).
   const legendStored = read(LEGEND_KEY)
   const legendExpandedPref = ref<boolean | null>(legendStored === '1' ? true : legendStored === '0' ? false : null)
@@ -150,7 +160,7 @@ export const useUiStore = defineStore('ui', () => {
     basemap, setBasemap,
     densityUnit, setDensityUnit,
     fillOpacity, setFillOpacity,
-    choroplethMode, setChoroplethMode,
+    choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,
     showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen,
     densityBinIndex, setDensityBin,
