@@ -93,6 +93,8 @@ from the default branch: `https://<namespace>.gitlab.io/<project>/`. It sets
 
 Respects the OS “reduce motion” setting: map jumps instead of flying, and UI transitions are shortened.
 
+Print map (browser print) hides chrome and keeps the map, legend, and credits.
+
 Keyboard users can **Skip to map**, operate the Layers presets and switches, and activate plant-here street / park rows from the tract panel (Enter or Space); map exploration itself is pointer-oriented, so use Find tract to pick a tract by keyboard.
 
 ## Add or switch cities

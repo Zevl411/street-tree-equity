@@ -216,10 +216,16 @@ defineExpose({
   },
   fitData,
   fitRoad,
+  resize() { map?.resize() },
 })
 
 onMounted(() => {
   if (!el.value) return
+  // #55: re-fit canvas to the print page and back.
+  const onPrintResize = () => map?.resize()
+  window.addEventListener('beforeprint', onPrintResize)
+  window.addEventListener('afterprint', onPrintResize)
+  onBeforeUnmount(() => { window.removeEventListener('beforeprint', onPrintResize); window.removeEventListener('afterprint', onPrintResize) })
   const b = props.meta.dataBbox
   map = new maplibregl.Map({
     container: el.value,
