@@ -213,7 +213,7 @@ const satFallback = ref(false)
   position: absolute;
   left: 12px;
   /* Clear the app bar on live Pages (16px still clipped): bar height + gap. */
-  top: calc(var(--v-layout-top, 56px) + 12px);
+  top: calc(var(--v-layout-top, 0px) + 56px);
   z-index: 2;
 }
 .sr-only {

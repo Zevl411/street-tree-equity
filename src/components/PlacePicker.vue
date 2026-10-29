@@ -51,7 +51,7 @@ function pickResult(r: PlaceResult) {
     <v-card :width="mobile ? undefined : 320" title="Choose a place">
       <v-card-text class="pb-0">
         <v-text-field v-model="query" label="Search for a city" prepend-inner-icon="mdi-magnify" autocomplete="off"
-          density="compact" variant="outlined" hide-details :loading="searching" @keydown.enter.prevent="now(query)" />
+          density="compact" variant="outlined" hide-details :loading="searching" hint="Press Enter to search" @keydown.enter.prevent="now(query)" />
         <div v-if="searching" class="text-caption mt-1" role="status" aria-live="polite">Searching…</div>
         <div class="text-caption mt-1 opacity-70">Press Enter to search. Search uses OpenStreetMap Nominatim (free, no key).</div>
         <v-alert v-if="failed" type="warning" density="compact" class="mt-2"
