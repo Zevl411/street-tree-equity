@@ -392,6 +392,56 @@ function pickFromHotspots(geoid: string) {
 }
 
 const linkSnack = ref('')
+
+// #67: pack-bounded Locate me — Geolocation API only, single shot, never switches city.
+const geoSupported = typeof navigator !== 'undefined' && !!navigator.geolocation
+const locating = ref(false)
+const locateLabel = computed(() => (locating.value ? 'Locating…' : 'Locate me'))
+function nearestGeoid(lon: number, lat: number): string | null {
+  let best: string | null = null
+  let bestD = Infinity
+  for (const f of tracts.value?.features ?? []) {
+    const g = f.geometry as { type: string; coordinates: unknown }
+    if (!g) continue
+    let sx = 0, sy = 0, n = 0
+    const walk = (c: unknown): void => {
+      if (Array.isArray(c) && typeof c[0] === 'number') { sx += c[0] as number; sy += c[1] as number; n++ }
+      else if (Array.isArray(c)) c.forEach(walk)
+    }
+    walk(g.coordinates)
+    if (!n) continue
+    const dx = (sx / n - lon) * Math.cos((lat * Math.PI) / 180)
+    const dy = sy / n - lat
+    const d = dx * dx + dy * dy
+    if (d < bestD) { bestD = d; best = (f.properties as { geoid?: string })?.geoid ?? null }
+  }
+  return best
+}
+function locateMe() {
+  if (!geoSupported || locating.value) return
+  locating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      locating.value = false
+      const { longitude: lon, latitude: lat } = pos.coords
+      const b = meta.value?.dataBbox
+      if (!b || lon < b[0] || lat < b[1] || lon > b[2] || lat > b[3]) {
+        linkSnack.value = 'You’re outside this city’s map area'
+        return
+      }
+      mapRef.value?.flyTo(lon, lat, 15)
+      const g = nearestGeoid(lon, lat)
+      if (g) cityStore.select(g)
+    },
+    (err) => {
+      locating.value = false
+      linkSnack.value = err.code === 1
+        ? 'Location permission blocked — allow it in your browser’s site settings'
+        : 'Couldn’t get your location'
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+  )
+}
 /** #64: client-side below-median CSV (same median as #59; independent of the dim toggle). */
 function exportBelowMedian(flagged: boolean) {
   const id = cityStore.cityId
@@ -579,6 +629,10 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-fit-to-screen-outline" />
           <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
         </v-btn>
+        <v-btn v-if="geoSupported" id="locate-btn" icon :aria-label="locateLabel" :aria-busy="locating ? 'true' : 'false'" :disabled="locating || !meta" @click="locateMe">
+          <v-icon icon="mdi-crosshairs-gps" />
+          <v-tooltip activator="parent" location="bottom">Locate me</v-tooltip>
+        </v-btn>
         <v-btn icon aria-label="Share map link" @click="copyLink">
           <v-icon icon="mdi-link-variant" />
           <v-tooltip activator="parent" location="bottom">Share map link</v-tooltip>
@@ -606,6 +660,7 @@ watch(drawerOpen, async (open) => {
       </v-btn>
       <template v-if="!mdAndUp && focusMode">
         <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()"><v-icon icon="mdi-fit-to-screen-outline" /></v-btn>
+        <v-btn v-if="geoSupported" icon :aria-label="locateLabel" :aria-busy="locating ? 'true' : 'false'" :disabled="locating || !meta" @click="locateMe"><v-icon icon="mdi-crosshairs-gps" /></v-btn>
         <v-btn icon aria-label="Share map link" @click="copyLink"><v-icon icon="mdi-link-variant" /></v-btn>
         <v-btn icon aria-label="Exit focus" aria-pressed="true" @click="setFocus(false)"><v-icon icon="mdi-fullscreen-exit" /></v-btn>
         <v-btn v-if="fsSupported" icon :aria-label="fsLabel" :aria-pressed="isFullscreen ? 'true' : 'false'" @click="toggleFs"><v-icon :icon="isFullscreen ? 'mdi-arrow-collapse-all' : 'mdi-arrow-expand-all'" /></v-btn>
@@ -619,6 +674,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" :title="resetLabel" @click="mapRef?.fitData()" />
+          <v-list-item v-if="geoSupported" prepend-icon="mdi-crosshairs-gps" :title="locateLabel" :disabled="locating || !meta" @click="locateMe" />
           <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
           <v-list-item prepend-icon="mdi-printer" title="Print map" @click="printMap" />
           <v-list-item prepend-icon="mdi-fullscreen" title="Focus map" @click="setFocus(true)" />
