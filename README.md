@@ -124,7 +124,7 @@ Or build one in CI (no local Overpass): **Actions → City pack → Run workflow
 
 ### Restore last session (#44)
 
-Reloading brings back your last city, basemap, density unit, theme, map camera and selected tract,
+Reloading brings back your last city, basemap, density unit, tract fill opacity, theme, map camera and selected tract,
 all from browser `localStorage` (`ste-city`, `ste-basemap`, `ste-density-unit`, `ste-theme`, and
 `ste-view` = `{ cityId, lng, lat, zoom, geoid }`). Precedence per field: a valid URL param wins,
 then storage (only for ready packs; stale or coming-soon ids are ignored), then defaults. A URL

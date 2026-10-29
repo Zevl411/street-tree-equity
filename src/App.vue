@@ -27,7 +27,7 @@ const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 const cityStore = useCityStore()
 const { cities, city, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { theme, isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit } = storeToRefs(ui)
+const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen, densityUnit } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -353,6 +353,14 @@ watch(drawerOpen, async (open) => {
               <v-btn value="acre" size="small">Per acre</v-btn>
               <v-btn value="km2" size="small">Per km²</v-btn>
             </v-btn-toggle>
+            <div class="text-caption mb-n1">Tract fill</div>
+            <v-slider :model-value="fillOpacity" :min="0.3" :max="1" :step="0.05" density="compact" color="primary"
+              hide-details thumb-label class="fill-opacity-slider mb-1" aria-label="Tract fill opacity" @click.stop
+              @update:model-value="(v: number) => ui.setFillOpacity(v)">
+              <template #thumb-label="{ modelValue }">{{ Math.round(modelValue * 100) }}%</template>
+              <template #prepend><span class="text-caption text-medium-emphasis">Fainter</span></template>
+              <template #append><span class="text-caption text-medium-emphasis">Stronger</span></template>
+            </v-slider>
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
