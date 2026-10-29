@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv } from '@/utils/exportData'
+import { downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toPlantHereCsv } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -525,6 +525,18 @@ function exportAllTracts() {
   downloadBlob(csv, exportFilename(id, 'all-tracts', 'csv'), 'text/csv;charset=utf-8')
   linkSnack.value = 'All tracts CSV downloaded'
 }
+/** #92: all plant-here street segments in the loaded pack (independent of Roads toggle). */
+function exportPlantHere() {
+  const id = cityStore.cityId
+  const fc = roads.value
+  if (!id || !fc?.features.length) return
+  try {
+    downloadBlob(toPlantHereCsv(fc as never, id), exportFilename(id, 'plant-here', 'csv'), 'text/csv;charset=utf-8')
+    linkSnack.value = 'Plant-here CSV downloaded'
+  } catch {
+    linkSnack.value = "Couldn't prepare the file. Try again."
+  }
+}
 const allFavs = useFavorites()
 async function copyLink() {
   syncUrl()
@@ -728,6 +740,7 @@ watch(drawerOpen, async (open) => {
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" aria-label="Export all tracts CSV" :disabled="loading || !cityStore.cityId || !(tracts?.features.length)" @click="exportAllTracts">Export all tracts CSV</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" aria-label="Export plant-here streets CSV" :disabled="loading || !cityStore.cityId || !(roads?.features.length)" @click="exportPlantHere">Export plant-here CSV</v-btn>
             <div class="text-caption text-medium-emphasis ms-1 mb-1">Includes OSM-derived values (ODbL).</div>
           </v-card-text>
         </v-card>
