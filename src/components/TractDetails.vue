@@ -4,6 +4,7 @@ import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { useOverlayFocus } from '@/composables/useOverlayFocus'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
@@ -75,6 +76,10 @@ const roadsExpanded = ref(false)
 watch(() => props.tract.geoid, () => (roadsExpanded.value = false))
 const visibleRoads = computed(() => (roadsExpanded.value ? roadRows.value : roadRows.value.slice(0, ROAD_LIMIT)))
 
+// #39: Download menu lands on its first item; focus returns to the Download button on close.
+const downloadOpen = ref(false)
+useOverlayFocus(downloadOpen, '#download-menu .v-list-item')
+
 const copied = ref(false)
 async function copyGeoid() {
   try {
@@ -107,10 +112,10 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
 </script>
 
 <template>
-  <v-card flat>
+  <v-card id="tract-details-panel" flat>
     <v-card-item>
       <template #append>
-        <v-btn icon="mdi-close" variant="text" class="touch-44" aria-label="Close" @click="emit('close')" />
+        <v-btn icon="mdi-close" variant="text" class="touch-44 tract-close" aria-label="Close" @click="emit('close')" />
       </template>
       <v-card-title class="text-wrap">{{ tract.name }}</v-card-title>
       <v-card-subtitle>{{ tract.county }}</v-card-subtitle>
@@ -212,7 +217,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       </v-tooltip>
     </div>
     <div class="px-4 pb-1">
-      <v-menu location="top" attach="body" :contained="false">
+      <v-menu v-model="downloadOpen" location="top" attach="body" :contained="false">
         <template #activator="{ props: menu }">
           <v-tooltip text="Download data" location="top">
             <template #activator="{ props: tip }">
@@ -220,7 +225,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
             </template>
           </v-tooltip>
         </template>
-        <v-list density="compact">
+        <v-list id="download-menu" density="compact">
           <v-list-item title="This tract (CSV)" :aria-label="`Download CSV for ${tract.name}`" @click="doExport('tract')" />
           <v-list-item title="All tracts in this city (CSV)" @click="doExport('all-csv')" />
           <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />

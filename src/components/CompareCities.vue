@@ -141,8 +141,8 @@ async function copyLink() {
 
 <template>
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" v-bind="mobile ? {} : { maxWidth: 720 }">
-    <v-card title="Compare cities" :class="{ 'compare-sheet': mobile }">
-      <template #append><v-btn icon="mdi-close" variant="text" aria-label="Close" @click="open = false" /></template>
+    <v-card id="compare-panel" title="Compare cities" :class="{ 'compare-sheet': mobile }">
+      <template #append><v-btn icon="mdi-close" variant="text" class="compare-close" aria-label="Close" @click="open = false" /></template>
       <v-card-text>
         <v-row dense>
           <v-col cols="12" :sm="mobile ? 12 : 6"><v-select v-model="a" :items="items" label="City A" density="compact" hide-details="auto" /></v-col>

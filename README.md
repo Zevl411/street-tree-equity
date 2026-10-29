@@ -89,6 +89,10 @@ from the default branch: `https://<namespace>.gitlab.io/<project>/`. It sets
 `REFRESH_DATA=true` on a manual or scheduled pipeline to re-fetch data.
 
 <a id="add-or-switch-cities"></a>
+## Accessibility
+
+Keyboard users can **Skip to map**, operate the Layers presets and switches, and activate plant-here street / park rows from the tract panel (Enter or Space); map exploration itself is pointer-oriented, so use Find tract to pick a tract by keyboard.
+
 ## Add or switch cities
 
 Use the place button in the app bar to switch between packaged demo cities listed in

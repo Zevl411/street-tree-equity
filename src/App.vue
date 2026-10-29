@@ -14,6 +14,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
+import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
@@ -159,10 +160,34 @@ async function copyLink() {
 onMounted(init)
 
 const satFallback = ref(false)
+
+// #39 a11y: skip link, overlay focus in/out.
+function skipToMap() {
+  document.getElementById('map-stage')?.focus()
+}
+const findControl = () => (mdAndUp.value ? '#find-tract-btn' : '#more-actions-btn')
+useOverlayFocus(layersOpen, firstFocusableIn('#layers-panel'))
+useOverlayFocus(finderOpen, '#tract-finder-panel input', findControl, () => !drawerOpen.value)
+useOverlayFocus(compareOpen, '#compare-panel .compare-close', () => '#city-picker-btn')
+const tractFromFinder = ref(false)
+function pickFromFinder(geoid: string) {
+  tractFromFinder.value = true
+  cityStore.select(geoid)
+}
+watch(drawerOpen, async (open) => {
+  if (open) {
+    await focusSoon('#tract-details-panel .tract-close')
+  } else {
+    const target = tractFromFinder.value ? findControl() : '#map-stage'
+    tractFromFinder.value = false
+    await focusSoon(target)
+  }
+})
 </script>
 
 <template>
   <v-app class="app-root">
+    <a href="#map-stage" class="skip-link" @click.prevent="skipToMap">Skip to map</a>
     <v-app-bar color="primary" density="comfortable" flat>
       <template #prepend>
         <v-icon icon="mdi-tree" class="ml-2" />
@@ -188,7 +213,7 @@ const satFallback = ref(false)
             <v-tooltip activator="parent" location="bottom">Basemap and layers</v-tooltip>
           </v-btn>
         </template>
-        <v-card :min-width="mdAndUp ? 260 : undefined" :max-width="mdAndUp ? undefined : '100%'">
+        <v-card id="layers-panel" :min-width="mdAndUp ? 260 : undefined" :max-width="mdAndUp ? undefined : '100%'">
           <v-card-title class="text-subtitle-1">Layers</v-card-title>
           <v-card-text class="pt-0">
             <div class="text-caption mb-1">Basemap</div>
@@ -229,9 +254,9 @@ const satFallback = ref(false)
         </v-card>
       </component>
       <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
-        :city-id="city?.id ?? null" @pick="cityStore.select($event)" />
+        :city-id="city?.id ?? null" @pick="pickFromFinder" />
       <template v-if="mdAndUp">
-        <v-btn icon aria-label="Find tract" @click="finderOpen = true">
+        <v-btn id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
           <v-icon icon="mdi-magnify" />
           <v-tooltip activator="parent" location="bottom">Find tract</v-tooltip>
         </v-btn>
@@ -254,7 +279,7 @@ const satFallback = ref(false)
       </v-btn>
       <v-menu v-if="!mdAndUp" location="bottom end">
         <template #activator="{ props: act }">
-          <v-btn v-bind="act" icon="mdi-dots-vertical" aria-label="More actions" />
+          <v-btn id="more-actions-btn" v-bind="act" icon="mdi-dots-vertical" aria-label="More actions" />
         </template>
         <v-list density="comfortable">
           <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
@@ -273,7 +298,7 @@ const satFallback = ref(false)
     </v-navigation-drawer>
 
     <v-main class="d-flex flex-column">
-      <div class="main-stage">
+      <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
       <MapView
         @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
@@ -366,6 +391,20 @@ const satFallback = ref(false)
 
 <style scoped>
 .unit-toggle .v-btn { min-height: 44px; }
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 3000;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible, .skip-link:focus { transform: none; }
+#map-stage:focus { outline: none; }
+#map-stage:focus-visible { outline-offset: -2px; }
 .preset-chip-touch { min-height: 44px; }
 /* Normal-flow stage inside v-main's padded box, so absolute map/overlays
    sit below the app bar instead of under it (#34). */
