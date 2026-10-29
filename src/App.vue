@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { downloadBlob, exportFilename, toBelowMedianCsv } from '@/utils/exportData'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
@@ -361,6 +362,16 @@ function pickFromHotspots(geoid: string) {
 }
 
 const linkSnack = ref('')
+/** #64: client-side below-median CSV (same median as #59; independent of the dim toggle). */
+function exportBelowMedian(flagged: boolean) {
+  const id = cityStore.cityId
+  const feats = tracts.value?.features ?? []
+  if (!id || !feats.length) return
+  const csv = toBelowMedianCsv(feats.map((f) => f.properties), id, densityUnit.value === 'km2' ? 'km2' : 'acre', flagged)
+  if (csv === null) return
+  downloadBlob(csv, exportFilename(id, flagged ? 'below-median-flagged' : 'below-median', 'csv'), 'text/csv;charset=utf-8')
+  linkSnack.value = flagged ? 'Below-median flagged CSV downloaded' : 'Below-median CSV downloaded'
+}
 async function copyLink() {
   syncUrl()
   const href = window.location.href
@@ -514,6 +525,9 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
             <v-switch v-model="belowMedian" label="Below city median" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
             <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? 'Dims tracts above this city’s median trees/acre' : 'Needs at least 2 tracts with density data' }}</div>
+            <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
+            <div class="text-caption text-medium-emphasis ms-1 mb-1">Includes OSM-derived values (ODbL).</div>
           </v-card-text>
         </v-card>
       </component>

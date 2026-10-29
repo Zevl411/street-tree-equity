@@ -1,4 +1,6 @@
 import { dataUrl } from '@/composables/useData'
+import { cityMedian } from '@/utils/densityBins'
+import { ACRES_PER_KM2 } from '@/stores/ui'
 import type { Meta, TractCollection, TractProps } from '@/types'
 
 /** #23 client-side export. Blob download only — no server endpoint. */
@@ -71,4 +73,21 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
       }
     }),
   })
+}
+
+/** #64: below-median (<=) CSV in the UI density unit; `flagged` = all finite tracts + below_median column. */
+export function toBelowMedianCsv(tracts: TractProps[], cityId: string, unit: 'acre' | 'km2', flagged = false): string | null {
+  const median = cityMedian({ type: 'FeatureCollection', features: tracts.map((properties) => ({ properties })) } as unknown as TractCollection)
+  if (median === null) return null
+  const km2 = unit === 'km2'
+  const dens = (t: TractProps) => (km2 ? (Number.isFinite(t.treesPerKm2) ? t.treesPerKm2 : t.treesPerAcre * ACRES_PER_KM2) : t.treesPerAcre)
+  const rows = tracts
+    .filter((t) => Number.isFinite(t.treesPerAcre) && (flagged || t.treesPerAcre <= median))
+    .sort((a, b) => a.treesPerAcre - b.treesPerAcre || String(a.geoid).localeCompare(String(b.geoid)))
+  const header = ['geoid', 'city_id', 'density', 'density_unit', 'rank', ...(flagged ? ['below_median'] : [])]
+  const lines = rows.map((t) => [
+    t.geoid, cityId, dens(t).toFixed(4), km2 ? 'trees_per_km2' : 'trees_per_acre', Number.isFinite(t.rank) ? t.rank : '',
+    ...(flagged ? [t.treesPerAcre <= median ? 'true' : 'false'] : []),
+  ].map(cell).join(','))
+  return [header.join(','), ...lines].join('\r\n') + '\r\n'
 }
