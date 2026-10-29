@@ -575,7 +575,7 @@ watch(drawerOpen, async (open) => {
     <v-main class="d-flex flex-column">
       <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
