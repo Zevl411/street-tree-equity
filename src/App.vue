@@ -288,6 +288,12 @@ const spread = computed(() => {
   const ratio = Number.isFinite(r) ? `×${r.toFixed(1)}` : ''
   return {
     p10: f(p10), med: f(med), p90: f(p90), unit, ratio,
+    // #83 numeric acre values for the CSS sparkline (null when nothing to scale)
+    spark: p90 > 0 ? {
+      left: Math.min(100, Math.max(0, (p10 / p90) * 100)),
+      width: Math.min(100, Math.max(0, ((p90 - p10) / p90) * 100)),
+      med: Math.min(100, Math.max(0, (med / p90) * 100)),
+    } : null,
     aria: `Density spread: 10th percentile ${f(p10)}, median ${f(med)}, 90th percentile ${f(p90)} trees per ${km2 ? 'square kilometer' : 'acre'}${ratio ? `; 90th to 10th percentile ratio about ${r.toFixed(1)}` : ''}`,
   }
 })
@@ -813,6 +819,10 @@ watch(drawerOpen, async (open) => {
           <div v-if="spread" class="text-caption text-medium-emphasis" role="group" :aria-label="spread.aria">
             <span aria-hidden="true">Spread&nbsp; p10 <strong>{{ spread.p10 }}</strong> · median <strong>{{ spread.med }}</strong> · p90 <strong>{{ spread.p90 }}</strong>&nbsp; {{ spread.unit }}<template v-if="spread.ratio"> · p90÷p10 ≈ {{ spread.ratio }}</template></span>
           </div>
+          <div v-if="spread?.spark" class="spread-spark" role="img" :aria-label="spread.aria">
+            <span class="spread-spark-range" aria-hidden="true" :style="{ left: spread.spark.left + '%', width: `max(${spread.spark.width}%, 2px)` }" />
+            <span class="spread-spark-tick" aria-hidden="true" :style="{ left: spread.spark.med + '%' }" />
+          </div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
         <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
@@ -834,6 +844,10 @@ watch(drawerOpen, async (open) => {
           <v-chip v-if="spread" size="small" variant="tonal" class="spread-chip" :aria-label="spread.aria"><span class="text-truncate">p10 {{ spread.p10 }} · med {{ spread.med }} · p90 {{ spread.p90 }}{{ spread.unit }}<template v-if="spread.ratio"> {{ spread.ratio }}</template></span></v-chip>
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
         </div>
+        <div v-if="spread?.spark" class="spread-spark spread-spark--dense" role="img" :aria-label="spread.aria">
+            <span class="spread-spark-range" aria-hidden="true" :style="{ left: spread.spark.left + '%', width: `max(${spread.spark.width}%, 2px)` }" />
+            <span class="spread-spark-tick" aria-hidden="true" :style="{ left: spread.spark.med + '%' }" />
+          </div>
         <DensityHistogram :meta="meta" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
@@ -1021,4 +1035,9 @@ watch(drawerOpen, async (open) => {
 #map-stage:-webkit-full-screen { width: 100%; height: 100%; }
 
 .spread-chip { max-width: 100%; }
+/* #83 CSS-only inequality sparkline: domain 0→p90 */
+.spread-spark { position: relative; width: 100%; height: 8px; margin: 6px 0 4px; border-radius: 999px; background: rgba(var(--v-theme-on-surface), 0.12); }
+.spread-spark--dense { height: 6px; margin: 5px 0 3px; }
+.spread-spark-range { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgba(var(--v-theme-primary), 0.45); }
+.spread-spark-tick { position: absolute; top: -2px; bottom: -2px; width: 2px; transform: translateX(-1px); background: rgb(var(--v-theme-primary)); }
 </style>
