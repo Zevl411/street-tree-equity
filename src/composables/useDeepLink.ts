@@ -27,6 +27,17 @@ export function encodeLayers(f: LayerFlags): string | null {
   return LAYER_TOKENS.filter((k) => f[k]).join(',')
 }
 
+/** #85: canonical `treeLight`/`treeDark` (exact) or aliases `light`/`dark` (case-insensitive) → ThemeName. */
+export function parseTheme(raw: string | null): ThemeName | null {
+  if (!raw) return null
+  const t = raw.trim()
+  if (t === 'treeLight' || t === 'treeDark') return t
+  const a = t.toLowerCase()
+  if (a === 'light') return 'treeLight'
+  if (a === 'dark') return 'treeDark'
+  return null
+}
+
 /** Parsed, validated view params from the URL (?city=&geoid=|tract=&basemap=&theme=&layers=). */
 export interface DeepLink {
   city: string | null
@@ -52,7 +63,7 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     city: q.get('city'),
     geoid: geoid && /^\d{6,15}$/.test(geoid) ? geoid : null,
     basemap: basemap === 'streets' || basemap === 'satellite' ? basemap : null,
-    theme: theme === 'treeLight' || theme === 'treeDark' ? theme : null,
+    theme: parseTheme(theme),
     layers: parseLayers(q.get('layers')),
     hc: q.get('hc') === '1' ? true : null,
     legend: ((l) => (l === '1' ? true : l === '0' ? false : null))(q.get('legend')),
