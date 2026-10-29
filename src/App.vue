@@ -7,17 +7,16 @@ import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import { useData } from '@/composables/useData'
-import { DEFAULT_CITY, useCityStore } from '@/stores/city'
+import { useCityStore } from '@/stores/city'
 import { useUiStore } from '@/stores/ui'
 import { readDeepLink, writeDeepLink } from '@/composables/useDeepLink'
 import type { NearbyPark } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
-const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-cities'
 
 const cityStore = useCityStore()
-const { cities, city, notBuilt, selectedGeoid } = storeToRefs(cityStore)
+const { cities, city, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
 const { theme, isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
 
@@ -157,13 +156,13 @@ const satFallback = ref(false)
 
     <v-main class="position-relative">
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
         <div class="text-body-2 mt-3">Loading tree data for {{ loadingName }}…</div>
       </div>
-      <v-alert v-if="error && !notBuilt" type="error" class="ma-4" title="Map data didn't load">
+      <v-alert v-if="error" type="error" class="ma-4" title="Map data didn't load">
         <p>Check your connection and try again. If it keeps happening, the data files may be updating — please open an issue.</p>
         <div class="d-flex flex-wrap ga-2 mt-3">
           <v-btn variant="flat" color="white" @click="retry">Try again</v-btn>
@@ -174,20 +173,6 @@ const satFallback = ref(false)
         </v-expansion-panels>
         <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
       </v-alert>
-      <div v-if="notBuilt" class="d-flex fill-height align-center justify-center pa-4">
-        <v-card max-width="480" variant="outlined" title="Not built for this area yet">
-          <v-card-text>
-            This map ships static open data so it stays free forever.
-            {{ notBuilt.display_name }} isn’t in the demo set. You can open Portland, OR, or add a city by
-            editing <code>city.config.json</code> and running <code>npm run data:refresh</code> (see README).
-          </v-card-text>
-          <v-card-actions>
-            <v-btn color="primary" variant="flat" @click="selectCity(DEFAULT_CITY)">Show Portland, OR</v-btn>
-            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener noreferrer">How to add a city<span class="sr-only"> (opens in new tab)</span></v-btn>
-          </v-card-actions>
-        </v-card>
-      </div>
-
       <v-sheet v-if="meta && !mdAndUp" class="mobile-legend pa-2" rounded elevation="2" color="surface">
         <MapLegend :meta="meta" />
       </v-sheet>
