@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 import MapView from '@/components/MapView.vue'
@@ -9,6 +9,7 @@ import PlacePicker from '@/components/PlacePicker.vue'
 import { useData } from '@/composables/useData'
 import { DEFAULT_CITY, useCityStore } from '@/stores/city'
 import { useUiStore } from '@/stores/ui'
+import { readDeepLink, writeDeepLink } from '@/composables/useDeepLink'
 import type { NearbyPark } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
@@ -18,7 +19,7 @@ const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-
 const cityStore = useCityStore()
 const { cities, city, notBuilt, selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
+const { theme, isDark, basemap, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen } = storeToRefs(ui)
 
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
@@ -53,8 +54,30 @@ function retry() {
 }
 
 async function init() {
+  const link = readDeepLink()
+  if (link.theme && link.theme !== ui.theme) ui.setTheme(link.theme)
+  if (link.basemap) ui.setBasemap(link.basemap)
   await cityStore.loadManifest()
   await selectCity(cityStore.initialCityId())
+  if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
+  syncUrl()
+  // Keep the address bar shareable as the view changes.
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme], syncUrl)
+}
+
+function syncUrl() {
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value })
+}
+
+const linkSnack = ref('')
+async function copyLink() {
+  syncUrl()
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    linkSnack.value = 'Link copied'
+  } catch {
+    linkSnack.value = 'Couldn’t copy link — copy it from the address bar.'
+  }
 }
 
 onMounted(init)
@@ -110,6 +133,10 @@ const satFallback = ref(false)
       <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
         <v-icon icon="mdi-fit-to-screen-outline" />
         <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
+      </v-btn>
+      <v-btn icon aria-label="Copy link to this view" @click="copyLink">
+        <v-icon icon="mdi-link-variant" />
+        <v-tooltip activator="parent" location="bottom">Copy link to this view</v-tooltip>
       </v-btn>
       <v-btn icon aria-label="About" @click="aboutOpen = true">
         <v-icon icon="mdi-information-outline" />
@@ -205,6 +232,7 @@ const satFallback = ref(false)
       </v-card>
     </v-dialog>
     <v-snackbar v-model="satFallback" timeout="5000">Satellite imagery unavailable — showing streets.</v-snackbar>
+    <v-snackbar :model-value="!!linkSnack" timeout="3000" @update:model-value="(v: boolean) => { if (!v) linkSnack = '' }">{{ linkSnack }}</v-snackbar>
   </v-app>
 </template>
 
