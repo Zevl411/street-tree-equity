@@ -9,7 +9,7 @@ import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
-const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
+const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null }>()
 const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature] }>()
 
 const vsCity = computed(() => {
@@ -19,6 +19,25 @@ const vsCity = computed(() => {
 })
 const ui = useUiStore()
 const isKm2 = computed(() => ui.densityUnit === 'km2')
+// #69 tract vs city median (same median as #59)
+const MINUS = '\u2212'
+const signed = (n: number, s: string) => (n > 0 ? '+' : n < 0 ? MINUS : '') + s
+const vsMedian = computed(() => {
+  const m = props.cityMedianAcre
+  const t = props.tract.treesPerAcre
+  if (m == null || !Number.isFinite(m) || !Number.isFinite(t)) return null
+  const deltaAcre = t - m
+  const pct = m === 0 ? null : Math.round((deltaAcre / m) * 100)
+  const at = Math.abs(deltaAcre) < 0.0005 || pct === 0
+  const below = !at && deltaAcre < 0
+  const deltaShow = isKm2.value ? deltaAcre * ACRES_PER_KM2 : deltaAcre
+  const dp = isKm2.value ? 1 : 2
+  const mag = Math.abs(deltaShow).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })
+  const unit = isKm2.value ? '/km²' : '/acre'
+  const caption = `${at ? '0' : signed(deltaShow, mag)} ${unit} vs city median${pct === null ? '' : ` (${at ? '0' : signed(pct, String(Math.abs(pct)))}%)`}`
+  const label = at ? 'At city median' : below ? 'Below city median' : 'Above city median'
+  return { label, caption, below, color: at ? 'secondary' : below ? 'warning' : 'success', aria: `${label}: ${caption.replace(MINUS, 'minus ')}` }
+})
 const fmtKm2 = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 const tractKm2 = computed(() => props.tract.treesPerKm2 ?? props.tract.treesPerAcre * ACRES_PER_KM2)
 const cityAvgLabel = computed(() => isKm2.value
@@ -202,6 +221,16 @@ function copyLink() {
       <div v-if="vsCity !== null" class="text-caption text-medium-emphasis mb-3">
         {{ vsCity }}% of the {{ areaLabel }} average ({{ cityAvgLabel }})
       </div>
+      <template v-if="vsMedian">
+        <div class="d-flex flex-wrap ga-2 mb-1">
+          <v-chip :color="vsMedian.color" variant="tonal" size="small" :aria-label="vsMedian.aria"
+            :prepend-icon="vsMedian.below ? 'mdi-arrow-down' : undefined"
+            :class="{ 'font-weight-bold': vsMedian.below && ui.choroplethMode === 'contrast' }">
+            {{ vsMedian.label }}
+          </v-chip>
+        </div>
+        <div class="text-caption text-medium-emphasis mb-3" aria-hidden="true">{{ vsMedian.caption }}</div>
+      </template>
 
       <v-row dense>
         <v-col cols="6">
