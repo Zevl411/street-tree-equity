@@ -38,11 +38,11 @@ function pickCity(c: CityEntry) {
         <v-tooltip activator="parent" location="bottom">Change city</v-tooltip>
       </v-btn>
     </template>
-    <v-card :width="mobile ? undefined : 320" title="Demo cities">
+    <v-card :width="mobile ? undefined : 320" title="Demo cities" :class="{ 'mobile-sheet': mobile }">
       <v-alert v-if="manifestError" type="warning" density="compact" class="mx-4 mb-2"
         text="Couldn't load the city list. Refresh and try again." />
       <v-card-text v-if="!cities.length" class="text-body-2">No demo cities are loaded yet.</v-card-text>
-      <v-list v-else density="compact">
+      <v-list v-else :density="mobile ? 'comfortable' : 'compact'" :class="{ 'mobile-list': mobile }">
         <template v-for="c in cities" :key="c.id">
           <v-list-item v-if="isReady(c)" :title="c.cityName" :subtitle="c.subtitle"
             :active="c.id === selectedId" @click="pickCity(c)">
@@ -59,7 +59,7 @@ function pickCity(c: CityEntry) {
       <div v-if="canCompare" class="px-2 pb-2">
         <v-btn variant="text" class="text-none" prepend-icon="mdi-compare" @click="startCompare">Compare two cities</v-btn>
       </div>
-      <v-card-text class="pt-0 text-caption opacity-70">
+      <v-card-text class="pt-0 text-caption opacity-70" :class="{ 'safe-foot': mobile }">
         More cities coming. Packs are free open data —
         <a :href="README_URL" target="_blank" rel="noopener noreferrer">see how to add one in the README<span class="sr-only"> (opens in new tab)</span></a>.
       </v-card-text>
@@ -68,5 +68,9 @@ function pickCity(c: CityEntry) {
 </template>
 
 <style scoped>
+.mobile-sheet { width: 100%; max-height: 85dvh; display: flex; flex-direction: column; }
+.mobile-list { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.mobile-sheet :deep(.v-list-item-title), .mobile-sheet :deep(.v-list-item-subtitle) { white-space: normal; overflow-wrap: anywhere; }
+.safe-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>

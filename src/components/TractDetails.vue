@@ -70,7 +70,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
   <v-card flat>
     <v-card-item>
       <template #append>
-        <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" @click="emit('close')" />
+        <v-btn icon="mdi-close" variant="text" class="touch-44" aria-label="Close" @click="emit('close')" />
       </template>
       <v-card-title class="text-wrap">{{ tract.name }}</v-card-title>
       <v-card-subtitle>{{ tract.county }}</v-card-subtitle>
@@ -127,7 +127,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       <v-list-subheader>Nearest parks · {{ tract.parksInside }} inside this tract</v-list-subheader>
       <v-list-item v-for="row in parkRows" :key="row.park.id" prepend-icon="mdi-pine-tree" :title="row.title"
         :subtitle="`${row.park.distanceKm} km (${miles(row.park.distanceKm)} mi) · ${row.park.areaAcres} acres`"
-        :aria-label="`Zoom to ${row.title}, ${miles(row.park.distanceKm)} mi away`" @click="emit('flyToPark', row.park)">
+        class="touch-row" :aria-label="`Zoom to ${row.title}, ${miles(row.park.distanceKm)} mi away`" @click="emit('flyToPark', row.park)">
         <template v-if="row.inside" #append>
           <v-chip size="x-small" variant="tonal" color="success" density="compact">Inside tract</v-chip>
         </template>
@@ -140,17 +140,17 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       GEOID {{ tract.geoid }}
       <v-tooltip :text="copied ? 'Copied' : 'Copy GEOID'" location="top">
         <template #activator="{ props: tip }">
-          <v-btn v-bind="tip" :icon="copied ? 'mdi-check' : 'mdi-content-copy'" variant="text" size="x-small"
-            class="ml-1" aria-label="Copy GEOID" @click="copyGeoid" />
+          <v-btn v-bind="tip" :icon="copied ? 'mdi-check' : 'mdi-content-copy'" variant="text" size="small"
+            class="ml-1 touch-44" aria-label="Copy GEOID" @click="copyGeoid" />
         </template>
       </v-tooltip>
     </div>
     <div class="px-4 pb-1">
-      <v-menu location="top">
+      <v-menu location="top" attach="body" :contained="false">
         <template #activator="{ props: menu }">
           <v-tooltip text="Download data" location="top">
             <template #activator="{ props: tip }">
-              <v-btn v-bind="{ ...menu, ...tip }" prepend-icon="mdi-download" variant="tonal" size="small">Download…</v-btn>
+              <v-btn v-bind="{ ...menu, ...tip }" prepend-icon="mdi-download" variant="tonal" class="touch-h44">Download…</v-btn>
             </template>
           </v-tooltip>
         </template>
@@ -162,7 +162,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       </v-menu>
       <div class="text-caption text-medium-emphasis mt-1">{{ ODBL_NOTICE }}</div>
     </div>
-    <v-snackbar v-model="snack" :timeout="2000">{{ snackText }}</v-snackbar>
+    <v-snackbar v-model="snack" :timeout="2000" class="safe-snack">{{ snackText }}</v-snackbar>
     <div class="text-caption text-medium-emphasis px-4 pb-3 credit-strip">
       Tracts: <a href="https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html" target="_blank" rel="noopener noreferrer">U.S. Census Bureau<span class="d-sr-only"> (opens in new tab)</span></a>
       · Trees, parks &amp; streets: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap (ODbL)<span class="d-sr-only"> (opens in new tab)</span></a>
@@ -173,5 +173,8 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
 
 <style scoped>
 .stat-lead { height: auto !important; white-space: normal; padding-block: 4px; }
+.touch-44 { min-width: 44px !important; min-height: 44px !important; }
+.touch-h44 { min-height: 44px; }
+.touch-row { min-height: 48px; }
 .credit-strip a { color: inherit; text-decoration: underline; }
 </style>

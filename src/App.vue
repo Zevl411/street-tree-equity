@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
+import { VBottomSheet, VMenu } from 'vuetify/components'
 import MapView from '@/components/MapView.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
@@ -25,6 +26,8 @@ const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName 
 const { mdAndUp } = useDisplay()
 const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Switch to dark mode'))
 const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.value?.cityName || 'the map'}`)
+const layersOpen = ref(false)
+const legendExpanded = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const selectedTract = computed(() =>
@@ -104,7 +107,7 @@ const satFallback = ref(false)
 </script>
 
 <template>
-  <v-app>
+  <v-app class="app-root">
     <v-app-bar color="primary" density="comfortable" flat>
       <template #prepend>
         <v-icon icon="mdi-tree" class="ml-2" />
@@ -123,24 +126,24 @@ const satFallback = ref(false)
         <MapLegend :meta="meta" dense />
       </v-sheet>
 
-      <v-menu :close-on-content-click="false" location="bottom end">
+      <component :is="mdAndUp ? VMenu : VBottomSheet" v-model="layersOpen" v-bind="mdAndUp ? { closeOnContentClick: false, location: 'bottom end' } : {}">
         <template #activator="{ props: act }">
           <v-btn v-bind="act" icon aria-label="Layers">
             <v-icon icon="mdi-layers-outline" />
             <v-tooltip activator="parent" location="bottom">Basemap and layers</v-tooltip>
           </v-btn>
         </template>
-        <v-card min-width="260">
+        <v-card :min-width="mdAndUp ? 260 : undefined" :max-width="mdAndUp ? undefined : '100%'">
           <v-card-title class="text-subtitle-1">Layers</v-card-title>
           <v-card-text class="pt-0">
             <div class="text-caption mb-1">Basemap</div>
             <v-btn-toggle
               :model-value="basemap"
-              mandatory divided density="compact" variant="outlined" aria-label="Basemap"
+              mandatory divided :density="mdAndUp ? 'compact' : 'comfortable'" :class="{ 'd-flex w-100': !mdAndUp }" variant="outlined" aria-label="Basemap"
               @update:model-value="(v: 'streets' | 'satellite') => ui.setBasemap(v)"
             >
-              <v-btn value="streets">Streets</v-btn>
-              <v-btn value="satellite">Satellite</v-btn>
+              <v-btn value="streets" :class="{ 'flex-grow-1': !mdAndUp }">Streets</v-btn>
+              <v-btn value="satellite" :class="{ 'flex-grow-1': !mdAndUp }">Satellite</v-btn>
             </v-btn-toggle>
             <v-divider class="my-3" />
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
@@ -149,23 +152,35 @@ const satFallback = ref(false)
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
           </v-card-text>
         </v-card>
-      </v-menu>
-      <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
-        <v-icon icon="mdi-fit-to-screen-outline" />
-        <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
-      </v-btn>
-      <v-btn icon aria-label="Copy link to this view" @click="copyLink">
-        <v-icon icon="mdi-link-variant" />
-        <v-tooltip activator="parent" location="bottom">Copy link to this view</v-tooltip>
-      </v-btn>
-      <v-btn icon aria-label="About" @click="aboutOpen = true">
-        <v-icon icon="mdi-information-outline" />
-        <v-tooltip activator="parent" location="bottom">About</v-tooltip>
-      </v-btn>
+      </component>
+      <template v-if="mdAndUp">
+        <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
+          <v-icon icon="mdi-fit-to-screen-outline" />
+          <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
+        </v-btn>
+        <v-btn icon aria-label="Copy link to this view" @click="copyLink">
+          <v-icon icon="mdi-link-variant" />
+          <v-tooltip activator="parent" location="bottom">Copy link to this view</v-tooltip>
+        </v-btn>
+        <v-btn icon aria-label="About" @click="aboutOpen = true">
+          <v-icon icon="mdi-information-outline" />
+          <v-tooltip activator="parent" location="bottom">About</v-tooltip>
+        </v-btn>
+      </template>
       <v-btn icon :aria-label="themeLabel" @click="ui.toggleTheme()">
         <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" />
         <v-tooltip activator="parent" location="bottom">{{ themeLabel }}</v-tooltip>
       </v-btn>
+      <v-menu v-if="!mdAndUp" location="bottom end">
+        <template #activator="{ props: act }">
+          <v-btn v-bind="act" icon="mdi-dots-vertical" aria-label="More actions" />
+        </template>
+        <v-list density="comfortable">
+          <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
+          <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
+          <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
+        </v-list>
+      </v-menu>
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
     </v-app-bar>
 
@@ -177,7 +192,7 @@ const satFallback = ref(false)
 
     <v-main class="position-relative">
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -194,8 +209,13 @@ const satFallback = ref(false)
         </v-expansion-panels>
         <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
       </v-alert>
-      <v-sheet v-if="meta && !mdAndUp" class="mobile-legend pa-2" rounded elevation="2" color="surface">
-        <MapLegend :meta="meta" />
+      <v-sheet v-if="meta && !mdAndUp && !drawerOpen" class="mobile-legend pa-2" rounded elevation="2" color="surface">
+        <MapLegend v-if="legendExpanded" :meta="meta" />
+        <v-btn variant="text" size="small" density="comfortable" class="text-none legend-toggle"
+          :prepend-icon="legendExpanded ? 'mdi-chevron-down' : 'mdi-palette-swatch-outline'"
+          :aria-expanded="legendExpanded" @click="legendExpanded = !legendExpanded">
+          {{ legendExpanded ? 'Hide legend' : 'Legend' }}
+        </v-btn>
       </v-sheet>
 
       <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="300">
@@ -208,7 +228,7 @@ const satFallback = ref(false)
       </v-sheet>
     </v-main>
 
-    <v-dialog v-model="aboutOpen" max-width="560">
+    <v-dialog v-model="aboutOpen" :max-width="mdAndUp ? 560 : '100%'" :fullscreen="!mdAndUp" scrollable>
       <v-card title="About this map">
         <v-card-text>
           <p class="mb-3">
@@ -237,8 +257,8 @@ const satFallback = ref(false)
         </v-card-actions>
       </v-card>
     </v-dialog>
-    <v-snackbar v-model="satFallback" timeout="5000">Satellite imagery unavailable — showing streets.</v-snackbar>
-    <v-snackbar :model-value="!!linkSnack" timeout="3000" @update:model-value="(v: boolean) => { if (!v) linkSnack = '' }">{{ linkSnack }}</v-snackbar>
+    <v-snackbar v-model="satFallback" timeout="5000" class="safe-snack">Satellite imagery unavailable — showing streets.</v-snackbar>
+    <v-snackbar :model-value="!!linkSnack" timeout="3000" class="safe-snack" @update:model-value="(v: boolean) => { if (!v) linkSnack = '' }">{{ linkSnack }}</v-snackbar>
   </v-app>
 </template>
 
@@ -258,15 +278,24 @@ const satFallback = ref(false)
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.app-root {
+  overflow-x: hidden;
+}
 .mobile-legend {
   position: absolute;
   left: 8px;
-  bottom: 36px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100vw - 120px);
   z-index: 2;
 }
+.legend-toggle {
+  min-height: 44px;
+}
 .bottom-drawer {
-  max-height: 60vh !important;
+  max-height: min(85vh, calc(100dvh - var(--v-layout-top, 0px))) !important;
   height: auto !important;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 </style>

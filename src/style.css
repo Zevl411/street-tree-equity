@@ -1,3 +1,8 @@
 html, body, #app { height: 100%; margin: 0; }
 html { overflow-y: hidden !important; }
 .maplibregl-popup-content { font-family: Roboto, sans-serif; font-size: 13px; }
+
+/* #33: keep snackbars clear of the iOS home indicator (teleported, so global). */
+.safe-snack .v-overlay__content {
+  margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
