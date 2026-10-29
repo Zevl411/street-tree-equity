@@ -97,6 +97,8 @@ and `?city=<id>` links work). The browser never queries Overpass live.
 
 Layer presets — in Layers, one tap on **Equity**, **Plant-here**, or **Parks** sets the layer switches; **Copy link** includes layer visibility via `layers=` (e.g. `layers=trees,parks,bq`; omitted when it matches the default).
 
+Density unit — in Layers, **Per acre** / **Per km²** switches displayed tree density (legend labels, tract details, hint, Compare). Display-only: map colors and breaks stay trees/acre. Remembered in this browser (`localStorage` `ste-density-unit`) and shared via `unit=km2` (omitted for acre).
+
 Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
 Compare — optionally compare packaged city-level tree stats side by side. Uses the same static open data packs; no account or upload. Open it from **Compare two cities** in the city menu, or share `?compare=idA,idB` (two different ready ids; anything else is ignored).

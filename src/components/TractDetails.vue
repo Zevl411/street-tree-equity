@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
+import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
@@ -13,6 +14,13 @@ const vsCity = computed(() => {
   if (!city) return null
   return Math.round((props.tract.treesPerAcre / city) * 100)
 })
+const ui = useUiStore()
+const isKm2 = computed(() => ui.densityUnit === 'km2')
+const fmtKm2 = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 })
+const tractKm2 = computed(() => props.tract.treesPerKm2 ?? props.tract.treesPerAcre * ACRES_PER_KM2)
+const cityAvgLabel = computed(() => isKm2.value
+  ? `${fmtKm2(props.meta.overall.treesPerAcre * ACRES_PER_KM2)}/km²`
+  : `${props.meta.overall.treesPerAcre.toFixed(2)}/acre`)
 const areaLabel = computed(() => props.meta.subtitle || props.meta.cityName)
 const miles = (km: number) => (km * 0.621371).toFixed(2)
 const bufferM = computed(() => props.meta.roadsBufferMeters ?? 20)
@@ -111,12 +119,12 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
     <v-card-text>
       <v-alert v-if="tract.bottomQuartile" type="warning" variant="tonal" density="compact" class="mb-3"
         icon="mdi-tree-outline">
-        Among the 25% of tracts with the fewest mapped trees per acre.
+        Among the 25% of tracts with the fewest mapped trees per {{ isKm2 ? 'km²' : 'acre' }}.
       </v-alert>
 
       <v-chip v-if="vsCity !== null" :color="vsCity < 100 ? 'warning' : 'success'" variant="tonal" size="small"
         class="mb-3 stat-lead">
-        {{ vsCity }}% of the {{ areaLabel }} average ({{ meta.overall.treesPerAcre.toFixed(2) }}/acre)
+        {{ vsCity }}% of the {{ areaLabel }} average ({{ cityAvgLabel }})
       </v-chip>
 
       <v-row dense>
@@ -125,9 +133,16 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
           <div class="text-caption text-medium-emphasis">Mapped trees</div>
         </v-col>
         <v-col cols="6">
-          <div class="text-h5 font-weight-bold">{{ tract.treesPerAcre.toFixed(2) }}</div>
-          <div class="text-caption text-medium-emphasis">Trees per acre</div>
-          <div class="text-caption text-medium-emphasis">{{ tract.treesPerKm2 }} per km²</div>
+          <template v-if="isKm2">
+            <div class="text-h5 font-weight-bold">{{ fmtKm2(tractKm2) }}</div>
+            <div class="text-caption text-medium-emphasis">Trees per km²</div>
+            <div class="text-caption text-medium-emphasis">Also {{ tract.treesPerAcre.toFixed(2) }} per acre</div>
+          </template>
+          <template v-else>
+            <div class="text-h5 font-weight-bold">{{ tract.treesPerAcre.toFixed(2) }}</div>
+            <div class="text-caption text-medium-emphasis">Trees per acre</div>
+            <div class="text-caption text-medium-emphasis">Also {{ fmtKm2(tractKm2) }} per km²</div>
+          </template>
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">{{ tract.areaAcres.toLocaleString() }} ac</div>
@@ -135,7 +150,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">#{{ tract.rank }} of {{ total }}</div>
-          <div class="text-caption text-medium-emphasis">Ranked density (1 = most trees per acre)</div>
+          <div class="text-caption text-medium-emphasis">Ranked density (1 = most trees per {{ isKm2 ? 'km²' : 'acre' }})</div>
         </v-col>
       </v-row>
 

@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Meta } from '@/types'
+import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ meta: Meta; dense?: boolean }>()
 
+const ui = useUiStore()
+const isKm2 = computed(() => ui.densityUnit === 'km2')
+
+// Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() => {
-  const { breaks, colors } = props.meta
+  const { colors } = props.meta
+  const k = isKm2.value ? ACRES_PER_KM2 : 1
+  const breaks = props.meta.breaks.map((b) => b * k)
   return colors.map((color, i) => {
     const lo = i === 0 ? 0 : breaks[i - 1]
     const hi = breaks[i]
@@ -16,6 +23,7 @@ const rows = computed(() => {
 
 function fmt(n: number) {
   if (n === 0) return '0'
+  if (isKm2.value) return n.toLocaleString(undefined, { maximumFractionDigits: n < 10 ? 1 : 0 })
   if (n < 0.1) return n.toFixed(3)
   return n < 1 ? n.toFixed(2) : n.toFixed(1)
 }
@@ -23,7 +31,7 @@ function fmt(n: number) {
 
 <template>
   <div class="legend" :class="{ dense }">
-    <div class="text-caption font-weight-medium mb-1">Trees / acre (OSM-mapped)</div>
+    <div class="text-caption font-weight-medium mb-1">{{ isKm2 ? 'Trees / km²' : 'Trees / acre' }} (OSM-mapped)</div>
     <div class="d-flex" :class="dense ? 'flex-row align-center ga-2' : 'flex-column ga-1'">
       <div v-for="r in rows" :key="r.label" class="d-flex align-center ga-1">
         <span class="swatch" :style="{ background: r.color }" />

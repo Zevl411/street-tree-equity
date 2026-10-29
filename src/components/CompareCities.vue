@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import { storeToRefs } from 'pinia'
 import { useCityStore } from '@/stores/city'
+import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
@@ -11,6 +12,7 @@ const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ open: [id: string]; copied: [msg: string] }>()
 
 const cityStore = useCityStore()
+const ui = useUiStore()
 const { cities, cityId } = storeToRefs(cityStore)
 const ready = computed(() => cities.value.filter(isReady))
 const items = computed(() => ready.value.map((c) => ({ title: c.cityName, value: c.id })))
@@ -22,6 +24,7 @@ const canCompare = computed(() => !!a.value && !!b.value && !same.value)
 
 interface Stats {
   tracts: number; median: number | null; mean: number | null
+  medianKm2: number | null; meanKm2: number | null
   bq: number | null; parks: number | null; roadKm: number | null
 }
 const loading = ref(false)
@@ -45,6 +48,13 @@ async function getJson<T>(url: string): Promise<T> {
   return (await r.json()) as T
 }
 
+function medMean(xs: number[]): { median: number | null; mean: number | null } {
+  const v = [...xs].sort((x, y) => x - y)
+  if (!v.length) return { median: null, mean: null }
+  const mid = v.length >> 1
+  return { median: v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2, mean: v.reduce((s, n) => s + n, 0) / v.length }
+}
+
 async function stats(id: string): Promise<{ name: string; s: Stats }> {
   const c = ready.value.find((x) => x.id === id)
   if (!c) throw new Error('unknown city')
@@ -53,17 +63,18 @@ async function stats(id: string): Promise<{ name: string; s: Stats }> {
     getJson<TractCollection>(dataUrl('tracts-equity.geojson', c.dataPath)),
   ])
   const props = tracts.features.map((f) => f.properties)
-  const tpa = props.map((p) => p.treesPerAcre).filter((n): n is number => typeof n === 'number').sort((x, y) => x - y)
-  const mid = tpa.length >> 1
-  const median = tpa.length ? (tpa.length % 2 ? tpa[mid] : (tpa[mid - 1] + tpa[mid]) / 2) : null
-  const mean = tpa.length ? tpa.reduce((s, n) => s + n, 0) / tpa.length : null
+  const tpa = props.map((p) => p.treesPerAcre).filter((n): n is number => typeof n === 'number')
+  const km2 = props.map((p) => p.treesPerKm2 ?? (typeof p.treesPerAcre === 'number' ? p.treesPerAcre * ACRES_PER_KM2 : null))
+    .filter((n): n is number => typeof n === 'number')
+  const { median, mean } = medMean(tpa)
+  const { median: medianKm2, mean: meanKm2 } = medMean(km2)
   const hasBq = props.some((p) => typeof p.bottomQuartile === 'boolean')
   const roads = props.map((p) => p.roadKm).filter((n): n is number => typeof n === 'number')
   return {
     name: c.cityName,
     s: {
       tracts: meta.counts?.tracts ?? props.length,
-      median, mean,
+      median, mean, medianKm2, meanKm2,
       bq: hasBq ? props.filter((p) => p.bottomQuartile).length : null,
       parks: meta.counts?.parks ?? null,
       roadKm: roads.length ? roads.reduce((s, n) => s + n, 0) : null,
@@ -95,8 +106,13 @@ const rows = computed(() => {
   const out: { label: string; a: string; b: string }[] = [
     { label: 'Tracts', a: fmt(A.tracts, 0), b: fmt(B.tracts, 0) },
   ]
-  if (A.median != null || B.median != null) out.push({ label: 'Median trees/acre', a: fmt(A.median), b: fmt(B.median) })
-  if (A.mean != null || B.mean != null) out.push({ label: 'Mean trees/acre', a: fmt(A.mean), b: fmt(B.mean) })
+  // #38: both columns always share the active unit.
+  const km = ui.densityUnit === 'km2'
+  const [aMed, bMed, aMean, bMean] = km ? [A.medianKm2, B.medianKm2, A.meanKm2, B.meanKm2] : [A.median, B.median, A.mean, B.mean]
+  const unit = km ? 'trees/km²' : 'trees/acre'
+  const d = km ? 1 : 3
+  if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
+  if (aMean != null || bMean != null) out.push({ label: `Mean ${unit}`, a: fmt(aMean, d), b: fmt(bMean, d) })
   if (A.bq != null || B.bq != null) out.push({ label: 'Bottom-quartile tracts', a: bq(A), b: bq(B) })
   if (A.parks != null || B.parks != null) out.push({ label: 'Parks', a: fmt(A.parks, 0), b: fmt(B.parks, 0) })
   if (A.roadKm != null || B.roadKm != null) out.push({ label: 'Road km', a: fmt(A.roadKm, 1), b: fmt(B.roadKm, 1) })
