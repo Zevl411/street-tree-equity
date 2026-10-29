@@ -20,6 +20,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { readSessionView, writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { copyText } from '@/utils/clipboard'
+import { choroplethColors } from '@/utils/choropleth'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
@@ -217,8 +218,12 @@ async function init() {
   applyBelowMedianFromUrl()
   openFavoritesFromUrl()
   openFocusFromUrl()
+  // #73 stretch: `?bin=i` clamped to this city's legend bins once meta is ready.
+  if (link.bin !== null && meta.value) ui.setDensityBin(link.bin, choroplethColors(meta.value, ui.choroplethMode).length)
+  // #73: bin filter is per-city session state.
+  watch(() => cityStore.cityId, () => ui.setDensityBin(null))
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
 }
 
 function currentLayers(): LayerFlags {
@@ -245,7 +250,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
 }
 
 const compareOpen = ref(false)

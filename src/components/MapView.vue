@@ -60,7 +60,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -101,6 +101,23 @@ const BELOW_MEDIAN_DIM = 0.22
 function tractFillOpacity(): ExpressionSpecification {
   const base = fillOpacity.value
   const hover = Math.min(1, base + 0.12)
+  const hoverOf = (d: number): ExpressionSpecification => ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, d + 0.12), d] as ExpressionSpecification
+  // #73: bin wins — while a histogram bin is selected, opacity follows the bin only and the
+  // #59 median dim is suspended (no AND). Clearing the bin restores #59 paint.
+  const bin = densityBinIndex.value
+  if (bin !== null) {
+    const dim = base * BELOW_MEDIAN_DIM
+    // Same bin math as binIndex()/fill `step`: index = number of breaks <= v.
+    const last = choroplethColors(props.meta, choroplethMode.value).length - 1
+    const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', 'treesPerAcre'], -1], b], 1, 0])]] as unknown as ExpressionSpecification
+    return [
+      'case',
+      ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
+      ['!=', idx, bin], hoverOf(dim),
+      ['boolean', ['feature-state', 'hover'], false], hover,
+      base,
+    ] as ExpressionSpecification
+  }
   const median = belowMedian.value ? cityMedian() : null
   if (median === null) return ['case', ['boolean', ['feature-state', 'hover'], false], hover, base]
   const dim = base * BELOW_MEDIAN_DIM
@@ -436,11 +453,12 @@ watch(isDark, () => {
 })
 watch(selectedGeoid, (g) => {
   applySelection()
-  if (belowMedian.value) refreshTractOpacity()
+  if (belowMedian.value || densityBinIndex.value !== null) refreshTractOpacity()
   if (g && ready.value) fitSelectedAboveSheet(g)
 })
 watch(fillOpacity, refreshTractOpacity)
 watch(belowMedian, refreshTractOpacity)
+watch(densityBinIndex, refreshTractOpacity)
 watch(() => props.tracts, refreshTractOpacity)
 watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
