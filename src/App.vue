@@ -35,7 +35,21 @@ const treesAvailable = computed(() => !!trees.value?.features.length)
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 
 const cityStore = useCityStore()
-const { cities, city, selectedGeoid } = storeToRefs(cityStore)
+const { cities, city, selectedGeoid, manifestVersion } = storeToRefs(cityStore)
+const packRows = computed<{ label: string; value: string; mono?: boolean }[]>(() => {
+  const m = meta.value
+  if (!m) return []
+  const rows: { label: string; value: string; mono?: boolean }[] = []
+  if (city.value?.id) rows.push({ label: 'Pack', value: city.value.id, mono: true })
+  const v = m.version ?? manifestVersion.value
+  if (v != null && v !== '') rows.push({ label: 'Format', value: `v${v}` })
+  if (Number.isFinite(m.counts?.tracts)) rows.push({ label: 'Tracts', value: m.counts.tracts.toLocaleString() })
+  if (Number.isFinite(m.counts?.trees)) rows.push({ label: 'Trees', value: m.counts.trees.toLocaleString() })
+  const bb = Array.isArray(m.dataBbox) && m.dataBbox.length === 4 ? m.dataBbox : m.bbox
+  if (Array.isArray(bb) && bb.length === 4 && bb.every((n) => Number.isFinite(n))) rows.push({ label: 'Extent', value: bb.map((n) => n.toFixed(5)).join(', '), mono: true })
+  if (m.generatedAt) { const d = new Date(m.generatedAt); if (!isNaN(d.getTime())) rows.push({ label: 'Built', value: d.toLocaleDateString() }) }
+  return rows
+})
 const ui = useUiStore()
 const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
@@ -905,6 +919,16 @@ watch(drawerOpen, async (open) => {
             <li><strong>Satellite</strong> — <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless 2025<span class="sr-only"> (opens in new tab)</span></a> by EOX · modified Copernicus Sentinel data 2025 · <strong>CC BY-NC-SA (non-commercial)</strong></li>
           </ul>
 
+          <template v-if="meta && packRows.length">
+            <h3 class="text-subtitle-1 font-weight-bold mb-1">This pack</h3>
+            <dl class="about-pack text-body-2 mb-4">
+              <template v-for="r in packRows" :key="r.label">
+                <dt class="text-caption text-medium-emphasis">{{ r.label }}</dt>
+                <dd :class="{ 'about-pack-mono': r.mono }">{{ r.value }}</dd>
+              </template>
+            </dl>
+          </template>
+
           <h3 class="text-subtitle-1 font-weight-bold mb-1">Scope &amp; code</h3>
           <p class="text-body-2 mb-2"><strong>Packaged cities only:</strong> this site shows only the cities that ship with it — it is not a live national search.</p>
           <p class="text-body-2 mb-0"><strong>Source code:</strong> <a href="https://github.com/Zevl411/street-tree-equity" target="_blank" rel="noopener noreferrer">github.com/Zevl411/street-tree-equity<span class="sr-only"> (opens in new tab)</span></a></p>
@@ -960,6 +984,9 @@ watch(drawerOpen, async (open) => {
 </template>
 
 <style scoped>
+.about-pack { display: grid; grid-template-columns: max-content 1fr; column-gap: 12px; row-gap: 2px; margin: 0; }
+.about-pack dd { margin: 0; user-select: text; word-break: break-word; }
+.about-pack-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .unit-toggle .v-btn { min-height: 44px; }
 .skip-link {
   position: absolute;

@@ -20,10 +20,13 @@ export const useCityStore = defineStore('city', () => {
   )
   const selectedGeoid = ref<string | null>(null)
   const manifestError = ref(false)
+  const manifestVersion = ref<number | null>(null)
 
   async function loadManifest(): Promise<void> {
     try {
-      cities.value = (await loadCities()).cities
+      const m = await loadCities()
+      cities.value = m.cities
+      manifestVersion.value = Number.isFinite(m.version) ? m.version : null
       manifestError.value = false
     } catch {
       // Manifest missing: fall back to the built-in Portland pack in data/.
@@ -62,5 +65,5 @@ export const useCityStore = defineStore('city', () => {
     selectedGeoid.value = geoid
   }
 
-  return { cities, cityId, city, defaultCity, selectedGeoid, manifestError, loadManifest, initialCityId, setCity, select }
+  return { cities, cityId, city, defaultCity, selectedGeoid, manifestError, manifestVersion, loadManifest, initialCityId, setCity, select }
 })
