@@ -105,3 +105,29 @@ export function toHotspotsCsv(tracts: TractProps[], cityId: string, unit: 'acre'
 /** #71: favorites CSV — same schema as #68 hotspots; rows = panel's on-screen (pack-joined) list, same order. */
 export const toFavoritesCsv = (tracts: TractProps[], cityId: string, unit: 'acre' | 'km2'): string =>
   toHotspotsCsv(tracts, cityId, unit)
+
+/** #78: every pack tract, slim analysis table; rank asc (nullish last), geoid tie-break. */
+export function toAllTractsCsv(tracts: TractProps[], cityId: string, unit: 'acre' | 'km2', starredGeoids: Iterable<string>): string {
+  const median = cityMedian({ type: 'FeatureCollection', features: tracts.map((properties) => ({ properties })) } as unknown as TractCollection)
+  const km2 = unit === 'km2'
+  const starred = new Set(starredGeoids)
+  const dens = (t: TractProps) => (km2 ? (Number.isFinite(t.treesPerKm2) ? t.treesPerKm2 : t.treesPerAcre * ACRES_PER_KM2) : t.treesPerAcre)
+  const medInUnit = median === null ? null : km2 ? median * ACRES_PER_KM2 : median
+  const r = (t: TractProps) => (Number.isFinite(t.rank) ? (t.rank as number) : Infinity)
+  const rows = [...tracts].sort((a, b) => r(a) - r(b) || String(a.geoid).localeCompare(String(b.geoid)))
+  const lines = rows.map((t) => {
+    const ok = Number.isFinite(t.treesPerAcre) && Number.isFinite(dens(t))
+    const d = ok ? dens(t) : null
+    const delta = d !== null && medInUnit !== null ? d - medInUnit : null
+    const pct = ok && median !== null && median !== 0 ? Math.round(((t.treesPerAcre - median) / median) * 100) : null
+    const signed = (n: number, s: string) => (n > 0 ? `+${s}` : s)
+    return [
+      t.geoid, cityId, d === null ? '' : d.toFixed(4), km2 ? 'trees_per_km2' : 'trees_per_acre',
+      Number.isFinite(t.rank) ? t.rank : '',
+      delta === null ? '' : signed(delta, delta.toFixed(4)),
+      pct === null ? '' : signed(pct, String(pct)),
+      starred.has(t.geoid) ? 'true' : 'false',
+    ].map(cell).join(',')
+  })
+  return ['geoid,city_id,density,density_unit,rank,vs_median,vs_median_pct,favorite', ...lines].join('\r\n') + '\r\n'
+}

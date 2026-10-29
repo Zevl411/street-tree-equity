@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { downloadBlob, exportFilename, toBelowMedianCsv } from '@/utils/exportData'
+import { downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv } from '@/utils/exportData'
+import { useFavorites } from '@/composables/useFavorites'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
@@ -484,6 +485,16 @@ function exportBelowMedian(flagged: boolean) {
   downloadBlob(csv, exportFilename(id, flagged ? 'below-median-flagged' : 'below-median', 'csv'), 'text/csv;charset=utf-8')
   linkSnack.value = flagged ? 'Below-median flagged CSV downloaded' : 'Below-median CSV downloaded'
 }
+/** #78: all pack tracts slim analysis CSV (favorites = active city only). */
+function exportAllTracts() {
+  const id = cityStore.cityId
+  const feats = tracts.value?.features ?? []
+  if (!id || !feats.length) return
+  const csv = toAllTractsCsv(feats.map((f) => f.properties), id, densityUnit.value === 'km2' ? 'km2' : 'acre', allFavs.list(id))
+  downloadBlob(csv, exportFilename(id, 'all-tracts', 'csv'), 'text/csv;charset=utf-8')
+  linkSnack.value = 'All tracts CSV downloaded'
+}
+const allFavs = useFavorites()
 async function copyLink() {
   syncUrl()
   const href = window.location.href
@@ -656,6 +667,7 @@ watch(drawerOpen, async (open) => {
             <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? 'Dims tracts above this city’s median trees/acre' : 'Needs at least 2 tracts with density data' }}</div>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" aria-label="Export all tracts CSV" :disabled="loading || !cityStore.cityId || !(tracts?.features.length)" @click="exportAllTracts">Export all tracts CSV</v-btn>
             <div class="text-caption text-medium-emphasis ms-1 mb-1">Includes OSM-derived values (ODbL).</div>
           </v-card-text>
         </v-card>
