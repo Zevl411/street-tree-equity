@@ -6,6 +6,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { useOverlayFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
+import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
@@ -81,7 +82,7 @@ const roadRows = computed(() => {
 const showRoadSection = computed(() => props.tract.lowTreeRoadPct !== null && !!props.roads?.features?.length)
 const ROAD_LIMIT = 8
 const roadsExpanded = ref(false)
-watch(() => props.tract.geoid, () => (roadsExpanded.value = false))
+watch(() => props.tract.geoid, () => { roadsExpanded.value = false; fallbackOpen.value = false })
 const visibleRoads = computed(() => (roadsExpanded.value ? roadRows.value : roadRows.value.slice(0, ROAD_LIMIT)))
 
 // #39: Download menu lands on its first item; focus returns to the Download button on close.
@@ -124,6 +125,44 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
     snackText.value = "Couldn't prepare the file. Try again."
   }
   snack.value = true
+}
+
+// #47 Copy summary / Copy link — plain text, robust fail path.
+const summaryLine = computed(() => {
+  const t = props.tract
+  const density = isKm2.value ? `${fmtKm2(tractKm2.value)}/km²` : `${t.treesPerAcre.toFixed(2)}/acre`
+  const parts = [t.name, areaLabel.value, `GEOID ${t.geoid}`, density]
+  if (t.rank && props.total) parts.push(`#${t.rank} of ${props.total}`)
+  return parts.filter(Boolean).join(' · ')
+})
+const fallbackOpen = ref(false)
+const fallbackText = ref('')
+const fallbackField = ref<{ $el?: HTMLElement } | null>(null)
+function selectFallback() {
+  const el = fallbackField.value?.$el?.querySelector('textarea')
+  if (el) { el.focus(); el.select() }
+}
+watch(fallbackOpen, (o) => { if (o) setTimeout(selectFallback, 50) })
+async function copyWithFallback(text: string, okMsg: string) {
+  if (await copyText(text)) {
+    snackText.value = okMsg
+    snack.value = true
+  } else {
+    fallbackText.value = text
+    fallbackOpen.value = true
+  }
+}
+function copySummary() { void copyWithFallback(summaryLine.value, 'Summary copied') }
+function copyLink() {
+  let url = ''
+  try {
+    url = tractShareUrl({
+      city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
+      basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
+      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile },
+    })
+  } catch { url = window.location.href }
+  void copyWithFallback(url, 'Link copied')
 }
 </script>
 
@@ -249,6 +288,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       </v-tooltip>
     </div>
     <div class="px-4 pb-1">
+      <div class="d-flex flex-wrap align-center ga-2">
       <v-menu v-model="downloadOpen" location="top" attach="body" :contained="false">
         <template #activator="{ props: menu }">
           <v-tooltip text="Download data" location="top">
@@ -263,6 +303,20 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
           <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />
         </v-list>
       </v-menu>
+      <v-btn prepend-icon="mdi-text-box-outline" variant="tonal" class="touch-h44" aria-label="Copy tract summary"
+        @click="copySummary">Copy summary</v-btn>
+      <v-btn prepend-icon="mdi-link-variant" variant="text" class="touch-h44" aria-label="Copy link to this tract"
+        @click="copyLink">Copy link</v-btn>
+      </div>
+      <div v-if="fallbackOpen" class="mt-2" role="group" aria-label="Copy manually">
+        <v-textarea ref="fallbackField" :model-value="fallbackText" readonly autofocus auto-grow rows="1"
+          density="compact" variant="outlined" hide-details aria-label="Text to copy" @focus="selectFallback" />
+        <div class="text-caption text-medium-emphasis mt-1">Clipboard blocked — select the text and copy.</div>
+        <div class="d-flex ga-2 mt-1">
+          <v-btn variant="text" class="touch-h44" @click="selectFallback">Select all</v-btn>
+          <v-btn variant="text" class="touch-h44" @click="fallbackOpen = false">Close</v-btn>
+        </div>
+      </div>
       <div class="text-caption text-medium-emphasis mt-1">{{ ODBL_NOTICE }}</div>
     </div>
     <v-snackbar v-model="snack" :timeout="2000" class="safe-snack">{{ snackText }}</v-snackbar>
