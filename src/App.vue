@@ -9,6 +9,7 @@ import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
 import TractDetails from '@/components/TractDetails.vue'
+import { cityMedian } from '@/utils/densityBins'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
@@ -293,7 +294,8 @@ function openCompareFromUrl() {
 }
 
 /** #59: need ≥2 finite densities in the loaded pack for a median. */
-const medianAvailable = computed(() => (tracts.value?.features ?? []).filter((f) => Number.isFinite(f.properties.treesPerAcre)).length >= 2)
+const medianAcre = computed(() => cityMedian(tracts.value))
+const medianAvailable = computed(() => medianAcre.value != null)
 /** #59 ?belowMedian=1: one-shot alias → turn the dim on, strip the param; `layers=…,bm` then owns it. */
 function applyBelowMedianFromUrl() {
   const url = new URL(window.location.href)
@@ -688,7 +690,7 @@ watch(drawerOpen, async (open) => {
 
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
       :scrim="false" :class="{ 'bottom-drawer': !mdAndUp }">
-      <TractDetails v-if="selectedTract && meta" :tract="selectedTract" :meta="meta"
+      <TractDetails v-if="selectedTract && meta" :tract="selectedTract" :meta="meta" :city-median-acre="medianAcre"
         :roads="roads" :total="tracts?.features.length ?? 0" @fly-to-road="(f) => mapRef?.fitRoad(f)" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
     </v-navigation-drawer>
 
