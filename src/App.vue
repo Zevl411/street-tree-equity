@@ -99,6 +99,36 @@ function syncUrl() {
 }
 
 const compareOpen = ref(false)
+
+// #40 city overview strip — meta + already-loaded tracts only.
+const overviewDensity = computed(() => {
+  const m = meta.value
+  if (!m) return ''
+  return densityUnit.value === 'km2'
+    ? `${(m.overall.treesPerAcre * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} / km²`
+    : `${m.overall.treesPerAcre.toFixed(2)} / acre`
+})
+const plantHere = computed<{ pct: number } | { segments: number } | null>(() => {
+  let road = 0
+  let low = 0
+  for (const f of tracts.value?.features ?? []) {
+    const { roadKm, lowTreeRoadKm } = f.properties
+    if (roadKm != null && lowTreeRoadKm != null) { road += roadKm; low += lowTreeRoadKm }
+  }
+  if (road > 0) return { pct: Math.round((100 * low) / road) }
+  const seg = meta.value?.counts.lowTreeRoadSegments ?? 0
+  return seg > 0 ? { segments: seg } : null
+})
+const plantHereStat = computed(() => {
+  const p = plantHere.value
+  if (!p) return ''
+  return 'pct' in p ? `${p.pct}% plant-here streets` : `${p.segments.toLocaleString()} plant-here segments`
+})
+const plantHereChip = computed(() => {
+  const p = plantHere.value
+  if (!p) return ''
+  return 'pct' in p ? `${p.pct}% plant-here` : `${p.segments.toLocaleString()} segments`
+})
 const compareInitial = ref<[string, string] | null>(null)
 function startCompare() {
   compareInitial.value = null
@@ -271,15 +301,31 @@ const satFallback = ref(false)
         </v-btn>
       </v-sheet>
 
-      <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="300">
-        <div class="text-body-2">
-          <strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees across
-          <strong>{{ meta.counts.tracts }}</strong> census tracts
-          (avg {{ ui.densityUnit === 'km2'
-            ? `${(meta.overall.treesPerAcre * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} / km²`
-            : `${meta.overall.treesPerAcre.toFixed(2)} / acre` }}).
+      <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="320"
+        role="region" :aria-label="`${meta.cityName} overview`">
+        <div class="text-subtitle-2">{{ meta.cityName }}</div>
+        <div v-if="meta.subtitle" class="text-caption text-medium-emphasis">{{ meta.subtitle }}</div>
+        <div class="text-body-2 mt-1">
+          <div><strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees · <strong>{{ meta.counts.tracts }}</strong> tracts</div>
+          <div>Avg <strong>{{ overviewDensity }}</strong></div>
+          <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
-        <div class="text-caption mt-1">Click a tract for details and nearby parks.</div>
+        <div class="text-caption mt-1">Click a tract for details.</div>
+        <div class="d-flex ga-1 mt-1">
+          <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
+          <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
+        </div>
+      </v-sheet>
+      <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp" class="overview-strip pa-2 d-flex align-center" rounded elevation="2" color="surface"
+        role="region" :aria-label="`${meta.cityName} overview`">
+        <div class="d-flex flex-wrap ga-1 flex-grow-1 text-caption">
+          <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>
+          <v-chip size="small" variant="tonal">{{ meta.counts.tracts }} tracts</v-chip>
+          <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
+          <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
+        </div>
+        <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
+        <v-btn icon="mdi-information-outline" variant="text" size="small" class="overview-icon" aria-label="About" @click="aboutOpen = true" />
       </v-sheet>
       </div>
     </v-main>
@@ -336,6 +382,15 @@ const satFallback = ref(false)
   top: 12px;
   z-index: 2;
 }
+.overview-strip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+}
+.overview-action { min-height: 44px; }
+.overview-icon { min-width: 44px; min-height: 44px; }
 .sr-only {
   position: absolute;
   width: 1px;
