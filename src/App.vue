@@ -74,6 +74,21 @@ function flyToPark(p: NearbyPark) {
 }
 
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
+// #56 Copy citations (plain text, reuses #47 copyText fallback).
+const citationsText = computed(() => [
+  'Street Tree Equity — data sources',
+  `- Street trees & parks: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
+  `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
+  '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
+  '- Satellite: EOxCloudless 2025 by EOX IT Services GmbH — modified Copernicus Sentinel data 2025 — CC BY-NC-SA (non-commercial) — https://cloudless.eox.at',
+  '- Code: https://github.com/Zevl411/street-tree-equity (MIT)',
+].join('\n'))
+const citationsSnack = ref(false)
+const citationsFallbackOpen = ref(false)
+async function copyCitations() {
+  if (await copyText(citationsText.value)) citationsSnack.value = true
+  else citationsFallbackOpen.value = true
+}
 
 /** #44: stored camera for the first city shown (cleared after boot so city switches fit). */
 const initialView = ref<SessionView | null>(null)
@@ -577,30 +592,38 @@ watch(drawerOpen, async (open) => {
     <v-dialog v-model="aboutOpen" :max-width="mdAndUp ? 560 : '100%'" :fullscreen="!mdAndUp" scrollable>
       <v-card title="About this map">
         <v-card-text>
-          <p class="mb-3">
-            Trees per acre of land by U.S. Census tract, counted from trees mapped in OpenStreetMap
-            (<code>natural=tree</code>). Low numbers can mean fewer trees <em>or</em> fewer trees mapped yet —
-            treat this as a conversation starter, and consider adding trees to OSM.
-          </p>
-          <p class="mb-3">
-            Orange streets have no mapped tree within {{ meta?.roadsBufferMeters ?? 20 }} m — candidate
-            “plant here” spots. Parks come from OSM <code>leisure=park</code>.
-          </p>
-          <p class="mb-3">
-            100% free: static data files shipped with the site, a no-key basemap, no database, no API keys.
-          </p>
-          <div class="text-caption">
-            Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors<span class="sr-only"> (opens in new tab)</span></a> (ODbL) ·
-            Tracts: U.S. Census Bureau {{ meta?.censusVintage }} ·
-            Basemap: <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> / OpenMapTiles ·
-            Satellite: <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless<span class="sr-only"> (opens in new tab)</span></a> by EOX — modified Copernicus Sentinel data 2025 · CC BY-NC-SA (non-commercial).
-            <span v-if="updated"> OSM data as of {{ updated }}.</span>
-          </div>
+          <h3 class="text-subtitle-1 font-weight-bold mb-1">What it is</h3>
+          <p class="text-body-2 mb-2">Trees per acre of land by U.S. Census tract, counted from OpenStreetMap <code>natural=tree</code>.</p>
+          <p class="text-body-2 mb-2">Low counts can mean fewer trees <em>or</em> fewer trees mapped — treat it as a conversation starter, and consider adding trees on OSM.</p>
+          <p class="text-body-2 mb-2">Orange streets have no mapped tree within {{ meta?.roadsBufferMeters ?? 20 }} m. Parks come from OSM <code>leisure=park</code>.</p>
+          <p class="text-body-2 mb-4">Static data files and no-key basemaps — no database, no API keys.</p>
+
+          <h3 class="text-subtitle-1 font-weight-bold mb-1">Data sources</h3>
+          <ul class="about-sources text-body-2 mb-4">
+            <li><strong>Street trees &amp; parks</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
+            <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
+            <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>
+            <li><strong>Satellite</strong> — <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless 2025<span class="sr-only"> (opens in new tab)</span></a> by EOX · modified Copernicus Sentinel data 2025 · <strong>CC BY-NC-SA (non-commercial)</strong></li>
+          </ul>
+
+          <h3 class="text-subtitle-1 font-weight-bold mb-1">Scope &amp; code</h3>
+          <p class="text-body-2 mb-2"><strong>Packaged cities only:</strong> this site shows only the cities that ship with it — it is not a live national search.</p>
+          <p class="text-body-2 mb-0"><strong>Source code:</strong> <a href="https://github.com/Zevl411/street-tree-equity" target="_blank" rel="noopener noreferrer">github.com/Zevl411/street-tree-equity<span class="sr-only"> (opens in new tab)</span></a></p>
         </v-card-text>
         <v-card-actions>
+          <v-btn variant="text" prepend-icon="mdi-content-copy" @click="copyCitations">Copy citations</v-btn>
           <v-spacer />
           <v-btn color="primary" variant="text" @click="aboutOpen = false">Close</v-btn>
         </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <v-snackbar v-model="citationsSnack" timeout="2500" class="safe-snack">Citations copied</v-snackbar>
+    <v-dialog v-model="citationsFallbackOpen" max-width="480">
+      <v-card title="Copy citations">
+        <v-card-text>
+          <v-textarea :model-value="citationsText" readonly autofocus rows="7" variant="outlined" density="compact" label="Citations" />
+        </v-card-text>
+        <v-card-actions><v-spacer /><v-btn color="primary" variant="text" @click="citationsFallbackOpen = false">Close</v-btn></v-card-actions>
       </v-card>
     </v-dialog>
     <v-snackbar v-model="satFallback" timeout="5000" class="safe-snack">Satellite imagery unavailable — showing streets.</v-snackbar>
@@ -698,4 +721,6 @@ watch(drawerOpen, async (open) => {
   overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+.about-sources { padding-left: 1.1rem; }
+.about-sources li { margin-bottom: 4px; }
 </style>
