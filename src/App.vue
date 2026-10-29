@@ -11,7 +11,7 @@ import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
 import DensityAreaScatter from '@/components/DensityAreaScatter.vue'
 import TractDetails from '@/components/TractDetails.vue'
-import { belowMedianOrder, cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
+import { belowMedianOrder, binCounts, binRows, cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
 import OfflineStatus from '@/components/OfflineStatus.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
@@ -28,7 +28,7 @@ import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useD
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
-import { hotspotGeoids } from '@/utils/hotspots'
+import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -380,7 +380,7 @@ const medianAvailable = computed(() => medianAcre.value != null)
 function applyBelowMedianFromUrl() {
   const url = new URL(window.location.href)
   if (!url.searchParams.has('belowMedian')) return
-  if (url.searchParams.get('belowMedian') === '1' && medianAvailable.value) belowMedian.value = true
+  if (url.searchParams.get('belowMedian') === '1' && medianAvailable.value) { quietFilters(); belowMedian.value = true }
   url.searchParams.delete('belowMedian')
   history.replaceState(history.state, '', url)
   syncUrl()
@@ -633,6 +633,40 @@ function jumpBelowMedian(dir: 1 | -1) {
   cityStore.select(set[i].geoid)
   jumpAnnounce.value = `${set[i].name} · ${i + 1} of ${set.length} below median`
 }
+// #95: one polite live region for filter changes (below-median / density bin / hotspots). Skips restores.
+const filterAnnounce = ref('')
+let filterQuiet = false
+function quietFilters() {
+  filterQuiet = true
+  nextTick(() => nextTick(() => { filterQuiet = false }))
+}
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+function announceFilter(text: string) {
+  if (filterQuiet || loading.value || !tracts.value?.features.length) return
+  if (filterAnnounce.value === text) {
+    filterAnnounce.value = ''
+    nextTick(() => { filterAnnounce.value = text })
+  } else filterAnnounce.value = text
+}
+watch(() => cityStore.cityId, quietFilters, { flush: 'sync' })
+watch(loading, quietFilters, { flush: 'sync' })
+watch(belowMedian, (on) => {
+  announceFilter(on ? `Below city median on · ${plural(belowMedianOrder(tracts.value).length, 'tract', 'tracts')}` : 'Below city median off')
+})
+watch(() => ui.densityBinIndex, (i) => {
+  if (i === null) { announceFilter('All density bins'); return }
+  const m = meta.value
+  if (!m) return
+  const isKm2 = ui.densityUnit === 'km2'
+  const rows = binRows(m.breaks, choroplethColors(m, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
+  if (!rows[i]) return
+  announceFilter(`Density bin ${rows[i].label} · ${plural(binCounts(tracts.value, m.breaks)[i] ?? 0, 'tract', 'tracts')}`)
+})
+watch(hotspotsOpen, (open) => {
+  if (!open) return
+  const n = hotspotTracts(tracts.value?.features).length
+  announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
+})
 // #89 grouped cheat sheet — single source of truth for on-screen + print. Labels match useKeyboardShortcuts handlers.
 type ShortcutGroup = { id: string; title: string; rows: [string, string][]; caption?: string }
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
@@ -844,6 +878,7 @@ watch(drawerOpen, async (open) => {
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ jumpAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ starAnnounce }}</span>
+      <span class="sr-only" aria-live="polite" aria-atomic="true">{{ filterAnnounce }}</span>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary

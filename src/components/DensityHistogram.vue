@@ -32,7 +32,7 @@ const selected = computed(() => {
   const i = ui.densityBinIndex
   return i !== null && i < bins.value.length ? i : null
 })
-const status = computed(() => (selected.value === null ? 'All density bins' : `Showing density bin ${bins.value[selected.value].label}`))
+// #95: bin select/clear is announced by App's filter live region (no duplicate status here).
 function toggle(i: number) {
   if (bins.value[i]?.count === 0) return
   ui.setDensityBin(selected.value === i ? null : i, bins.value.length)
@@ -63,7 +63,6 @@ const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
     <div v-if="!dense" class="counts" aria-hidden="true">
       <span v-for="b in bins" :key="b.label" class="count text-caption text-medium-emphasis">{{ b.count.toLocaleString() }}</span>
     </div>
-    <div class="sr-only" role="status" aria-live="polite">{{ status }}</div>
     <ul class="sr-only">
       <li v-for="b in bins" :key="b.label">{{ b.label }}: {{ b.count }} tracts{{ b.dimmed ? ' (above city median)' : '' }}</li>
     </ul>
