@@ -1,5 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import type { FeatureCollection } from 'geojson'
+import { saveLastPack } from '@/utils/offlinePack'
 import type { CityManifest, Meta, ParkCollection, TractCollection } from '@/types'
 
 // All data is static JSON shipped with the site. BASE_URL makes it work at "/" (dev, Express)
@@ -7,9 +8,10 @@ import type { CityManifest, Meta, ParkCollection, TractCollection } from '@/type
 // has a dataPath (Portland: "data", i.e. public/data/).
 export const dataUrl = (file: string, dataPath = 'data') => `${import.meta.env.BASE_URL}${dataPath}/${file}`
 
-async function getJson<T>(url: string, label: string, signal?: AbortSignal): Promise<T> {
+async function getJson<T>(url: string, label: string, signal?: AbortSignal, keep?: Response[]): Promise<T> {
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Failed to load ${label}: HTTP ${res.status}`)
+  keep?.push(res.clone())
   return (await res.json()) as T
 }
 
@@ -46,7 +48,8 @@ export function useData() {
     error.value = null
     // Clear the previous city's pack so MapView unmounts (no wrong-city map while loading).
     clearPack()
-    const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal)
+    const kept: Response[] = []
+    const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
       const [m, t, p, r, tr] = await Promise.all([
         get<Meta>('meta.json'),
@@ -62,6 +65,7 @@ export function useData() {
       parks.value = p
       roads.value = r
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
+      void saveLastPack(kept)
       return true
     } catch (e) {
       if (controller !== ctl || (e instanceof DOMException && e.name === 'AbortError')) return false
