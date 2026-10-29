@@ -623,7 +623,8 @@ watch(drawerOpen, async (open) => {
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
         @exported="linkSnack = 'Hotspots CSV downloaded'" />
       <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
-        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots" />
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
+        @exported="linkSnack = 'Favorites CSV downloaded'" />
       <template v-if="mdAndUp">
         <v-btn v-if="!focusMode" id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
           <v-icon icon="mdi-magnify" />

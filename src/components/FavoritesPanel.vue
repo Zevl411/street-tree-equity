@@ -4,6 +4,7 @@ import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2 } from '@/stores/ui'
 import { useFavorites } from '@/composables/useFavorites'
+import { downloadBlob, exportFilename, toFavoritesCsv } from '@/utils/exportData'
 
 /** #45 Starred tracts for the active city (storage order, pruned to the loaded pack). */
 const props = defineProps<{
@@ -15,7 +16,7 @@ const props = defineProps<{
   cityId: string | null
 }>()
 const open = defineModel<boolean>({ default: false })
-const emit = defineEmits<{ pick: [geoid: string] }>()
+const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
 
 const fav = useFavorites()
 const total = computed(() => props.tracts?.length ?? 0)
@@ -35,6 +36,14 @@ function density(tpa: number) {
 }
 const noTracts = computed(() => !props.loading && total.value === 0)
 const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} starred tracts`))
+
+const canExport = computed(() => !props.loading && items.value.length > 0 && !!props.cityId)
+function exportCsv() {
+  if (!canExport.value || !props.cityId) return
+  downloadBlob(toFavoritesCsv(items.value.map((f) => f.properties), props.cityId, props.unit),
+    exportFilename(props.cityId, 'favorites', 'csv'), 'text/csv;charset=utf-8')
+  emit('exported')
+}
 
 function pick(geoid: string) {
   open.value = false
@@ -70,6 +79,11 @@ function pick(geoid: string) {
           </v-list-item>
         </v-list>
       </v-card-text>
+      <v-card-actions class="flex-column align-start px-4 pt-0 pb-3">
+        <v-btn variant="text" size="small" prepend-icon="mdi-download" :disabled="!canExport"
+          aria-label="Export favorites CSV" class="favorites-export" @click="exportCsv">Export CSV</v-btn>
+        <span class="text-caption text-medium-emphasis">Includes OSM-derived values (ODbL).</span>
+      </v-card-actions>
     </v-card>
   </component>
 </template>
