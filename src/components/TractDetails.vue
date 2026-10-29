@@ -148,17 +148,21 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
     <div class="px-4 pb-1">
       <v-menu location="top">
         <template #activator="{ props: menu }">
-          <v-btn v-bind="menu" prepend-icon="mdi-download" variant="tonal" size="small">Download…</v-btn>
+          <v-tooltip text="Download data" location="top">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" prepend-icon="mdi-download" variant="tonal" size="small">Download…</v-btn>
+            </template>
+          </v-tooltip>
         </template>
         <v-list density="compact">
-          <v-list-item title="This tract (CSV)" @click="doExport('tract')" />
+          <v-list-item title="This tract (CSV)" :aria-label="`Download CSV for ${tract.name}`" @click="doExport('tract')" />
           <v-list-item title="All tracts in this city (CSV)" @click="doExport('all-csv')" />
           <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />
         </v-list>
       </v-menu>
       <div class="text-caption text-medium-emphasis mt-1">{{ ODBL_NOTICE }}</div>
     </div>
-    <v-snackbar v-model="snack" :timeout="3000">{{ snackText }}</v-snackbar>
+    <v-snackbar v-model="snack" :timeout="2000">{{ snackText }}</v-snackbar>
     <div class="text-caption text-medium-emphasis px-4 pb-3 credit-strip">
       Tracts: <a href="https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html" target="_blank" rel="noopener noreferrer">U.S. Census Bureau<span class="d-sr-only"> (opens in new tab)</span></a>
       · Trees, parks &amp; streets: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap (ODbL)<span class="d-sr-only"> (opens in new tab)</span></a>
