@@ -39,6 +39,7 @@ function palette(dark: boolean, sat: boolean) {
 }
 
 const props = defineProps<{
+  mobile?: boolean
   dataPath: string
   meta: Meta
   tracts: TractCollection
@@ -124,6 +125,26 @@ function addDataLayers(m: MlMap) {
 
 function setVis(id: string, on: boolean) {
   if (map?.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
+}
+
+/** #33: on phones the tract sheet covers most of the screen — fit the tract into the strip above it. */
+function fitSelectedAboveSheet(g: string) {
+  if (!map || !props.mobile) return
+  const f = props.tracts.features.find((t) => t.properties.geoid === g)
+  if (!f) return
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  const walk = (c: unknown): void => {
+    if (Array.isArray(c) && typeof c[0] === 'number') {
+      const [x, y] = c as number[]
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    } else if (Array.isArray(c)) c.forEach(walk)
+  }
+  walk((f.geometry as { coordinates?: unknown }).coordinates)
+  if (!Number.isFinite(minX)) return
+  const h = map.getContainer().clientHeight
+  // Keep ~40% of the map visible above the bottom sheet.
+  const bottom = Math.max(24, Math.round(h * 0.6))
+  map.fitBounds([[minX, minY], [maxX, maxY]], { padding: { top: 16, left: 16, right: 16, bottom }, maxZoom: 15, duration: 400 })
 }
 
 function applySelection() {
@@ -230,7 +251,10 @@ watch(isDark, () => {
   if (basemap.value === 'satellite' || ENV_STYLE) return
   reloadStyle()
 })
-watch(selectedGeoid, applySelection)
+watch(selectedGeoid, (g) => {
+  applySelection()
+  if (g && ready.value) fitSelectedAboveSheet(g)
+})
 watch(showTrees, (v) => setVis('trees', v))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
