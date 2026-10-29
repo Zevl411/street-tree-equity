@@ -69,6 +69,36 @@ function setFocus(on: boolean) {
 function toggleFocus() { setFocus(!focusMode.value) }
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
+// #65 fullscreen: real browser Fullscreen API on #map-stage (independent of #54 focus; not persisted).
+type FsDoc = Document & { webkitFullscreenEnabled?: boolean; webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void }
+type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void }
+const fsDoc = document as FsDoc
+const fsSupported = !!(fsDoc.fullscreenEnabled || fsDoc.webkitFullscreenEnabled)
+const isFullscreen = ref(false)
+const fsLabel = computed(() => (isFullscreen.value ? 'Exit fullscreen' : 'Fullscreen'))
+const fsElement = () => fsDoc.fullscreenElement ?? fsDoc.webkitFullscreenElement ?? null
+async function enterFs() {
+  const el = document.getElementById('map-stage') as FsEl | null
+  if (!fsSupported || !el || fsElement()) return
+  try { await (el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen?.()) } catch { /* denied */ }
+}
+async function exitFs() {
+  if (!fsElement()) return
+  try { await (fsDoc.exitFullscreen ? fsDoc.exitFullscreen() : fsDoc.webkitExitFullscreen?.()) } catch { /* ignore */ }
+}
+function toggleFs() { if (isFullscreen.value) exitFs(); else enterFs() }
+function onFsChange() {
+  isFullscreen.value = fsElement()?.id === 'map-stage'
+  mapRef.value?.resize()
+  requestAnimationFrame(() => mapRef.value?.resize())
+}
+document.addEventListener('fullscreenchange', onFsChange)
+document.addEventListener('webkitfullscreenchange', onFsChange)
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', onFsChange)
+  document.removeEventListener('webkitfullscreenchange', onFsChange)
+})
+
 // #55 print: expand legend for the page, restore prior pref after (doesn't write ste-legend-open).
 const printing = ref(false)
 let prePrintPref: boolean | null | undefined
@@ -417,6 +447,7 @@ useKeyboardShortcuts({
     if (selectedGeoid.value) drawerOpen.value = false
     else if (focusMode.value) setFocus(false)
   },
+  toggleFullscreen: () => { if (fsSupported && !anyOverlayOpen()) toggleFs() },
   toggleTheme: () => ui.toggleTheme(),
   toggleBasemap: () => ui.setBasemap(basemap.value === 'satellite' ? 'streets' : 'satellite'),
   toggleHotspots: () => {
@@ -428,6 +459,7 @@ useKeyboardShortcuts({
 const SHORTCUTS: [string, string][] = [
   ['/', 'Find tract'], ['Esc', 'Close panel, clear selection, or exit focus'], ['d', 'Toggle dark mode'],
   ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
+  ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
 ]
 const tractFromFinder = ref(false)
 function pickFromFinder(geoid: string) {
@@ -558,6 +590,10 @@ watch(drawerOpen, async (open) => {
           <v-icon :icon="focusMode ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
           <v-tooltip activator="parent" location="bottom">{{ focusLabel }}</v-tooltip>
         </v-btn>
+        <v-btn v-if="fsSupported" id="fullscreen-btn" icon :aria-label="fsLabel" :aria-pressed="isFullscreen ? 'true' : 'false'" @click="toggleFs">
+          <v-icon :icon="isFullscreen ? 'mdi-arrow-collapse-all' : 'mdi-arrow-expand-all'" />
+          <v-tooltip activator="parent" location="bottom">{{ fsLabel }}</v-tooltip>
+        </v-btn>
         <v-btn v-if="!focusMode" icon aria-label="About" @click="aboutOpen = true">
           <v-icon icon="mdi-information-outline" />
           <v-tooltip activator="parent" location="bottom">About</v-tooltip>
@@ -571,6 +607,7 @@ watch(drawerOpen, async (open) => {
         <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()"><v-icon icon="mdi-fit-to-screen-outline" /></v-btn>
         <v-btn icon aria-label="Share map link" @click="copyLink"><v-icon icon="mdi-link-variant" /></v-btn>
         <v-btn icon aria-label="Exit focus" aria-pressed="true" @click="setFocus(false)"><v-icon icon="mdi-fullscreen-exit" /></v-btn>
+        <v-btn v-if="fsSupported" icon :aria-label="fsLabel" :aria-pressed="isFullscreen ? 'true' : 'false'" @click="toggleFs"><v-icon :icon="isFullscreen ? 'mdi-arrow-collapse-all' : 'mdi-arrow-expand-all'" /></v-btn>
       </template>
       <v-menu v-if="!mdAndUp && !focusMode" location="bottom end">
         <template #activator="{ props: act }">
@@ -584,6 +621,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
           <v-list-item prepend-icon="mdi-printer" title="Print map" @click="printMap" />
           <v-list-item prepend-icon="mdi-fullscreen" title="Focus map" @click="setFocus(true)" />
+          <v-list-item v-if="fsSupported" prepend-icon="mdi-arrow-expand-all" title="Fullscreen" @click="enterFs" />
           <v-list-item prepend-icon="mdi-keyboard-outline" title="Keyboard shortcuts" @click="shortcutsOpen = true" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
         </v-list>
@@ -599,6 +637,11 @@ watch(drawerOpen, async (open) => {
 
     <v-main class="d-flex flex-column">
       <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
+        <!-- #65: app bar is outside the FS element, so keep Exit reachable inside map-stage (all sizes). -->
+        <v-btn v-if="isFullscreen" class="fs-exit-btn" icon size="small" variant="elevated" aria-label="Exit fullscreen" aria-pressed="true" @click="exitFs">
+          <v-icon icon="mdi-arrow-collapse-all" />
+          <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
+        </v-btn>
       <MapView
         @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" />
 
@@ -837,4 +880,13 @@ watch(drawerOpen, async (open) => {
 }
 .about-sources { padding-left: 1.1rem; }
 .about-sources li { margin-bottom: 4px; }
+.fs-exit-btn {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  z-index: 5;
+}
+@media print { .fs-exit-btn { display: none !important; } }
+#map-stage:fullscreen,
+#map-stage:-webkit-full-screen { width: 100%; height: 100%; }
 </style>

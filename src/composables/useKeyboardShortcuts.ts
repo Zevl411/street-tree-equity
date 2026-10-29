@@ -8,6 +8,7 @@ export interface ShortcutHandlers {
   toggleBasemap: () => void
   toggleHotspots: () => void
   help: () => void
+  toggleFullscreen?: () => void
 }
 
 /** True when the key should be left to a text field / editable element. */
@@ -34,6 +35,7 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
       case 'd': h.toggleTheme(); break
       case 's': h.toggleBasemap(); break
       case 'h': h.toggleHotspots(); break
+      case 'f': h.toggleFullscreen?.(); break
     }
   }
   onMounted(() => window.addEventListener('keydown', onKey, { capture: true }))
