@@ -6,7 +6,7 @@ import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { cityMedian as sharedCityMedian } from '@/utils/densityBins'
 import { storeToRefs } from 'pinia'
 import { writeSessionView, type SessionView } from '@/composables/useSessionView'
-import { cameraDuration, usePrefersReducedMotion } from '@/composables/usePrefersReducedMotion'
+import { cameraDuration } from '@/composables/usePrefersReducedMotion'
 import { useCityStore } from '@/stores/city'
 import { useUiStore, type Basemap } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
@@ -323,8 +323,7 @@ function fitData() {
 defineExpose({
   flyTo(lon: number, lat: number, zoom = 15) {
     if (!map) return
-    if (usePrefersReducedMotion().value) map.jumpTo({ center: [lon, lat], zoom })
-    else map.flyTo({ center: [lon, lat], zoom })
+    map.flyTo({ center: [lon, lat], zoom, duration: cameraDuration(600) })
   },
   fitData,
   fitRoad,
