@@ -15,7 +15,7 @@ const median = computed(() => (props.belowMedian ? cityMedian(props.tracts) : nu
 
 const bins = computed(() => {
   const isKm2 = ui.densityUnit === 'km2'
-  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
+  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1)
   const counts = rows.map(() => 0)
   for (const f of props.tracts?.features ?? []) {
     const v = f.properties.treesPerAcre

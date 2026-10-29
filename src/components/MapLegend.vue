@@ -12,7 +12,7 @@ const isKm2 = computed(() => ui.densityUnit === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() =>
-  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1),
+  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1),
 )
 </script>
 
