@@ -4,10 +4,20 @@ import { useDisplay } from 'vuetify'
 import MapView from '@/components/MapView.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
-import { useData } from '@/composables/useData'
-import type { NearbyPark } from '@/types'
+import PlacePicker from '@/components/PlacePicker.vue'
+import { loadCities, useData } from '@/composables/useData'
+import type { CityEntry, NearbyPark, PlaceResult } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
+const DEFAULT_CITY = 'portland-or'
+const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
+const README_URL = 'https://github.com/Zevl411/street-tree-equity#add-or-switch-cities'
+const cities = ref<CityEntry[]>([])
+const cityId = ref<string | null>(null)
+const city = computed(() => cities.value.find((c) => c.id === cityId.value) ?? null)
+const notBuilt = ref<PlaceResult | null>(null)
+const defaultCity = computed(() => cities.value.find((c) => c.id === DEFAULT_CITY) ?? cities.value[0] ?? null)
+const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
 
 const selectedGeoid = ref<string | null>(null)
@@ -33,7 +43,41 @@ function flyToPark(p: NearbyPark) {
 
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 
-onMounted(load)
+async function selectCity(id: string) {
+  const c = cities.value.find((x) => x.id === id) ?? defaultCity.value
+  if (!c) return
+  notBuilt.value = null
+  selectedGeoid.value = null
+  const changed = c.id !== cityId.value
+  cityId.value = c.id
+  try { localStorage.setItem('ste-city', c.id) } catch { /* storage unavailable */ }
+  const url = new URL(window.location.href)
+  url.searchParams.set('city', c.id)
+  window.history.replaceState(null, '', url)
+  if (changed || !meta.value) await load(c.dataPath)
+  mapRef.value?.fitData()
+}
+
+function retry() {
+  if (city.value) load(city.value.dataPath)
+}
+
+async function init() {
+  try {
+    cities.value = (await loadCities()).cities
+  } catch {
+    // Manifest missing: fall back to the built-in Portland pack in data/.
+    cities.value = [{ id: DEFAULT_CITY, cityName: 'Portland, OR', subtitle: 'Central Portland', dataPath: 'data',
+      bbox: [-122.75, 45.47, -122.58, 45.57] }]
+  }
+  const fromUrl = new URLSearchParams(window.location.search).get('city')
+  let stored: string | null = null
+  try { stored = localStorage.getItem('ste-city') } catch { /* ignore */ }
+  const known = (id: string | null) => !!id && cities.value.some((c) => c.id === id)
+  await selectCity([fromUrl, stored].find(known) ?? DEFAULT_CITY)
+}
+
+onMounted(init)
 </script>
 
 <template>
@@ -46,6 +90,9 @@ onMounted(load)
         <span class="font-weight-bold">Street Tree Equity</span>
         <span v-if="meta" class="text-body-2 ml-2 opacity-80">{{ meta.cityName }}<span v-if="mdAndUp && meta.subtitle"> · {{ meta.subtitle }}</span></span>
       </v-app-bar-title>
+
+      <PlacePicker v-if="cities.length" :cities="cities" :selected-id="cityId" :label="meta?.cityName ?? ''"
+        :mobile="!mdAndUp" @select="selectCity" @not-built="notBuilt = $event; selectedGeoid = null" />
 
       <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="white">
         <MapLegend :meta="meta" dense />
@@ -76,14 +123,38 @@ onMounted(load)
     </v-navigation-drawer>
 
     <v-main class="position-relative">
-      <MapView v-if="meta && tracts && parks" ref="mapRef" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads"
+      <MapView v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads"
         :selected-geoid="selectedGeoid" :show-trees="showTrees" :show-parks="showParks" :show-roads="showRoads"
         :highlight-bottom-quartile="highlightBottomQuartile" @select="selectedGeoid = $event" />
 
-      <div v-if="loading" class="d-flex fill-height align-center justify-center">
-        <v-progress-circular indeterminate color="primary" size="48" />
+      <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
+        <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
+        <div class="text-body-2 mt-3">Loading tree data for {{ loadingName }}…</div>
       </div>
-      <v-alert v-if="error" type="error" class="ma-4" :text="error" title="Could not load data" />
+      <v-alert v-if="error && !notBuilt" type="error" class="ma-4" title="Map data didn't load">
+        <p>Check your connection and try again. If it keeps happening, the data files may be updating — please open an issue.</p>
+        <div class="d-flex flex-wrap ga-2 mt-3">
+          <v-btn variant="flat" color="white" @click="retry">Try again</v-btn>
+          <v-btn variant="outlined" :href="ISSUE_URL" target="_blank" rel="noopener">Open a GitHub issue</v-btn>
+        </div>
+        <v-expansion-panels class="mt-3" variant="accordion">
+          <v-expansion-panel title="Details" :text="error" />
+        </v-expansion-panels>
+        <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
+      </v-alert>
+      <div v-if="notBuilt" class="d-flex fill-height align-center justify-center pa-4">
+        <v-card max-width="480" variant="outlined" title="Not built for this area yet">
+          <v-card-text>
+            This map ships static open data so it stays free forever.
+            {{ notBuilt.display_name }} isn’t in the demo set. You can open Portland, OR, or add a city by
+            editing <code>city.config.json</code> and running <code>npm run data:refresh</code> (see README).
+          </v-card-text>
+          <v-card-actions>
+            <v-btn color="primary" variant="flat" @click="selectCity(DEFAULT_CITY)">Show Portland, OR</v-btn>
+            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener noreferrer">How to add a city</v-btn>
+          </v-card-actions>
+        </v-card>
+      </div>
 
       <v-sheet v-if="meta && !mdAndUp" class="mobile-legend pa-2" rounded elevation="2">
         <MapLegend :meta="meta" />

@@ -55,3 +55,24 @@ export interface Meta {
 export type TractFeature = Feature<Geometry, TractProps>
 export type TractCollection = FeatureCollection<Geometry, TractProps>
 export type ParkCollection = FeatureCollection<Geometry, ParkProps>
+
+/** A packaged city listed in public/cities.json. Its files live under `${BASE_URL}${dataPath}/`. */
+export interface CityEntry {
+  id: string
+  cityName: string
+  subtitle?: string
+  dataPath: string
+  /** [west, south, east, north] */
+  bbox: [number, number, number, number]
+}
+export interface CityManifest {
+  version: number
+  cities: CityEntry[]
+}
+/** A Nominatim search hit (subset of fields we use). */
+export interface PlaceResult {
+  place_id: number
+  display_name: string
+  lat: string
+  lon: string
+}
