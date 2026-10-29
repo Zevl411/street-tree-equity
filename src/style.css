@@ -59,3 +59,20 @@ html { overflow-y: hidden !important; }
   .maplibregl-ctrl-scale { background: #fff !important; color: #000 !important; border-color: #000 !important; }
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+/* #89 print keyboard cheat-sheet (only while html.print-shortcuts is set by the dialog Print button). */
+@media print {
+  html.print-shortcuts body * { visibility: hidden !important; }
+  html.print-shortcuts .v-overlay-container, html.print-shortcuts .v-overlay-container .v-overlay:has(#shortcuts-panel),
+  html.print-shortcuts .v-dialog:has(#shortcuts-panel) { display: block !important; }
+  html.print-shortcuts #map-stage, html.print-shortcuts .main-stage { height: 0 !important; overflow: hidden !important; }
+  html.print-shortcuts #shortcuts-panel, html.print-shortcuts #shortcuts-panel * { visibility: visible !important; color: #000 !important; }
+  html.print-shortcuts #shortcuts-panel { position: fixed !important; top: 0; left: 0; width: 100% !important; max-width: none !important;
+    box-shadow: none !important; background: #fff !important; }
+  html.print-shortcuts #shortcuts-panel .v-card-actions { display: none !important; }
+  html.print-shortcuts #shortcuts-panel .v-card-item { display: none !important; }
+  html.print-shortcuts #shortcuts-panel .shortcuts-print-title { display: block !important; font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+  html.print-shortcuts #shortcuts-panel kbd { border: 1px solid #000 !important; }
+  html.print-shortcuts .v-overlay__scrim { display: none !important; }
+  html.print-shortcuts .v-overlay__content { position: static !important; max-width: none !important; width: 100% !important; transform: none !important; }
+}
