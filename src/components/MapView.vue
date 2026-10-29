@@ -139,7 +139,8 @@ function tractFillOpacity(): ExpressionSpecification {
   return [
     'case',
     ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
-    ['>', ['to-number', ['get', ui.metric.valueKey], -1], median],
+    // #100: risk (higherIsBetter=false) dims below-median tracts
+    ui.metric.higherIsBetter ? ['>', ['to-number', ['get', ui.metric.valueKey], -1], median] : ['<', ['to-number', ['get', ui.metric.valueKey], -1], median],
     ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, dim + 0.12), dim],
     ['boolean', ['feature-state', 'hover'], false], hover,
     base,

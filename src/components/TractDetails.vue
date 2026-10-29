@@ -277,6 +277,7 @@ function copyLink() {
 
     <v-divider />
     <v-list density="compact" lines="two">
+      <v-list-subheader v-if="tract.nriRiskScore != null">NRI risk score · {{ tract.nriRiskScore.toFixed(1) }}<template v-if="tract.nriRiskRating"> ({{ tract.nriRiskRating }})</template><template v-if="tract.nriSoviScore != null"> · social vulnerability {{ tract.nriSoviScore.toFixed(1) }}</template></v-list-subheader>
       <v-list-subheader v-if="tract.groceriesInside != null">Groceries · {{ tract.groceriesInside }} inside this tract<template v-if="tract.nearestGroceryKm != null"> · nearest {{ tract.nearestGroceryKm }} km</template></v-list-subheader>
       <v-list-subheader>Nearest parks · {{ tract.parksInside }} inside this tract</v-list-subheader>
       <v-list-item v-for="row in parkRows" :key="row.park.id" prepend-icon="mdi-pine-tree" :title="row.title"

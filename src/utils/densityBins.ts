@@ -62,12 +62,13 @@ export function binCounts(tracts: TractCollection | null | undefined, breaks: nu
 }
 
 /** #77: #59 below-median set (finite treesPerAcre ≤ median), ordered rank asc then geoid asc. */
-export function belowMedianOrder(tracts: TractCollection | null | undefined, key: MetricValueKey = TREES): { geoid: string; name: string }[] {
+/** #100: higherIsBetter=false → the focused set is value ≥ median (above-median risk). */
+export function belowMedianOrder(tracts: TractCollection | null | undefined, key: MetricValueKey = TREES, higherIsBetter = true): { geoid: string; name: string }[] {
   const med = cityMedian(tracts, key)
   if (med == null) return []
   return (tracts?.features ?? [])
     .map((f) => f.properties)
-    .filter((p) => Number.isFinite(metricValue(p, key)) && metricValue(p, key) <= med)
+    .filter((p) => Number.isFinite(metricValue(p, key)) && (higherIsBetter ? metricValue(p, key) <= med : metricValue(p, key) >= med))
     .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0) || (a.geoid < b.geoid ? -1 : a.geoid > b.geoid ? 1 : 0))
     .map((p) => ({ geoid: p.geoid, name: p.name }))
 }
