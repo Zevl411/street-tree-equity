@@ -39,7 +39,45 @@ export function useData() {
   }
 
   /** Resolves true when this load won and succeeded. */
-  async function load(dataPath = 'data'): Promise<boolean> {
+  // #94: deferred tree points (mobile). Separate controller so a pack switch aborts an in-flight trees fetch.
+  const treesLoading = ref(false)
+  /** True once a pack loaded without trees (deferred) and points have not been fetched yet. */
+  const treesDeferred = ref(false)
+  let treesCtl: AbortController | null = null
+  let packPath: string | null = null
+
+  /** #94: fetch trees.geojson for the current pack. Resolves true on success with features. */
+  async function loadTrees(): Promise<boolean> {
+    if (trees.value) return true
+    if (packPath === null || treesLoading.value) return false
+    const path = packPath
+    treesCtl?.abort()
+    const ctl = new AbortController()
+    treesCtl = ctl
+    treesLoading.value = true
+    try {
+      const tr = await getJson<FeatureCollection>(dataUrl('trees.geojson', path), 'trees.geojson', ctl.signal)
+      if (treesCtl !== ctl || packPath !== path) return false
+      if (!tr || !Array.isArray(tr.features) || tr.features.length === 0) return false
+      trees.value = tr
+      treesDeferred.value = false
+      return true
+    } catch {
+      return false
+    } finally {
+      if (treesCtl === ctl) {
+        treesLoading.value = false
+        treesCtl = null
+      }
+    }
+  }
+
+  async function load(dataPath = 'data', opts: { deferTrees?: boolean } = {}): Promise<boolean> {
+    treesCtl?.abort()
+    treesCtl = null
+    treesLoading.value = false
+    treesDeferred.value = false
+    packPath = null
     controller?.abort()
     const ctl = new AbortController()
     controller = ctl
@@ -57,7 +95,8 @@ export function useData() {
         get<ParkCollection>('parks.geojson'),
         get<FeatureCollection>('roads-lowtree.geojson').catch(() => null),
         // Missing/invalid trees.geojson is not an error: overlay just hides.
-        get<FeatureCollection>('trees.geojson').catch(() => null),
+        // #94: on small viewports trees.geojson is not fetched until the user asks.
+        opts.deferTrees ? Promise.resolve(null) : get<FeatureCollection>('trees.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -65,6 +104,8 @@ export function useData() {
       parks.value = p
       roads.value = r
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
+      packPath = dataPath
+      treesDeferred.value = !!opts.deferTrees
       void saveLastPack(kept)
       return true
     } catch (e) {
@@ -80,5 +121,5 @@ export function useData() {
     }
   }
 
-  return { meta, tracts, parks, roads, trees, loading, error, load }
+  return { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }
