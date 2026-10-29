@@ -41,7 +41,11 @@ const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
-const legendExpanded = ref(false)
+// #53: collapsed by default on mobile, expanded on desktop; explicit choice persisted (ste-legend-open).
+const legendExpanded = computed({
+  get: () => ui.legendExpandedPref ?? mdAndUp.value,
+  set: (v: boolean) => ui.setLegendExpanded(v),
+})
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const selectedTract = computed(() =>
@@ -317,9 +321,6 @@ watch(drawerOpen, async (open) => {
       <CompareCities v-model="compareOpen" :initial="compareInitial" :mobile="!mdAndUp"
         @open="selectCity" @copied="(m: string) => (linkSnack = m)" />
 
-      <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="surface">
-        <MapLegend :meta="meta" :trees-available="treesAvailable" dense />
-      </v-sheet>
 
       <component :is="mdAndUp ? VMenu : VBottomSheet" v-model="layersOpen" v-bind="mdAndUp ? { closeOnContentClick: false, location: 'bottom end' } : {}">
         <template #activator="{ props: act }">
@@ -456,13 +457,19 @@ watch(drawerOpen, async (open) => {
         <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
       </v-alert>
       <CreditStrip v-if="city && meta" />
-      <v-sheet v-if="meta && !mdAndUp && !drawerOpen" class="mobile-legend pa-2" rounded elevation="2" color="surface">
-        <MapLegend v-if="legendExpanded" :meta="meta" :trees-available="treesAvailable" />
-        <v-btn variant="text" size="small" density="comfortable" class="text-none legend-toggle"
-          :prepend-icon="legendExpanded ? 'mdi-chevron-down' : 'mdi-palette-swatch-outline'"
-          :aria-expanded="legendExpanded" @click="legendExpanded = !legendExpanded">
-          {{ legendExpanded ? 'Hide legend' : 'Legend' }}
-        </v-btn>
+      <v-sheet v-if="meta && (mdAndUp || !drawerOpen)" class="map-legend-box pa-2" rounded elevation="2" color="surface">
+        <div v-if="legendExpanded" id="legend-panel">
+          <div class="d-flex align-center justify-space-between mb-1">
+            <span class="text-subtitle-2">Legend</span>
+            <v-btn v-if="mdAndUp" icon="mdi-chevron-down" variant="text" size="small" aria-label="Hide legend" title="Hide legend"
+              :aria-expanded="true" aria-controls="legend-panel" @click="legendExpanded = false" />
+            <v-btn v-else variant="text" size="small" class="text-none legend-toggle" prepend-icon="mdi-chevron-down"
+              :aria-expanded="true" aria-controls="legend-panel" @click="legendExpanded = false">Hide legend</v-btn>
+          </div>
+          <MapLegend :meta="meta" :trees-available="treesAvailable" :dense="mdAndUp" />
+        </div>
+        <v-btn v-else variant="tonal" size="small" class="text-none legend-toggle" prepend-icon="mdi-palette-swatch-outline"
+          :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
       </v-sheet>
 
       <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="320"
@@ -615,11 +622,14 @@ watch(drawerOpen, async (open) => {
 .app-root {
   overflow-x: hidden;
 }
-.mobile-legend {
+.map-legend-box {
   position: absolute;
-  left: 8px;
+  left: calc(8px + env(safe-area-inset-left, 0px));
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  max-width: calc(100vw - 120px);
+  /* stay clear of bottom-right CreditStrip (#42) */
+  max-width: min(320px, 46vw);
+  max-height: calc(60dvh - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
   z-index: 2;
 }
 .legend-toggle {
