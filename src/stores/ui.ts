@@ -52,7 +52,7 @@ export const useUiStore = defineStore('ui', () => {
     basemap.value = b
   }
 
-  // #38: display-only density unit; persisted locally, not in deep links.
+  // #38: display-only density unit; persisted locally and synced via ?unit= (omit when acre).
   const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
   watch(densityUnit, (u) => write(UNIT_KEY, u))
   function setDensityUnit(u: DensityUnit): void {
