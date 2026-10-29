@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 import { VBottomSheet, VMenu } from 'vuetify/components'
@@ -59,6 +59,41 @@ function setFocus(on: boolean) {
 }
 function toggleFocus() { setFocus(!focusMode.value) }
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
+
+// #55 print: expand legend for the page, restore prior pref after (doesn't write ste-legend-open).
+const printing = ref(false)
+let prePrintPref: boolean | null | undefined
+function onBeforePrint() {
+  if (printing.value) return
+  printing.value = true
+  prePrintPref = ui.legendExpandedPref
+  ui.legendExpandedPref = true
+}
+function onAfterPrint() {
+  if (!printing.value) return
+  printing.value = false
+  if (prePrintPref !== undefined) ui.legendExpandedPref = prePrintPref
+  prePrintPref = undefined
+  mapRef.value?.resize()
+}
+async function printMap() {
+  onBeforePrint()
+  await nextTick()
+  mapRef.value?.resize()
+  requestAnimationFrame(() => {
+    window.print()
+  })
+}
+const printMq = window.matchMedia('print')
+const onPrintMq = (e: MediaQueryListEvent) => { if (!e.matches) onAfterPrint() }
+window.addEventListener('beforeprint', onBeforePrint)
+window.addEventListener('afterprint', onAfterPrint)
+printMq.addEventListener('change', onPrintMq)
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeprint', onBeforePrint)
+  window.removeEventListener('afterprint', onAfterPrint)
+  printMq.removeEventListener('change', onPrintMq)
+})
 
 const selectedTract = computed(() =>
   tracts.value?.features.find((f) => f.properties.geoid === selectedGeoid.value)?.properties ?? null,
@@ -447,6 +482,10 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-link-variant" />
           <v-tooltip activator="parent" location="bottom">Share map link</v-tooltip>
         </v-btn>
+        <v-btn icon aria-label="Print map" @click="printMap">
+          <v-icon icon="mdi-printer" />
+          <v-tooltip activator="parent" location="bottom">Print map</v-tooltip>
+        </v-btn>
         <v-btn icon :aria-label="focusLabel" :aria-pressed="focusMode ? 'true' : 'false'" @click="toggleFocus">
           <v-icon :icon="focusMode ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
           <v-tooltip activator="parent" location="bottom">{{ focusLabel }}</v-tooltip>
@@ -474,6 +513,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
+          <v-list-item prepend-icon="mdi-printer" title="Print map" @click="printMap" />
           <v-list-item prepend-icon="mdi-fullscreen" title="Focus map" @click="setFocus(true)" />
           <v-list-item prepend-icon="mdi-keyboard-outline" title="Keyboard shortcuts" @click="shortcutsOpen = true" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
@@ -509,7 +549,7 @@ watch(drawerOpen, async (open) => {
         <div class="text-body-2 mt-2">Pick another city from the place menu above.</div>
       </v-alert>
       <CreditStrip v-if="city && meta" />
-      <v-sheet v-if="meta && (mdAndUp || !drawerOpen)" class="map-legend-box pa-2" rounded elevation="2" color="surface">
+      <v-sheet v-if="meta && (mdAndUp || !drawerOpen || printing)" class="map-legend-box pa-2" rounded elevation="2" color="surface">
         <div v-if="legendExpanded" id="legend-panel">
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-subtitle-2">Legend</span>
@@ -524,7 +564,7 @@ watch(drawerOpen, async (open) => {
           :aria-expanded="false" aria-controls="legend-panel" @click="legendExpanded = true">Legend</v-btn>
       </v-sheet>
 
-      <v-sheet v-if="meta && !selectedTract && mdAndUp && !focusMode" class="hint pa-3" rounded elevation="2" color="surface" max-width="320"
+      <v-sheet v-if="meta && !selectedTract && mdAndUp && !focusMode" class="hint no-print pa-3" rounded elevation="2" color="surface" max-width="320"
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="text-subtitle-2">{{ meta.cityName }}</div>
         <div v-if="meta.subtitle" class="text-caption text-medium-emphasis">{{ meta.subtitle }}</div>
@@ -541,7 +581,7 @@ watch(drawerOpen, async (open) => {
           <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
         </div>
       </v-sheet>
-      <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp && !focusMode" class="overview-strip pa-2 d-flex align-center" rounded elevation="2" color="surface"
+      <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp && !focusMode" class="overview-strip no-print pa-2 d-flex align-center" rounded elevation="2" color="surface"
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="d-flex flex-wrap ga-1 flex-grow-1 text-caption">
           <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>

@@ -25,3 +25,19 @@ html { overflow-y: hidden !important; }
     scroll-behavior: auto !important;
   }
 }
+
+/* #55 print-friendly view: map + legend + credits only. */
+@page { size: landscape; margin: 12mm; }
+@media print {
+  .v-app-bar, .skip-link, .v-navigation-drawer, .v-overlay, .v-overlay-container,
+  .v-snackbar, .v-tooltip, .v-bottom-sheet, .v-dialog, .v-menu, .no-print,
+  .maplibregl-ctrl-top-right, .maplibregl-ctrl-top-left, .legend-toggle,
+  .map-legend-box .v-btn { display: none !important; }
+  html, body, .v-application, .v-application__wrap { height: auto !important; min-height: 0 !important; background: #fff !important; }
+  .v-main { padding: 0 !important; }
+  #map-stage, .main-stage { position: relative !important; inset: auto !important; width: 100% !important; height: 175mm !important; overflow: hidden; break-inside: avoid; }
+  #map-stage .maplibregl-map, #map-stage canvas { width: 100% !important; height: 100% !important; }
+  #legend-panel { display: block !important; }
+  .map-legend-box, .credit-strip { position: absolute !important; box-shadow: none !important; border: 1px solid #999; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
