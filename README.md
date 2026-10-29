@@ -4,7 +4,7 @@ Choropleth of **OpenStreetMap-mapped trees per acre by U.S. Census tract**, with
 “plant here” streets (no mapped tree within 20 m). Demo city: **central Portland, OR**.
 
 - **Frontend:** Vue 3 + Vite + TypeScript + Vuetify 3, MapLibre GL JS
-- **Basemap:** [OpenFreeMap](https://openfreemap.org) (free, no API key, no signup)
+- **Basemap:** Streets = [OpenFreeMap](https://openfreemap.org) (free, no API key, no signup); Satellite = [EOxCloudless 2025](https://cloudless.eox.at) (free, no key, CC BY-NC-SA non-commercial). Toggle in the Layers menu.
 - **Data:** static GeoJSON in `public/data/` built by a Node pipeline from OSM (Overpass) + Census
 - **Hosting:** GitHub Pages (demo) or GitLab Pages — static only
 - **Optional Node server:** Express serves the build + a read-only JSON API over the same files
@@ -124,7 +124,7 @@ Keep the bbox city-district sized — Overpass is a shared free service and may 
 on very large areas. Disable `roadsLowTree` for faster runs/smaller output.
 
 Basemap: set `VITE_BASEMAP_STYLE` to any MapLibre style URL that needs no key (default
-`https://tiles.openfreemap.org/styles/positron`; `liberty` and `bright` also work). If set, it is used in both themes — the dark-mode toggle won't swap the basemap.
+`https://tiles.openfreemap.org/styles/positron`; `liberty` and `bright` also work). If set, it is used for Streets in both themes — the dark-mode toggle won't swap it. Satellite always uses EOxCloudless 2025 (no key); if its tiles fail, the app falls back to Streets.
 
 Dark mode — header toggle; preference saved in the browser; streets basemap uses OpenFreeMap Dark (no API key).
 
@@ -163,6 +163,7 @@ src/                      # Vue 3 + Vuetify app (App.vue, components/MapView.vue
   Open Database License (ODbL). Derived files in `public/data/` (trees, parks, roads, counts) are ODbL.
 - Census tract boundaries: U.S. Census Bureau cartographic boundary files (public domain).
 - Basemap: [OpenFreeMap](https://openfreemap.org) · © [OpenMapTiles](https://www.openmaptiles.org/) · data © OpenStreetMap contributors.
+- Satellite: [EOxCloudless](https://cloudless.eox.at) by EOX IT Services GmbH — contains modified Copernicus Sentinel data 2025 · CC BY-NC-SA (non-commercial).
 - Code: MIT.
 
 ## TypeScript only
