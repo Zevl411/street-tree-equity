@@ -18,6 +18,7 @@ import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { readSessionView, writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
@@ -36,6 +37,7 @@ const layersOpen = ref(false)
 const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
 const favoritesOpen = ref(false)
+const shortcutsOpen = ref(false)
 const legendExpanded = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
@@ -252,6 +254,28 @@ useOverlayFocus(finderOpen, '#tract-finder-panel input', findControl, () => !dra
 useOverlayFocus(hotspotsOpen, '#hotspots-panel .hotspots-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(favoritesOpen, '#favorites-panel .favorites-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(compareOpen, '#compare-panel .compare-close', () => '#city-picker-btn')
+useOverlayFocus(shortcutsOpen, '#shortcuts-panel .shortcuts-close', () => '#map-stage')
+
+// #46 keyboard shortcuts. Esc: open overlays (Vuetify dialog/menu/sheet + #39 focus restore) own their Esc;
+// only when none is open do we close the tract drawer / clear selection.
+const anyOverlayOpen = () => layersOpen.value || finderOpen.value || hotspotsOpen.value || favoritesOpen.value || compareOpen.value
+  || aboutOpen.value || shortcutsOpen.value || document.querySelector('.v-overlay--active:not(.v-tooltip)') !== null
+const hotspotsAvailable = () => !!(meta.value && tracts.value?.features.length)
+useKeyboardShortcuts({
+  find: () => { if (anyOverlayOpen()) return; finderOpen.value = true },
+  escape: () => { if (!anyOverlayOpen() && selectedGeoid.value) drawerOpen.value = false },
+  toggleTheme: () => ui.toggleTheme(),
+  toggleBasemap: () => ui.setBasemap(basemap.value === 'satellite' ? 'streets' : 'satellite'),
+  toggleHotspots: () => {
+    if (hotspotsOpen.value) { hotspotsOpen.value = false; return }
+    if (!anyOverlayOpen() && hotspotsAvailable()) hotspotsOpen.value = true
+  },
+  help: () => { if (!anyOverlayOpen()) shortcutsOpen.value = true },
+})
+const SHORTCUTS: [string, string][] = [
+  ['/', 'Find tract'], ['Esc', 'Close panel or clear selection'], ['d', 'Toggle dark mode'],
+  ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
+]
 const tractFromFinder = ref(false)
 function pickFromFinder(geoid: string) {
   tractFromFinder.value = true
@@ -374,6 +398,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
+          <v-list-item prepend-icon="mdi-keyboard-outline" title="Keyboard shortcuts" @click="shortcutsOpen = true" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
         </v-list>
       </v-menu>
@@ -448,6 +473,23 @@ watch(drawerOpen, async (open) => {
       </v-sheet>
       </div>
     </v-main>
+
+    <v-dialog v-model="shortcutsOpen" max-width="360">
+      <v-card id="shortcuts-panel" title="Keyboard shortcuts">
+        <v-card-text>
+          <dl class="shortcuts-list">
+            <template v-for="[k, label] in SHORTCUTS" :key="k">
+              <dt><kbd>{{ k }}</kbd></dt><dd>{{ label }}</dd>
+            </template>
+          </dl>
+          <p class="text-caption mt-3 text-medium-emphasis">Shortcuts are off while typing in a field.</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn class="shortcuts-close" color="primary" variant="text" @click="shortcutsOpen = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-dialog v-model="aboutOpen" :max-width="mdAndUp ? 560 : '100%'" :fullscreen="!mdAndUp" scrollable>
       <v-card title="About this map">
@@ -545,6 +587,10 @@ watch(drawerOpen, async (open) => {
 .legend-toggle {
   min-height: 44px;
 }
+.shortcuts-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; align-items: center; margin: 0; }
+.shortcuts-list dd { margin: 0; }
+.shortcuts-list kbd { display: inline-block; min-width: 2em; text-align: center; padding: 2px 6px; border-radius: 4px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.3); font-family: ui-monospace, monospace; font-size: 0.85em; }
 .bottom-drawer {
   max-height: min(85vh, calc(100dvh - var(--v-layout-top, 0px))) !important;
   height: auto !important;
