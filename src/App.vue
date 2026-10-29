@@ -22,7 +22,9 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
-const { meta, tracts, parks, roads, loading, error, load } = useData()
+const { meta, tracts, parks, roads, trees, loading, error, load } = useData()
+/** #51: hide the trees switch when the pack ships no tree points. */
+const treesAvailable = computed(() => !!trees.value?.features.length)
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
 
 const cityStore = useCityStore()
@@ -316,7 +318,7 @@ watch(drawerOpen, async (open) => {
         @open="selectCity" @copied="(m: string) => (linkSnack = m)" />
 
       <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="surface">
-        <MapLegend :meta="meta" dense />
+        <MapLegend :meta="meta" :trees-available="treesAvailable" dense />
       </v-sheet>
 
       <component :is="mdAndUp ? VMenu : VBottomSheet" v-model="layersOpen" v-bind="mdAndUp ? { closeOnContentClick: false, location: 'bottom end' } : {}">
@@ -375,7 +377,7 @@ watch(drawerOpen, async (open) => {
               <v-btn value="contrast" size="small">High contrast</v-btn>
             </v-btn-toggle>
             <div class="text-caption text-medium-emphasis mt-1 mb-1">Same density bins — different colors.</div>
-            <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
+            <v-switch v-if="treesAvailable" v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
@@ -436,7 +438,7 @@ watch(drawerOpen, async (open) => {
     <v-main class="d-flex flex-column">
       <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -455,7 +457,7 @@ watch(drawerOpen, async (open) => {
       </v-alert>
       <CreditStrip v-if="city && meta" />
       <v-sheet v-if="meta && !mdAndUp && !drawerOpen" class="mobile-legend pa-2" rounded elevation="2" color="surface">
-        <MapLegend v-if="legendExpanded" :meta="meta" />
+        <MapLegend v-if="legendExpanded" :meta="meta" :trees-available="treesAvailable" />
         <v-btn variant="text" size="small" density="comfortable" class="text-none legend-toggle"
           :prepend-icon="legendExpanded ? 'mdi-chevron-down' : 'mdi-palette-swatch-outline'"
           :aria-expanded="legendExpanded" @click="legendExpanded = !legendExpanded">

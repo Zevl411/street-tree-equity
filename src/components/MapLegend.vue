@@ -4,7 +4,7 @@ import type { Meta } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
 
-const props = defineProps<{ meta: Meta; dense?: boolean }>()
+const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean }>()
 
 const ui = useUiStore()
 const isKm2 = computed(() => ui.densityUnit === 'km2')
@@ -42,6 +42,10 @@ function fmt(n: number) {
         <span class="swatch line" style="background: #ef6c00" />
         <span class="text-caption">No mapped tree within 20 m (plant-here)</span>
       </div>
+      <div v-if="treesAvailable" class="d-flex align-center ga-1">
+        <span class="swatch dot" />
+        <span class="text-caption">Mapped tree</span>
+      </div>
     </div>
   </div>
 </template>
@@ -57,6 +61,14 @@ function fmt(n: number) {
 .swatch.line {
   height: 4px;
   border: 0;
+}
+.swatch.dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 4px;
+  border-radius: 50%;
+  background: #2e7d32;
+  border: 1px solid #ffffff;
 }
 .legend.dense .text-caption {
   line-height: 1.1;

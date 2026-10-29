@@ -4,7 +4,6 @@ import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map 
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { storeToRefs } from 'pinia'
-import { dataUrl } from '@/composables/useData'
 import { writeSessionView, type SessionView } from '@/composables/useSessionView'
 import { useCityStore } from '@/stores/city'
 import { useUiStore, type Basemap } from '@/stores/ui'
@@ -49,6 +48,8 @@ const props = defineProps<{
   initialView?: SessionView | null
   parks: ParkCollection
   roads: FeatureCollection | null
+  /** #51: pack tree points; null = pack has none (layer not added). */
+  trees?: FeatureCollection | null
 }>()
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
@@ -86,7 +87,6 @@ function addDataLayers(m: MlMap) {
   const before = firstSymbolLayerId(m)
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
-  m.addSource('trees', { type: 'geojson', data: dataUrl('trees.geojson', props.dataPath) })
   m.addSource('roads', { type: 'geojson', data: props.roads ?? { type: 'FeatureCollection', features: [] } })
 
   m.addLayer({
@@ -117,21 +117,33 @@ function addDataLayers(m: MlMap) {
     layout: { 'line-cap': 'round', visibility: showRoads.value ? 'visible' : 'none' },
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
   }, before)
-  m.addLayer({
-    id: 'trees', type: 'circle', source: 'trees', minzoom: 13,
-    layout: { visibility: showTrees.value ? 'visible' : 'none' },
-    paint: {
-      'circle-color': '#2e7d32',
-      'circle-stroke-color': pal.treeStroke,
-      'circle-stroke-width': 0.5,
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 17, 5],
-    },
-  }, before)
+  if (props.trees?.features.length) {
+    m.addSource('trees', { type: 'geojson', data: props.trees })
+    m.addLayer({
+      id: 'trees', type: 'circle', source: 'trees', minzoom: 13,
+      layout: { visibility: showTrees.value ? 'visible' : 'none' },
+      paint: treePaint(),
+    }, before)
+  }
   m.addLayer({
     id: 'tracts-selected', type: 'line', source: 'tracts',
     filter: ['==', ['get', 'geoid'], selectedGeoid.value ?? ''],
     paint: { 'line-color': pal.selected, 'line-width': 3 },
   })
+}
+
+/** #51: tree dots — independent of #48 fill opacity; satellite gets light fill + dark stroke. */
+function treePaint() {
+  const sat = basemap.value === 'satellite'
+  const pal = palette(isDark.value, sat)
+  return {
+    'circle-color': sat ? '#a5d6a7' : '#2e7d32',
+    'circle-stroke-color': sat ? '#1b5e20' : pal.treeStroke,
+    'circle-stroke-width': sat ? 1 : 0.5,
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 15, 2.5, 17, 5] as ExpressionSpecification,
+    // z13–14 lighter so the choropleth stays primary.
+    'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 14.5, 0.9] as ExpressionSpecification,
+  }
 }
 
 function setVis(id: string, on: boolean) {
