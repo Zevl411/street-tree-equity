@@ -5,6 +5,7 @@ Choropleth of **OpenStreetMap-mapped trees per acre by U.S. Census tract**, with
 
 - **Frontend:** Vue 3 + Vite + TypeScript + Vuetify 3, MapLibre GL JS
 - **Basemap:** Streets = [OpenFreeMap](https://openfreemap.org) (free, no API key, no signup); Satellite = [EOxCloudless 2025](https://cloudless.eox.at) (free, no key, CC BY-NC-SA non-commercial). Toggle in the Layers menu.
+- **Dark mode:** header moon/sun toggle (or `d`) saves `ste-theme`; until then the app follows your OS `prefers-color-scheme`. Share links carry `theme=` and apply it on open (saving `ste-theme`) so the recipient sees the sender's theme.
 - **Data:** static GeoJSON in `public/data/` built by a Node pipeline from OSM (Overpass) + Census
 - **Hosting:** GitHub Pages (demo) or GitLab Pages — static only
 - **Optional Node server:** Express serves the build + a read-only JSON API over the same files

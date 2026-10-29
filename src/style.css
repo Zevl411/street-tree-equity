@@ -1,6 +1,12 @@
 html, body, #app { height: 100%; margin: 0; }
 html { overflow-y: hidden !important; }
-.maplibregl-popup-content { font-family: Roboto, sans-serif; font-size: 13px; }
+.maplibregl-popup-content { font-family: Roboto, sans-serif; font-size: 13px; background: rgb(var(--v-theme-surface)); color: rgb(var(--v-theme-on-surface)); }
+/* #76: popup tip + close button follow theme surface (default is white/black). */
+.maplibregl-popup-anchor-top .maplibregl-popup-tip, .maplibregl-popup-anchor-top-left .maplibregl-popup-tip, .maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: rgb(var(--v-theme-surface)); }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: rgb(var(--v-theme-surface)); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: rgb(var(--v-theme-surface)); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: rgb(var(--v-theme-surface)); }
+.maplibregl-popup-close-button { color: rgb(var(--v-theme-on-surface)); }
 
 /* #33: keep snackbars clear of the iOS home indicator (teleported, so global). */
 .safe-snack .v-overlay__content {

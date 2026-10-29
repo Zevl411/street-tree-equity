@@ -60,6 +60,14 @@ export const useUiStore = defineStore('ui', () => {
     setTheme(isDark.value ? 'treeLight' : 'treeDark')
   }
 
+  // #76 stretch: follow live OS scheme changes until the user saves an explicit choice.
+  // Does not persist; once `ste-theme` exists (toggle / share link) the listener is a no-op.
+  const mq = typeof window !== 'undefined' ? window.matchMedia?.('(prefers-color-scheme: dark)') : undefined
+  mq?.addEventListener?.('change', (e: MediaQueryListEvent) => {
+    if (read(THEME_KEY) !== null) return
+    theme.value = e.matches ? 'treeDark' : 'treeLight'
+  })
+
   // Satellite UI ships in a later PR; the field + persistence are ready for it.
   const basemap = ref<Basemap>(initialBasemap())
   watch(basemap, (b) => write(BASEMAP_KEY, b))
