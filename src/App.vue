@@ -20,6 +20,7 @@ import { copyText } from '@/utils/clipboard'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load } = useData()
@@ -41,6 +42,12 @@ const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
+const resetConfirmOpen = ref(false)
+function confirmReset() {
+  resetConfirmOpen.value = false
+  aboutOpen.value = false
+  resetPrefsAndReload()
+}
 // #53: collapsed by default on mobile, expanded on desktop; explicit choice persisted (ste-legend-open).
 const legendExpanded = computed({
   get: () => ui.legendExpandedPref ?? mdAndUp.value,
@@ -359,6 +366,7 @@ useOverlayFocus(hotspotsOpen, '#hotspots-panel .hotspots-close', () => '#map-sta
 useOverlayFocus(favoritesOpen, '#favorites-panel .favorites-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(compareOpen, '#compare-panel .compare-close', () => '#city-picker-btn')
 useOverlayFocus(shortcutsOpen, '#shortcuts-panel .shortcuts-close', () => '#map-stage')
+useOverlayFocus(resetConfirmOpen, '#reset-confirm .reset-cancel', () => '#about-reset-btn')
 
 // #46 keyboard shortcuts. Esc: open overlays (Vuetify dialog/menu/sheet + #39 focus restore) own their Esc;
 // only when none is open do we close the tract drawer / clear selection.
@@ -653,11 +661,26 @@ watch(drawerOpen, async (open) => {
           <h3 class="text-subtitle-1 font-weight-bold mb-1">Scope &amp; code</h3>
           <p class="text-body-2 mb-2"><strong>Packaged cities only:</strong> this site shows only the cities that ship with it — it is not a live national search.</p>
           <p class="text-body-2 mb-0"><strong>Source code:</strong> <a href="https://github.com/Zevl411/street-tree-equity" target="_blank" rel="noopener noreferrer">github.com/Zevl411/street-tree-equity<span class="sr-only"> (opens in new tab)</span></a></p>
+
+          <div class="about-reset mt-4">
+            <p class="text-caption text-medium-emphasis mb-1">This browser remembers your city, map view, layers, and starred tracts.</p>
+            <v-btn id="about-reset-btn" variant="text" color="error" prepend-icon="mdi-restore" @click="resetConfirmOpen = true">Reset saved preferences</v-btn>
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-btn variant="text" prepend-icon="mdi-content-copy" @click="copyCitations">Copy citations</v-btn>
           <v-spacer />
           <v-btn color="primary" variant="text" @click="aboutOpen = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <v-dialog v-model="resetConfirmOpen" max-width="400">
+      <v-card id="reset-confirm" title="Reset saved preferences?">
+        <v-card-text class="text-body-2">Clears this browser’s saved city, map view, starred tracts, theme, basemap, and layer choices. Packaged city data on the site is not deleted.</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn class="reset-cancel" variant="text" @click="resetConfirmOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" @click="confirmReset">Reset</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
