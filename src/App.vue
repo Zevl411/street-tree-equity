@@ -12,7 +12,7 @@ import TractFinder from '@/components/TractFinder.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { useUiStore } from '@/stores/ui'
-import { readDeepLink, writeDeepLink } from '@/composables/useDeepLink'
+import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 
 const { meta, tracts, parks, roads, loading, error, load } = useData()
@@ -62,17 +62,39 @@ async function init() {
   const link = readDeepLink()
   if (link.theme && link.theme !== ui.theme) ui.setTheme(link.theme)
   if (link.basemap) ui.setBasemap(link.basemap)
+  if (link.layers) applyLayers(link.layers)
   await cityStore.loadManifest()
   await selectCity(cityStore.initialCityId())
   if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
   syncUrl()
   openCompareFromUrl()
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile], syncUrl)
 }
 
+function currentLayers(): LayerFlags {
+  return { trees: showTrees.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value }
+}
+function applyLayers(f: LayerFlags) {
+  showTrees.value = f.trees
+  showParks.value = f.parks
+  showRoads.value = f.roads
+  highlightBottomQuartile.value = f.bq
+}
+
+/** One-tap layer presets (#37). They only set the four switches; switches stay the source of truth. */
+const LAYER_PRESETS: { id: string; label: string; flags: LayerFlags }[] = [
+  { id: 'equity', label: 'Equity', flags: { trees: true, parks: true, roads: false, bq: true } },
+  { id: 'plant', label: 'Plant-here', flags: { trees: true, parks: false, roads: true, bq: false } },
+  { id: 'parks', label: 'Parks', flags: { trees: true, parks: true, roads: false, bq: false } },
+]
+const activePreset = computed(() => {
+  const c = currentLayers()
+  return LAYER_PRESETS.find((p) => (Object.keys(c) as (keyof LayerFlags)[]).every((k) => p.flags[k] === c[k]))?.id ?? null
+})
+
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers() })
 }
 
 const compareOpen = ref(false)
@@ -148,6 +170,19 @@ const satFallback = ref(false)
               <v-btn value="satellite" :class="{ 'flex-grow-1': !mdAndUp }">Satellite</v-btn>
             </v-btn-toggle>
             <v-divider class="my-3" />
+            <div class="text-caption mb-1">Presets</div>
+            <div class="d-flex flex-wrap ga-2" role="group" aria-label="Layer presets">
+              <v-chip
+                v-for="p in LAYER_PRESETS" :key="p.id"
+                :color="activePreset === p.id ? 'primary' : undefined"
+                :variant="activePreset === p.id ? 'tonal' : 'outlined'"
+                :aria-pressed="activePreset === p.id ? 'true' : 'false'"
+                :size="mdAndUp ? 'default' : 'large'"
+                :class="{ 'preset-chip-touch': !mdAndUp }"
+                @click.stop="applyLayers(p.flags)"
+              >{{ p.label }}</v-chip>
+            </div>
+            <div class="text-caption text-medium-emphasis mt-1 mb-2">One tap sets the switches below. You can still tweak them.</div>
             <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
@@ -274,6 +309,7 @@ const satFallback = ref(false)
 </template>
 
 <style scoped>
+.preset-chip-touch { min-height: 44px; }
 /* Normal-flow stage inside v-main's padded box, so absolute map/overlays
    sit below the app bar instead of under it (#34). */
 .main-stage {
