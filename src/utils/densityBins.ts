@@ -46,3 +46,14 @@ export function binIndex(v: number, breaks: number[]) {
   while (i < breaks.length && v >= breaks[i]) i++
   return i
 }
+
+/** #77: #59 below-median set (finite treesPerAcre ≤ median), ordered rank asc then geoid asc. */
+export function belowMedianOrder(tracts: TractCollection | null | undefined): { geoid: string; name: string }[] {
+  const med = cityMedian(tracts)
+  if (med == null) return []
+  return (tracts?.features ?? [])
+    .map((f) => f.properties)
+    .filter((p) => Number.isFinite(p.treesPerAcre) && p.treesPerAcre <= med)
+    .sort((a, b) => a.rank - b.rank || (a.geoid < b.geoid ? -1 : a.geoid > b.geoid ? 1 : 0))
+    .map((p) => ({ geoid: p.geoid, name: p.name }))
+}
