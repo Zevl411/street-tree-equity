@@ -122,9 +122,15 @@ async function copyGeoid() {
         </template>
       </v-tooltip>
     </div>
+    <div class="text-caption text-medium-emphasis px-4 pb-3 credit-strip">
+      Tracts: <a href="https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html" target="_blank" rel="noopener noreferrer">U.S. Census Bureau<span class="d-sr-only"> (opens in new tab)</span></a>
+      · Trees, parks &amp; streets: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap (ODbL)<span class="d-sr-only"> (opens in new tab)</span></a>
+      · Basemap: <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="d-sr-only"> (opens in new tab)</span></a> / OpenMapTiles
+    </div>
   </v-card>
 </template>
 
 <style scoped>
 .stat-lead { height: auto !important; white-space: normal; padding-block: 4px; }
+.credit-strip a { color: inherit; text-decoration: underline; }
 </style>
