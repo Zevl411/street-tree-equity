@@ -59,7 +59,14 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit } = storeToRefs(ui)
+let scaleCtrl: maplibregl.ScaleControl | null = null
+function mountScale() {
+  if (!map) return
+  if (scaleCtrl) map.removeControl(scaleCtrl)
+  scaleCtrl = new maplibregl.ScaleControl({ maxWidth: 112, unit: densityUnit.value === 'km2' ? 'metric' : 'imperial' })
+  map.addControl(scaleCtrl, 'bottom-left')
+}
 const emit = defineEmits<{ satelliteError: [] }>()
 
 const el = ref<HTMLDivElement | null>(null)
@@ -342,7 +349,7 @@ onMounted(() => {
     attributionControl: false, // credits live in CreditStrip (#42)
   })
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right')
-  map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left')
+  mountScale()
   map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), 'top-right')
 
   // Satellite fallback: repeated EOX tile/source errors -> back to streets (persisted via store).
@@ -447,6 +454,7 @@ watch(choroplethMode, () => {
 })
 watch(isDark, applySelectedPaint)
 watch(() => props.focusMode, applySelectedPaint)
+watch(densityUnit, mountScale)
 watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
