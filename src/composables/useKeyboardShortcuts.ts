@@ -9,6 +9,8 @@ export interface ShortcutHandlers {
   toggleHotspots: () => void
   help: () => void
   toggleFullscreen?: () => void
+  /** #77: n/p cycle below-median tracts. */
+  jumpBelowMedian?: (dir: 1 | -1) => void
 }
 
 /** True when the key should be left to a text field / editable element. */
@@ -36,6 +38,8 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
       case 's': h.toggleBasemap(); break
       case 'h': h.toggleHotspots(); break
       case 'f': h.toggleFullscreen?.(); break
+      case 'n': h.jumpBelowMedian?.(1); break
+      case 'p': h.jumpBelowMedian?.(-1); break
     }
   }
   onMounted(() => window.addEventListener('keydown', onKey, { capture: true }))

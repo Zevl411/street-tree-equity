@@ -9,7 +9,7 @@ import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
 import TractDetails from '@/components/TractDetails.vue'
-import { cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
+import { belowMedianOrder, cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
@@ -537,10 +537,25 @@ useKeyboardShortcuts({
     if (!anyOverlayOpen() && hotspotsAvailable()) hotspotsOpen.value = true
   },
   help: () => { if (!anyOverlayOpen()) shortcutsOpen.value = true },
+  jumpBelowMedian,
 })
+// #77: n/p cycle the #59 below-median set (rank asc, geoid asc; wraps). Requires the toggle on; ignores #73 bin.
+const jumpAnnounce = ref('')
+function jumpBelowMedian(dir: 1 | -1) {
+  if (anyOverlayOpen()) return
+  if (!medianAvailable.value) return
+  const set = belowMedianOrder(tracts.value)
+  if (!set.length) return
+  if (!belowMedian.value) { linkSnack.value = 'Turn on Below city median first'; return }
+  const cur = set.findIndex((t) => t.geoid === selectedGeoid.value)
+  const i = cur < 0 ? (dir === 1 ? 0 : set.length - 1) : (cur + dir + set.length) % set.length
+  cityStore.select(set[i].geoid)
+  jumpAnnounce.value = `${set[i].name} · ${i + 1} of ${set.length} below median`
+}
 const SHORTCUTS: [string, string][] = [
   ['/', 'Find tract'], ['Esc', 'Close panel, clear selection, or exit focus'], ['d', 'Toggle dark mode'],
   ['s', 'Toggle satellite basemap'], ['h', 'Low-canopy hotspots'], ['?', 'Keyboard shortcuts'],
+  ['n', 'Next below-median tract'], ['p', 'Previous below-median tract'],
   ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
 ]
 const tractFromFinder = ref(false)
@@ -717,6 +732,7 @@ watch(drawerOpen, async (open) => {
         </v-list>
       </v-menu>
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
+      <span class="sr-only" aria-live="polite">{{ jumpAnnounce }}</span>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
