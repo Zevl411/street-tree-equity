@@ -124,7 +124,9 @@ Keep the bbox city-district sized — Overpass is a shared free service and may 
 on very large areas. Disable `roadsLowTree` for faster runs/smaller output.
 
 Basemap: set `VITE_BASEMAP_STYLE` to any MapLibre style URL that needs no key (default
-`https://tiles.openfreemap.org/styles/positron`; `liberty` and `bright` also work).
+`https://tiles.openfreemap.org/styles/positron`; `liberty` and `bright` also work). If set, it is used in both themes — the dark-mode toggle won't swap the basemap.
+
+Dark mode — header toggle; preference saved in the browser; streets basemap uses OpenFreeMap Dark (no API key).
 
 ## How the numbers are computed
 

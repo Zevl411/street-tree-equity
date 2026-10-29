@@ -7,7 +7,18 @@ import { dataUrl } from '@/composables/useData'
 
 // Free, no-key basemap. OpenFreeMap is free to use with no registration or API key.
 // Swap via VITE_BASEMAP_STYLE (any MapLibre style URL that needs no key).
-const BASEMAP_STYLE = import.meta.env.VITE_BASEMAP_STYLE || 'https://tiles.openfreemap.org/styles/positron'
+// If VITE_BASEMAP_STYLE is set it wins for both themes (the theme toggle won't swap the basemap).
+const ENV_STYLE: string | undefined = import.meta.env.VITE_BASEMAP_STYLE || undefined
+const STREETS_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
+const STREETS_DARK = 'https://tiles.openfreemap.org/styles/dark'
+function styleUrl(dark: boolean) {
+  return ENV_STYLE ?? (dark ? STREETS_DARK : STREETS_LIGHT)
+}
+function palette(dark: boolean) {
+  return dark
+    ? { outline: '#e0e0e0', outlineOpacity: 0.85, selected: '#fafafa', hover: 0.9, base: 0.75, treeStroke: '#212121' }
+    : { outline: '#ffffff', outlineOpacity: 0.9, selected: '#212121', hover: 0.85, base: 0.65, treeStroke: '#ffffff' }
+}
 
 const props = defineProps<{
   dataPath: string
@@ -20,6 +31,7 @@ const props = defineProps<{
   showParks: boolean
   showRoads: boolean
   highlightBottomQuartile: boolean
+  dark?: boolean
 }>()
 const emit = defineEmits<{ select: [geoid: string | null] }>()
 
@@ -40,6 +52,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 }
 
 function addDataLayers(m: MlMap) {
+  const pal = palette(!!props.dark)
   const before = firstSymbolLayerId(m)
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
@@ -50,12 +63,12 @@ function addDataLayers(m: MlMap) {
     id: 'tracts-fill', type: 'fill', source: 'tracts',
     paint: {
       'fill-color': fillColor(),
-      'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.85, 0.65],
+      'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], pal.hover, pal.base],
     },
   }, before)
   m.addLayer({
     id: 'tracts-line', type: 'line', source: 'tracts',
-    paint: { 'line-color': '#ffffff', 'line-width': 0.8, 'line-opacity': 0.9 },
+    paint: { 'line-color': pal.outline, 'line-width': 0.8, 'line-opacity': pal.outlineOpacity },
   }, before)
   m.addLayer({
     id: 'tracts-bottom', type: 'line', source: 'tracts',
@@ -79,7 +92,7 @@ function addDataLayers(m: MlMap) {
     layout: { visibility: props.showTrees ? 'visible' : 'none' },
     paint: {
       'circle-color': '#2e7d32',
-      'circle-stroke-color': '#ffffff',
+      'circle-stroke-color': pal.treeStroke,
       'circle-stroke-width': 0.5,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 17, 5],
     },
@@ -87,7 +100,7 @@ function addDataLayers(m: MlMap) {
   m.addLayer({
     id: 'tracts-selected', type: 'line', source: 'tracts',
     filter: ['==', ['get', 'geoid'], props.selectedGeoid ?? ''],
-    paint: { 'line-color': '#212121', 'line-width': 3 },
+    paint: { 'line-color': pal.selected, 'line-width': 3 },
   })
 }
 
@@ -120,7 +133,7 @@ onMounted(() => {
   const b = props.meta.dataBbox
   map = new maplibregl.Map({
     container: el.value,
-    style: BASEMAP_STYLE,
+    style: styleUrl(!!props.dark),
     bounds: [[b[0], b[1]], [b[2], b[3]]],
     fitBoundsOptions: { padding: 24 },
     attributionControl: {
@@ -132,8 +145,10 @@ onMounted(() => {
   map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left')
   map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), 'top-right')
 
-  map.on('load', () => {
+  // Fires on first load and after every setStyle (theme swap): re-add our layers each time.
+  map.on('style.load', () => {
     if (!map) return
+    hoveredId = null
     addDataLayers(map)
     ready.value = true
     applySelection()
@@ -172,6 +187,12 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }
 
+watch(() => props.dark, (d) => {
+  if (!map || ENV_STYLE) return
+  ready.value = false
+  // Visibility/selection are read from props inside addDataLayers + applySelection on style.load.
+  map.setStyle(styleUrl(!!d))
+})
 watch(() => props.selectedGeoid, applySelection)
 watch(() => props.showTrees, (v) => setVis('trees', v))
 watch(() => props.showParks, (v) => setVis('parks-fill', v))

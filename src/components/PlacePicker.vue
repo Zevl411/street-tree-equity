@@ -34,9 +34,14 @@ function pickResult(r: PlaceResult) {
   <component :is="mobile ? VBottomSheet : VMenu" v-model="open" :close-on-content-click="false"
     v-bind="mobile ? {} : { location: 'bottom start' }">
     <template #activator="{ props: act }">
-      <v-btn v-if="mobile" v-bind="act" icon="mdi-map-search" aria-label="Change place" />
+      <v-btn v-if="mobile" v-bind="act" icon aria-label="Change place">
+        <v-icon icon="mdi-map-search" />
+        <v-tooltip activator="parent" location="bottom">Change place</v-tooltip>
+      </v-btn>
       <v-btn v-else v-bind="act" variant="tonal" class="text-none mr-2" prepend-icon="mdi-map-marker"
-        append-icon="mdi-menu-down" aria-label="Change place">{{ label || 'Choose place' }}</v-btn>
+        append-icon="mdi-menu-down" aria-label="Change place">{{ label || 'Choose place' }}
+        <v-tooltip activator="parent" location="bottom">Change place</v-tooltip>
+      </v-btn>
     </template>
     <v-card :width="mobile ? undefined : 320" title="Choose a place">
       <v-card-text class="pb-0">
