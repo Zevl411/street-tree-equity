@@ -1,0 +1,131 @@
+name: City pack
+
+# Maintainer-only, on demand: build a static city pack from public Census + Overpass data.
+# The browser never queries Overpass; packs are committed as static files.
+on:
+  workflow_dispatch:
+    inputs:
+      cityId:
+        description: 'Pack id (kebab-case), e.g. central-miami-fl'
+        required: true
+        type: string
+      cityName:
+        description: 'Display name, e.g. Miami, FL'
+        required: true
+        type: string
+      subtitle:
+        description: 'Subtitle, e.g. Central Miami'
+        required: true
+        type: string
+      bbox:
+        description: 'W,S,E,N (keep city-district sized), e.g. -80.30,25.74,-80.18,25.85'
+        required: true
+        type: string
+      stateFips:
+        description: 'State FIPS, e.g. 12'
+        required: true
+        type: string
+      countyFips:
+        description: 'County FIPS, comma list ok, e.g. 086 or 051,067'
+        required: true
+        type: string
+      censusYear:
+        description: 'ACS year (blank = city.config.json default)'
+        required: false
+        type: string
+        default: ''
+      open_pr:
+        description: 'Commit pack + cities.json and open/update a PR (false = artifact only)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: city-pack-${{ inputs.cityId }}
+  cancel-in-progress: false
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CITY_ID: ${{ inputs.cityId }}
+      CITY_NAME: ${{ inputs.cityName }}
+      SUBTITLE: ${{ inputs.subtitle }}
+      BBOX: ${{ inputs.bbox }}
+      STATE_FIPS: ${{ inputs.stateFips }}
+      COUNTY_FIPS: ${{ inputs.countyFips }}
+      CENSUS_YEAR: ${{ inputs.censusYear }}
+      WARN_MB: 5
+      FAIL_MB: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build pack (npm run data:refresh with generated config)
+        run: node scripts/build-city-pack.mjs
+      - name: Size check + job summary
+        id: size
+        run: |
+          dir="public/data/${CITY_ID}"
+          bytes=$(du -sb "$dir" | cut -f1)
+          mb=$(awk "BEGIN{printf \"%.2f\", $bytes/1048576}")
+          {
+            echo "## City pack \`${CITY_ID}\`"
+            echo ""
+            echo "- **${CITY_NAME}** — ${SUBTITLE}"
+            echo "- bbox \`${BBOX}\` · state \`${STATE_FIPS}\` · county \`${COUNTY_FIPS}\`"
+            echo "- Total size: **${mb} MB** (target ~2–5 MB; warn > ${WARN_MB} MB; fail > ${FAIL_MB} MB)"
+            echo ""
+            echo "| File | Size |"
+            echo "|---|---|"
+            for f in "$dir"/*; do echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+          if awk "BEGIN{exit !($mb > $FAIL_MB)}"; then
+            echo "::error::Pack is ${mb} MB (> ${FAIL_MB} MB). Shrink the bbox." 
+            echo "" >> "$GITHUB_STEP_SUMMARY"; echo "❌ **Runaway size — failing. Shrink the bbox.**" >> "$GITHUB_STEP_SUMMARY"
+            echo "too_big=true" >> "$GITHUB_OUTPUT"
+          elif awk "BEGIN{exit !($mb > $WARN_MB)}"; then
+            echo "::warning::Pack is ${mb} MB (> ${WARN_MB} MB soft target). Consider a smaller bbox."
+            echo "" >> "$GITHUB_STEP_SUMMARY"; echo "⚠️ **Above the ~5 MB soft target.**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload pack artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-pack-${{ inputs.cityId }}
+          path: public/data/${{ inputs.cityId }}/
+          if-no-files-found: warn
+      - name: Fail on runaway size
+        if: steps.size.outputs.too_big == 'true'
+        run: exit 1
+      - name: Commit pack and open/update PR
+        if: inputs.open_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch="pack/${CITY_ID}"
+          git config user.name "Zev Lerner"
+          git config user.email "46949623+Zevl411@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add "public/data/${CITY_ID}" public/cities.json
+          git diff --cached --quiet && { echo "No changes to commit"; exit 0; }
+          git commit -m "data: ${CITY_ID} city pack (${CITY_NAME})"
+          git push --force-with-lease origin "$branch"
+          body="Automated city pack from the **City pack** workflow (run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}).
+
+          - \`public/data/${CITY_ID}/\` (meta, tracts-equity, parks, roads-lowtree, trees)
+          - \`public/cities.json\` ready entry: \`${CITY_ID}\` · bbox \`${BBOX}\`
+          - Census state \`${STATE_FIPS}\` county \`${COUNTY_FIPS}\`; OSM via public Overpass (ODbL)"
+          if gh pr view "$branch" --json number >/dev/null 2>&1; then
+            gh pr edit "$branch" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "data: ${CITY_ID} city pack" --body "$body"
+          fi
