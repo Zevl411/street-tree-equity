@@ -22,6 +22,13 @@ const tractKm2 = computed(() => props.tract.treesPerKm2 ?? props.tract.treesPerA
 const cityAvgLabel = computed(() => isKm2.value
   ? `${fmtKm2(props.meta.overall.treesPerAcre * ACRES_PER_KM2)}/km²`
   : `${props.meta.overall.treesPerAcre.toFixed(2)}/acre`)
+const relative = computed(() => {
+  const v = vsCity.value
+  if (v === null) return null
+  if (v < 85) return { label: 'Below city average', color: 'warning' }
+  if (v > 115) return { label: 'Above city average', color: 'success' }
+  return { label: 'Near city average', color: 'secondary' }
+})
 const areaLabel = computed(() => props.meta.subtitle || props.meta.cityName)
 const miles = (km: number) => (km * 0.621371).toFixed(2)
 const bufferM = computed(() => props.meta.roadsBufferMeters ?? 20)
@@ -127,10 +134,18 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
         Among the 25% of tracts with the fewest mapped trees per {{ isKm2 ? 'km²' : 'acre' }}.
       </v-alert>
 
-      <v-chip v-if="vsCity !== null" :color="vsCity < 100 ? 'warning' : 'success'" variant="tonal" size="small"
-        class="mb-3 stat-lead">
+      <div class="d-flex flex-wrap ga-2 mb-1">
+        <v-chip v-if="tract.rank && total" color="primary" variant="tonal" size="small"
+          :aria-label="`Density rank ${tract.rank} of ${total}, 1 is most trees per ${isKm2 ? 'km²' : 'acre'}`">
+          #{{ tract.rank }} of {{ total }}
+        </v-chip>
+        <v-chip v-if="relative" :color="relative.color" variant="tonal" size="small">
+          {{ relative.label }}
+        </v-chip>
+      </div>
+      <div v-if="vsCity !== null" class="text-caption text-medium-emphasis mb-3">
         {{ vsCity }}% of the {{ areaLabel }} average ({{ cityAvgLabel }})
-      </v-chip>
+      </div>
 
       <v-row dense>
         <v-col cols="6">
@@ -155,7 +170,7 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">#{{ tract.rank }} of {{ total }}</div>
-          <div class="text-caption text-medium-emphasis">Ranked density (1 = most trees per {{ isKm2 ? 'km²' : 'acre' }})</div>
+          <div class="text-caption text-medium-emphasis">Density rank</div>
         </v-col>
       </v-row>
 
@@ -243,7 +258,6 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
 </template>
 
 <style scoped>
-.stat-lead { height: auto !important; white-space: normal; padding-block: 4px; }
 .touch-44 { min-width: 44px !important; min-height: 44px !important; }
 .touch-h44 { min-height: 44px; }
 .touch-row { min-height: 48px; }
