@@ -12,6 +12,7 @@ import DensityHistogram from '@/components/DensityHistogram.vue'
 import DensityAreaScatter from '@/components/DensityAreaScatter.vue'
 import TractDetails from '@/components/TractDetails.vue'
 import { belowMedianOrder, cityMedian, densityPercentile, fmtDensity, sortedDensities } from '@/utils/densityBins'
+import OfflineStatus from '@/components/OfflineStatus.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
@@ -53,6 +54,8 @@ const packRows = computed<{ label: string; value: string; mono?: boolean }[]>(()
 const ui = useUiStore()
 const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
+// #88: offline hint on pack-error (checked when the error renders).
+const isOffline = computed(() => !!error.value && typeof navigator !== 'undefined' && !navigator.onLine)
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
 const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Switch to dark mode'))
@@ -794,6 +797,7 @@ watch(drawerOpen, async (open) => {
     </v-navigation-drawer>
 
     <v-main class="d-flex flex-column">
+      <OfflineStatus :city-name="meta?.cityName ?? city?.cityName ?? ''" :attempt="city?.id" />
       <div id="map-stage" class="main-stage" tabindex="-1" role="region" aria-label="Map">
         <!-- #65: app bar is outside the FS element, so keep Exit reachable inside map-stage (all sizes). -->
         <v-btn v-if="isFullscreen" class="fs-exit-btn" icon size="small" variant="elevated" aria-label="Exit fullscreen" aria-pressed="true" @click="exitFs">
@@ -810,6 +814,7 @@ watch(drawerOpen, async (open) => {
       </div>
       <v-alert v-if="error && !loading" id="pack-error" type="error" class="ma-4" title="Couldn’t load this city’s data">
         <p>{{ loadingName }} didn’t load. Check your connection, then try again. Packaged files may also be missing or updating.</p>
+        <p v-if="isOffline" class="mt-1">This city isn’t saved on this device yet. Connect once to download it.</p>
         <div class="d-flex flex-wrap ga-2 mt-3">
           <v-btn class="pack-retry" variant="flat" color="white" @click="retry">Try again</v-btn>
           <v-btn variant="outlined" :href="ISSUE_URL" target="_blank" rel="noopener noreferrer">Open a GitHub issue<span class="sr-only"> (opens in new tab)</span></v-btn>
@@ -931,6 +936,7 @@ watch(drawerOpen, async (open) => {
 
           <h3 class="text-subtitle-1 font-weight-bold mb-1">Scope &amp; code</h3>
           <p class="text-body-2 mb-2"><strong>Packaged cities only:</strong> this site shows only the cities that ship with it — it is not a live national search.</p>
+          <p class="text-body-2 mb-2"><strong>Offline:</strong> This browser can keep the app shell and the last city you opened. Street and satellite map tiles still need a connection.</p>
           <p class="text-body-2 mb-0"><strong>Source code:</strong> <a href="https://github.com/Zevl411/street-tree-equity" target="_blank" rel="noopener noreferrer">github.com/Zevl411/street-tree-equity<span class="sr-only"> (opens in new tab)</span></a></p>
 
           <div class="about-reset mt-4">
