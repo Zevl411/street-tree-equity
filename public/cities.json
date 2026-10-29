@@ -6,22 +6,39 @@
       "cityName": "Portland, OR",
       "subtitle": "Central Portland",
       "dataPath": "data",
-      "bbox": [-122.75, 45.47, -122.58, 45.57],
+      "bbox": [
+        -122.75,
+        45.47,
+        -122.58,
+        45.57
+      ],
       "status": "ready"
     },
     {
       "id": "melbourne-fl",
       "cityName": "Melbourne, FL",
-      "subtitle": "Brevard County",
+      "subtitle": "Central Melbourne",
       "dataPath": "data/melbourne-fl",
-      "status": "coming-soon"
+      "bbox": [
+        -80.68,
+        28.05,
+        -80.55,
+        28.15
+      ],
+      "status": "ready"
     },
     {
       "id": "pembroke-pines-fl",
       "cityName": "Pembroke Pines, FL",
-      "subtitle": "Broward County",
+      "subtitle": "SW Broward",
       "dataPath": "data/pembroke-pines-fl",
-      "status": "coming-soon"
+      "bbox": [
+        -80.4,
+        25.98,
+        -80.25,
+        26.08
+      ],
+      "status": "ready"
     }
   ]
 }
