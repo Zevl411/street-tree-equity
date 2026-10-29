@@ -51,7 +51,7 @@ function pick(geoid: string) {
 
 <template>
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" :max-width="mobile ? undefined : 360" scrollable>
-    <v-card :density="mobile ? 'comfortable' : 'compact'">
+    <v-card id="tract-finder-panel" :density="mobile ? 'comfortable' : 'compact'">
       <v-card-title class="d-flex align-center text-subtitle-1">
         Find a tract
         <v-spacer />

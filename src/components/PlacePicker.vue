@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useOverlayFocus } from '@/composables/useOverlayFocus'
 import { VBottomSheet, VMenu } from 'vuetify/components'
 import { storeToRefs } from 'pinia'
 import { useCityStore } from '@/stores/city'
@@ -13,6 +14,8 @@ const { cities, cityId: selectedId, manifestError } = storeToRefs(cityStore)
 
 const README_URL = 'https://github.com/Zevl411/street-tree-equity/blob/main/README.md#add-or-switch-cities'
 const open = ref(false)
+// #39: land on the first enabled city row; Vuetify/our helper returns focus to the activator.
+useOverlayFocus(open, '#place-picker-panel .v-list-item:not(.v-list-item--disabled)')
 const canCompare = computed(() => cities.value.filter(isReady).length >= 2)
 function startCompare() {
   open.value = false
@@ -29,16 +32,16 @@ function pickCity(c: CityEntry) {
 <template>
   <component :is="mobile ? VBottomSheet : VMenu" v-model="open" v-bind="mobile ? {} : { location: 'bottom start' }">
     <template #activator="{ props: act }">
-      <v-btn v-if="mobile" v-bind="act" icon aria-label="Change city">
+      <v-btn v-if="mobile" id="city-picker-btn" v-bind="act" icon aria-label="Change city">
         <v-icon icon="mdi-map-marker" />
         <v-tooltip activator="parent" location="bottom">Change city</v-tooltip>
       </v-btn>
-      <v-btn v-else v-bind="act" variant="tonal" class="text-none mr-2" prepend-icon="mdi-map-marker"
+      <v-btn v-else id="city-picker-btn" v-bind="act" variant="tonal" class="text-none mr-2" prepend-icon="mdi-map-marker"
         append-icon="mdi-menu-down" aria-label="Change city">{{ label || 'Choose city' }}
         <v-tooltip activator="parent" location="bottom">Change city</v-tooltip>
       </v-btn>
     </template>
-    <v-card :width="mobile ? undefined : 320" title="Demo cities" :class="{ 'mobile-sheet': mobile }">
+    <v-card id="place-picker-panel" :width="mobile ? undefined : 320" title="Demo cities" :class="{ 'mobile-sheet': mobile }">
       <v-alert v-if="manifestError" type="warning" density="compact" class="mx-4 mb-2"
         text="Couldn't load the city list. Refresh and try again." />
       <v-card-text v-if="!cities.length" class="text-body-2">No demo cities are loaded yet.</v-card-text>
