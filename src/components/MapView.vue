@@ -19,6 +19,8 @@ const STREETS_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
 const STREETS_DARK = 'https://tiles.openfreemap.org/styles/dark'
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
+  // #57: free OpenFreeMap glyphs so cluster count labels render on satellite too.
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sources: {
     eox: {
       type: 'raster',
@@ -119,11 +121,37 @@ function addDataLayers(m: MlMap) {
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
   }, before)
   if (props.trees?.features.length) {
-    m.addSource('trees', { type: 'geojson', data: props.trees })
+    // #57: MapLibre built-in clustering on the #51 trees source.
+    m.addSource('trees', { type: 'geojson', data: props.trees, cluster: true, clusterRadius: 50, clusterMaxZoom: TREE_CLUSTER_MAX_ZOOM })
+    const vis = showTrees.value ? 'visible' : 'none'
     m.addLayer({
-      id: 'trees', type: 'circle', source: 'trees', minzoom: 13,
-      layout: { visibility: showTrees.value ? 'visible' : 'none' },
+      id: 'trees', type: 'circle', source: 'trees',
+      filter: ['!', ['has', 'point_count']],
+      layout: { visibility: vis },
       paint: treePaint(),
+    }, before)
+    const cp = clusterPaint()
+    m.addLayer({
+      id: 'trees-clusters', type: 'circle', source: 'trees', minzoom: 11,
+      filter: ['has', 'point_count'],
+      layout: { visibility: vis },
+      paint: {
+        'circle-radius': ['step', ['get', 'point_count'], 14, 25, 18, 100, 22, 500, 28] as ExpressionSpecification,
+        'circle-opacity': 0.85,
+        'circle-color': cp.fill, 'circle-stroke-color': cp.stroke, 'circle-stroke-width': cp.strokeWidth,
+      },
+    }, before)
+    m.addLayer({
+      id: 'trees-cluster-count', type: 'symbol', source: 'trees', minzoom: 11,
+      filter: ['has', 'point_count'],
+      layout: {
+        visibility: vis,
+        'text-field': '{point_count_abbreviated}',
+        'text-size': 11,
+        'text-font': ['Noto Sans Regular'],
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': cp.text },
     }, before)
   }
   m.addLayer({
@@ -145,6 +173,29 @@ function treePaint() {
     // z13–14 lighter so the choropleth stays primary.
     'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 14.5, 0.9] as ExpressionSpecification,
   }
+}
+
+const TREE_CLUSTER_MAX_ZOOM = 15
+const TREE_LAYERS = ['trees', 'trees-clusters', 'trees-cluster-count']
+
+/** #57: cluster colors per basemap/theme; high-contrast choropleth gets a brighter fill + heavier stroke. */
+function clusterPaint() {
+  const sat = basemap.value === 'satellite'
+  const dark = !sat && isDark.value
+  const hc = choroplethMode.value === 'contrast'
+  const fill = sat ? (hc ? '#c8e6c9' : '#a5d6a7') : dark ? (hc ? '#81c784' : '#66bb6a') : (hc ? '#a5d6a7' : '#81c784')
+  const stroke = sat ? '#1b5e20' : dark ? '#c8e6c9' : '#1b5e20'
+  return { fill, stroke, strokeWidth: hc ? 2 : 1.5, text: dark ? '#e8f5e9' : '#1b5e20' }
+}
+
+function applyTreePaint() {
+  if (!map?.getLayer('trees-clusters')) return
+  const cp = clusterPaint()
+  map.setPaintProperty('trees-clusters', 'circle-color', cp.fill)
+  map.setPaintProperty('trees-clusters', 'circle-stroke-color', cp.stroke)
+  map.setPaintProperty('trees-clusters', 'circle-stroke-width', cp.strokeWidth)
+  map.setPaintProperty('trees-cluster-count', 'text-color', cp.text)
+  for (const [k, v] of Object.entries(treePaint())) map.setPaintProperty('trees', k, v)
 }
 
 function setVis(id: string, on: boolean) {
@@ -287,9 +338,16 @@ onMounted(() => {
   })
   map.on('click', (e) => {
     if (!map) return
+    // #57: cluster click zooms in instead of selecting the tract underneath.
+    if (map.getLayer('trees-clusters') && map.queryRenderedFeatures(e.point, { layers: ['trees-clusters'] }).length) {
+      map.easeTo({ center: e.lngLat, zoom: Math.min(map.getZoom() + 2, TREE_CLUSTER_MAX_ZOOM + 1), duration: cameraDuration(400) })
+      return
+    }
     const hit = map.queryRenderedFeatures(e.point, { layers: ['tracts-fill'] })
     cityStore.select(hit.length ? String(hit[0].properties.geoid) : null)
   })
+  map.on('mouseenter', 'trees-clusters', () => { if (map) map.getCanvas().style.cursor = 'pointer' })
+  map.on('mouseleave', 'trees-clusters', () => { if (map) map.getCanvas().style.cursor = '' })
   map.on('click', 'parks-fill', (e) => {
     const f = e.features?.[0]
     if (!map || !f) return
@@ -326,8 +384,9 @@ watch(fillOpacity, () => {
 })
 watch(choroplethMode, () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
+  applyTreePaint()
 })
-watch(showTrees, (v) => setVis('trees', v))
+watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
 watch(highlightBottomQuartile, (v) => setVis('tracts-bottom', v))
