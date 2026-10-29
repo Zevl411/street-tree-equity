@@ -542,7 +542,7 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-magnify" />
           <v-tooltip activator="parent" location="bottom">Find tract</v-tooltip>
         </v-btn>
-        <v-btn v-if="!focusMode" icon :aria-label="resetLabel" @click="mapRef?.fitData()">
+        <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
           <v-icon icon="mdi-fit-to-screen-outline" />
           <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
         </v-btn>
@@ -568,6 +568,7 @@ watch(drawerOpen, async (open) => {
         <v-tooltip activator="parent" location="bottom">{{ themeLabel }}</v-tooltip>
       </v-btn>
       <template v-if="!mdAndUp && focusMode">
+        <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()"><v-icon icon="mdi-fit-to-screen-outline" /></v-btn>
         <v-btn icon aria-label="Share map link" @click="copyLink"><v-icon icon="mdi-link-variant" /></v-btn>
         <v-btn icon aria-label="Exit focus" aria-pressed="true" @click="setFocus(false)"><v-icon icon="mdi-fullscreen-exit" /></v-btn>
       </template>
@@ -579,7 +580,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
           <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
-          <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
+          <v-list-item prepend-icon="mdi-fit-to-screen-outline" :title="resetLabel" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
           <v-list-item prepend-icon="mdi-printer" title="Print map" @click="printMap" />
           <v-list-item prepend-icon="mdi-fullscreen" title="Focus map" @click="setFocus(true)" />
