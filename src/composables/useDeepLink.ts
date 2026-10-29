@@ -6,16 +6,18 @@ export interface LayerFlags {
   parks: boolean
   roads: boolean
   bq: boolean
+  /** #59: dim tracts above the city median (session + URL only). */
+  bm: boolean
 }
 
-export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false }
-const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq'] as const
+export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false }
+const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm'] as const
 
 /** `layers=trees,parks,bq` → flags. Unknown tokens ignored; empty value = all off; absent = null. */
 export function parseLayers(raw: string | null): LayerFlags | null {
   if (raw === null) return null
   const set = new Set(raw.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))
-  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq') }
+  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm') }
 }
 
 /** Flags → token string, or null when they equal the app default (keeps share links short). */

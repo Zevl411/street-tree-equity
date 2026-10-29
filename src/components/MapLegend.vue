@@ -4,7 +4,7 @@ import type { Meta } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
 
-const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean }>()
+const props = defineProps<{ meta: Meta; dense?: boolean; treesAvailable?: boolean; belowMedian?: boolean }>()
 
 const ui = useUiStore()
 const isKm2 = computed(() => ui.densityUnit === 'km2')
@@ -47,6 +47,7 @@ function fmt(n: number) {
         <span class="text-caption">Mapped tree</span>
       </div>
     </div>
+    <div v-if="belowMedian" class="text-caption text-medium-emphasis mt-1">Dimmed = above city median</div>
   </div>
 </template>
 

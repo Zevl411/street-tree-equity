@@ -100,6 +100,8 @@ export const useUiStore = defineStore('ui', () => {
   const showParks = ref(true)
   const showRoads = ref(true)
   const highlightBottomQuartile = ref(false)
+  /** #59: not persisted — session + share link (`bm`) only. */
+  const belowMedian = ref(false)
   const aboutOpen = ref(false)
 
   return {
@@ -109,6 +111,6 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode,
     legendExpandedPref, setLegendExpanded,
-    showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen,
+    showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen,
   }
 })
