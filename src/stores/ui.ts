@@ -14,6 +14,7 @@ const BASEMAP_KEY = 'ste-basemap'
 const UNIT_KEY = 'ste-density-unit'
 const FILL_OPACITY_KEY = 'ste-fill-opacity'
 const CHOROPLETH_KEY = 'ste-choropleth'
+const LEGEND_KEY = 'ste-legend-open'
 
 export const FILL_OPACITY_MIN = 0.3
 export const FILL_OPACITY_MAX = 1
@@ -87,6 +88,14 @@ export const useUiStore = defineStore('ui', () => {
     choroplethMode.value = m === 'contrast' ? 'contrast' : 'green'
   }
 
+  // #53: legend expand/collapse; null = no stored choice (default by viewport).
+  const legendStored = read(LEGEND_KEY)
+  const legendExpandedPref = ref<boolean | null>(legendStored === '1' ? true : legendStored === '0' ? false : null)
+  function setLegendExpanded(v: boolean): void {
+    legendExpandedPref.value = v
+    write(LEGEND_KEY, v ? '1' : '0')
+  }
+
   const showTrees = ref(true)
   const showParks = ref(true)
   const showRoads = ref(true)
@@ -99,6 +108,7 @@ export const useUiStore = defineStore('ui', () => {
     densityUnit, setDensityUnit,
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode,
+    legendExpandedPref, setLegendExpanded,
     showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen,
   }
 })
