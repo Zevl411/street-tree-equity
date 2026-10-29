@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Meta, NearbyPark, TractProps } from '@/types'
+import { useCityStore } from '@/stores/city'
+import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number }>()
 const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark] }>()
@@ -40,6 +42,27 @@ async function copyGeoid() {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)
   } catch { /* clipboard unavailable */ }
+}
+
+// #23 export (Blob download only)
+const cityStore = useCityStore()
+const snack = ref(false)
+const snackText = ref('')
+async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
+  try {
+    const cityId = cityStore.city?.id ?? cityStore.cityId ?? 'city'
+    if (kind === 'tract') {
+      downloadBlob(toCsv([props.tract], props.meta), exportFilename(cityId, props.tract.geoid, 'csv'), 'text/csv;charset=utf-8')
+    } else {
+      const fc = await fetchTracts(cityStore.city?.dataPath ?? 'data')
+      if (kind === 'all-csv') downloadBlob(toCsv(fc.features.map((f) => f.properties), props.meta), exportFilename(cityId, 'all', 'csv'), 'text/csv;charset=utf-8')
+      else downloadBlob(toGeoJson(fc, props.meta), exportFilename(cityId, 'all', 'geojson'), 'application/geo+json')
+    }
+    snackText.value = 'Download started'
+  } catch {
+    snackText.value = "Couldn't prepare the file. Try again."
+  }
+  snack.value = true
 }
 </script>
 
@@ -122,6 +145,20 @@ async function copyGeoid() {
         </template>
       </v-tooltip>
     </div>
+    <div class="px-4 pb-1">
+      <v-menu location="top">
+        <template #activator="{ props: menu }">
+          <v-btn v-bind="menu" prepend-icon="mdi-download" variant="tonal" size="small">Download…</v-btn>
+        </template>
+        <v-list density="compact">
+          <v-list-item title="This tract (CSV)" @click="doExport('tract')" />
+          <v-list-item title="All tracts in this city (CSV)" @click="doExport('all-csv')" />
+          <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />
+        </v-list>
+      </v-menu>
+      <div class="text-caption text-medium-emphasis mt-1">{{ ODBL_NOTICE }}</div>
+    </div>
+    <v-snackbar v-model="snack" :timeout="3000">{{ snackText }}</v-snackbar>
     <div class="text-caption text-medium-emphasis px-4 pb-3 credit-strip">
       Tracts: <a href="https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html" target="_blank" rel="noopener noreferrer">U.S. Census Bureau<span class="d-sr-only"> (opens in new tab)</span></a>
       · Trees, parks &amp; streets: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap (ODbL)<span class="d-sr-only"> (opens in new tab)</span></a>
