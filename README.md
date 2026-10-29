@@ -91,6 +91,8 @@ from the default branch: `https://<namespace>.gitlab.io/<project>/`. It sets
 <a id="add-or-switch-cities"></a>
 ## Accessibility
 
+Respects the OS “reduce motion” setting: map jumps instead of flying, and UI transitions are shortened.
+
 Keyboard users can **Skip to map**, operate the Layers presets and switches, and activate plant-here street / park rows from the tract panel (Enter or Space); map exploration itself is pointer-oriented, so use Find tract to pick a tract by keyboard.
 
 ## Add or switch cities

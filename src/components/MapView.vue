@@ -6,6 +6,7 @@ import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { storeToRefs } from 'pinia'
 import { dataUrl } from '@/composables/useData'
 import { writeSessionView, type SessionView } from '@/composables/useSessionView'
+import { cameraDuration, usePrefersReducedMotion } from '@/composables/usePrefersReducedMotion'
 import { useCityStore } from '@/stores/city'
 import { useUiStore, type Basemap } from '@/stores/ui'
 import { choroplethColors } from '@/utils/choropleth'
@@ -160,7 +161,7 @@ function fitRoad(feature: Feature) {
   const padding = props.mobile
     ? { top: 32, left: 32, right: 32, bottom: Math.max(32, Math.round(h * 0.6)) }
     : 48
-  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding, maxZoom: 18, duration: 500 })
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding, maxZoom: 18, duration: cameraDuration(500) })
 }
 
 function fitSelectedAboveSheet(g: string) {
@@ -179,7 +180,7 @@ function fitSelectedAboveSheet(g: string) {
   const h = map.getContainer().clientHeight
   // Keep ~40% of the map visible above the bottom sheet.
   const bottom = Math.max(24, Math.round(h * 0.6))
-  map.fitBounds([[minX, minY], [maxX, maxY]], { padding: { top: 16, left: 16, right: 16, bottom }, maxZoom: 15, duration: 400 })
+  map.fitBounds([[minX, minY], [maxX, maxY]], { padding: { top: 16, left: 16, right: 16, bottom }, maxZoom: 15, duration: cameraDuration(400) })
 }
 
 function applySelection() {
@@ -197,7 +198,9 @@ function fitData() {
 
 defineExpose({
   flyTo(lon: number, lat: number, zoom = 15) {
-    map?.flyTo({ center: [lon, lat], zoom })
+    if (!map) return
+    if (usePrefersReducedMotion().value) map.jumpTo({ center: [lon, lat], zoom })
+    else map.flyTo({ center: [lon, lat], zoom })
   },
   fitData,
   fitRoad,
