@@ -135,6 +135,8 @@ then storage (only for ready packs; stale or coming-soon ids are ignored), then 
 `geoid` owns the camera; a stored camera is only used when its `cityId` matches the shown city.
 Layer switches are not persisted (URL `layers=` only).
 
+Share links (#70) also carry `hc=1` for the high-contrast ramp (omitted for the default green; `ste-choropleth` stays the offline fallback) and `legend=0|1` when you've explicitly collapsed/expanded the legend. URL wins over stored prefs on load; unknown params are ignored.
+
 ## Change the city / bbox
 
 Edit `city.config.json`:

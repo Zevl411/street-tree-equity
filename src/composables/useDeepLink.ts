@@ -1,4 +1,5 @@
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
+import type { ChoroplethMode } from '@/utils/choropleth'
 
 /** Visibility of the four toggleable map layers (choropleth is always on). */
 export interface LayerFlags {
@@ -34,6 +35,10 @@ export interface DeepLink {
   theme: ThemeName | null
   layers: LayerFlags | null
   unit: DensityUnit | null
+  /** #70: `hc=1` → contrast ramp; null when absent (keep stored mode). */
+  hc: boolean | null
+  /** #70 stretch: `legend=0|1`; null when absent. */
+  legend: boolean | null
 }
 
 export function readDeepLink(search: string = window.location.search): DeepLink {
@@ -47,12 +52,24 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     basemap: basemap === 'streets' || basemap === 'satellite' ? basemap : null,
     theme: theme === 'treeLight' || theme === 'treeDark' ? theme : null,
     layers: parseLayers(q.get('layers')),
+    hc: q.get('hc') === '1' ? true : null,
+    legend: ((l) => (l === '1' ? true : l === '0' ? false : null))(q.get('legend')),
     unit: ((u) => (u === 'acre' || u === 'km2' ? u : null))(q.get('unit')?.trim().toLowerCase()),
   }
 }
 
 /** Rewrite the view params in place (no reload). Drops invalid/stale ones like `tract`. */
-export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit }): void {
+export interface ShareFlags { choroplethMode?: ChoroplethMode; legend?: boolean | null }
+
+/** #70: shared hc/legend rules for writeDeepLink + tractShareUrl. */
+export function applyShareFlags(q: URLSearchParams, v: ShareFlags): void {
+  q.delete('hc')
+  q.delete('legend')
+  if (v.choroplethMode === 'contrast') q.set('hc', '1')
+  if (v.legend != null) q.set('legend', v.legend ? '1' : '0')
+}
+
+export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit } & ShareFlags): void {
   const url = new URL(window.location.href)
   const q = url.searchParams
   for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit']) q.delete(k)
@@ -63,5 +80,6 @@ export function writeDeepLink(v: { city: string | null; geoid: string | null; ba
   const layers = encodeLayers(v.layers)
   if (layers !== null) q.set('layers', layers)
   if (v.unit === 'km2') q.set('unit', 'km2')
+  applyShareFlags(q, v)
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 }

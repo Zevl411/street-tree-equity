@@ -198,6 +198,8 @@ async function init() {
   if (link.basemap) ui.setBasemap(link.basemap)
   if (link.layers) applyLayers(link.layers)
   if (link.unit) ui.setDensityUnit(link.unit)
+  if (link.hc) ui.setChoroplethMode('contrast')
+  if (link.legend !== null) ui.setLegendExpanded(link.legend)
   await cityStore.loadManifest()
   // #44 precedence per field: URL param > localStorage (ready packs only) > default.
   const stored = readSessionView()
@@ -215,7 +217,7 @@ async function init() {
   openFavoritesFromUrl()
   openFocusFromUrl()
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref], syncUrl)
 }
 
 function currentLayers(): LayerFlags {
@@ -242,7 +244,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref })
 }
 
 const compareOpen = ref(false)
