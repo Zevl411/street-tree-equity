@@ -64,17 +64,14 @@ export interface CityEntry {
   cityName: string
   subtitle?: string
   dataPath: string
-  /** [west, south, east, north] */
-  bbox: [number, number, number, number]
+  /** [west, south, east, north]; optional for coming-soon packs. */
+  bbox?: [number, number, number, number]
+  /** Omit or 'ready' = selectable; 'coming-soon' = listed but disabled (no data loaded). */
+  status?: 'ready' | 'coming-soon'
 }
+
+export const isReady = (c: Pick<CityEntry, 'status'>): boolean => c.status !== 'coming-soon'
 export interface CityManifest {
   version: number
   cities: CityEntry[]
-}
-/** A Nominatim search hit (subset of fields we use). */
-export interface PlaceResult {
-  place_id: number
-  display_name: string
-  lat: string
-  lon: string
 }

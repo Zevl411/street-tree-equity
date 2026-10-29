@@ -93,9 +93,9 @@ from the default branch: `https://<namespace>.gitlab.io/<project>/`. It sets
 
 Use the place button in the app bar to switch between packaged demo cities listed in
 [`public/cities.json`](public/cities.json) (your choice is remembered in `localStorage` as `ste-city`,
-and `?city=<id>` links work). The search box uses free OpenStreetMap Nominatim for discovery only
-(debounced, ≤1 request/second, per the [usage policy](https://operations.osmfoundation.org/policies/nominatim/)).
-If a place isn't packaged yet you'll see "Not built for this area yet" — the browser never queries Overpass live.
+and `?city=<id>` links work). The browser never queries Overpass live.
+
+Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
 To add a city: edit `city.config.json` (below), run `npm run data:refresh` to build its static files, put them
 in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `public/cities.json` with
