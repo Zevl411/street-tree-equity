@@ -29,7 +29,7 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
-import { metricAvailable, metricMeta } from '@/utils/metrics'
+import { metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -69,9 +69,10 @@ const hotspotsOpen = ref(false)
 // #98: active choropleth metric value key + meta view (breaks/colors follow metric).
 const vk = computed(() => ui.metric.valueKey)
 const viewMeta = computed(() => (meta.value ? metricMeta(meta.value, ui.activeMetric) : null))
-const parksMetricAvailable = computed(() => metricAvailable('parks', meta.value, tracts.value))
-watch([parksMetricAvailable, loading], ([ok, busy]) => {
-  if (!busy && meta.value && !ok && ui.activeMetric === 'parks') ui.setActiveMetric('trees')
+// #99: per-metric availability (feature-detect pack fields); fall back to trees when missing.
+const metricOk = computed(() => Object.fromEntries(METRIC_IDS.map((id) => [id, metricAvailable(id, meta.value, tracts.value)])) as Record<MetricId, boolean>)
+watch([metricOk, loading], ([ok, busy]) => {
+  if (!busy && meta.value && !ok[ui.activeMetric]) ui.setActiveMetric('trees')
 })
 const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value)))
 const favoritesOpen = ref(false)
@@ -316,8 +317,9 @@ const compareOpen = ref(false)
 const overviewDensity = computed(() => {
   const m = meta.value
   if (!m) return ''
-  const o = ui.activeMetric === 'parks' && m.overall.parksPerAcre != null ? m.overall.parksPerAcre : m.overall.treesPerAcre
-  if (ui.activeMetric === 'parks') {
+  const ov = m.overall[ui.metric.overallKey]
+  const o = ov != null ? ov : m.overall.treesPerAcre
+  if (ui.metric.fine) {
     return densityUnit.value === 'km2'
       ? `${(o * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 2 })} / km²`
       : `${o.toFixed(4)} / acre`
@@ -681,7 +683,8 @@ watch(() => ui.densityBinIndex, (i) => {
 watch(hotspotsOpen, (open) => {
   if (!open) return
   const n = hotspotTracts(tracts.value?.features, vk.value).length
-  if (ui.activeMetric === 'parks') announceFilter(n ? plural(n, 'low park access tract', 'low park access tracts') : 'No low park access tracts')
+  const hn = ui.metric.hotspotNoun
+  if (hn) announceFilter(n ? plural(n, hn[0], hn[1]) : `No ${hn[1]}`)
   else announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
 })
 // #89 grouped cheat sheet — single source of truth for on-screen + print. Labels match useKeyboardShortcuts handlers.
@@ -776,11 +779,12 @@ watch(drawerOpen, async (open) => {
             <div class="text-caption mb-1">Metric</div>
             <v-btn-toggle :model-value="ui.activeMetric" mandatory density="compact" variant="outlined" divided color="primary"
               class="mb-1 unit-toggle" aria-label="Choropleth metric" @click.stop
-              @update:model-value="(v: 'trees' | 'parks') => ui.setActiveMetric(v)">
-              <v-btn value="trees" size="small">Street trees</v-btn>
-              <v-btn value="parks" size="small" :disabled="!parksMetricAvailable">Parks</v-btn>
+              @update:model-value="(v: MetricId) => ui.setActiveMetric(v)">
+              <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id]">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
-            <div v-if="!parksMetricAvailable && meta && !loading" class="text-caption text-medium-emphasis mb-1">This pack has no park metric yet</div>
+            <template v-if="meta && !loading">
+              <div v-for="id in METRIC_IDS.filter((i) => !metricOk[i] && METRICS[i].missingCaption)" :key="`miss-${id}`" class="text-caption text-medium-emphasis mb-1">{{ METRICS[id].missingCaption }}</div>
+            </template>
             <div class="mb-1" />
             <div class="text-caption mb-1">Density unit</div>
             <v-btn-toggle :model-value="densityUnit" mandatory density="compact" variant="outlined" divided color="primary"

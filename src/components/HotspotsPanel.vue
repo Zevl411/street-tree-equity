@@ -21,8 +21,8 @@ const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
 
 const total = computed(() => props.tracts?.length ?? 0)
 const ui = useUiStore()
-/** #98: parks metric → Low park access, sorted by parksPerAcre. */
-const isParks = computed(() => ui.activeMetric === 'parks')
+/** #98/#99: amenity metrics → metric-def title, sorted by active valueKey. */
+const isParks = computed(() => ui.metric.fine)
 const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey))
 const val = (p: object) => metricValue(p, ui.metric.valueKey)
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
@@ -32,7 +32,7 @@ function density(tpa: number) {
     : tpa.toFixed(isParks.value ? 4 : 2)
 }
 const noTracts = computed(() => !props.loading && total.value === 0)
-const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${isParks.value ? 'low park access' : 'low-canopy'} tracts`))
+const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${ui.metric.hotspotNoun ? ui.metric.hotspotNoun[1] : 'low-canopy tracts'}`))
 
 const canExport = computed(() => !props.loading && items.value.length > 0 && !!props.cityId)
 function exportCsv() {
@@ -52,7 +52,7 @@ function pick(geoid: string) {
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" :max-width="mobile ? undefined : 380" scrollable>
     <v-card id="hotspots-panel" :density="mobile ? 'comfortable' : 'compact'">
       <v-card-title class="d-flex align-center text-subtitle-1">
-        {{ isParks ? 'Low park access' : 'Low-canopy hotspots' }}
+        {{ ui.metric.hotspotTitle }}
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" class="hotspots-close" @click="open = false" />
       </v-card-title>

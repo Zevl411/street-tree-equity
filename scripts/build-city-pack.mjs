@@ -44,7 +44,7 @@ const base = JSON.parse(original)
 const censusYear = get('CENSUS_YEAR') ? Number(get('CENSUS_YEAR')) : base.censusYear
 if (!Number.isInteger(censusYear)) fail('CENSUS_YEAR must be an integer')
 
-const FILES = ['meta.json', 'tracts-equity.geojson', 'parks.geojson', 'roads-lowtree.geojson', 'trees.geojson']
+const FILES = ['meta.json', 'tracts-equity.geojson', 'parks.geojson', 'groceries.geojson', 'roads-lowtree.geojson', 'trees.geojson']
 const dataDir = path.join(ROOT, 'public', 'data')
 const packDir = path.join(dataDir, cityId)
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, stdio: 'inherit' })
