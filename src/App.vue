@@ -11,6 +11,7 @@ import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
 import HotspotsPanel from '@/components/HotspotsPanel.vue'
+import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
@@ -34,6 +35,7 @@ const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.va
 const layersOpen = ref(false)
 const finderOpen = ref(false)
 const hotspotsOpen = ref(false)
+const favoritesOpen = ref(false)
 const legendExpanded = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
@@ -86,6 +88,7 @@ async function init() {
   syncUrl()
   openCompareFromUrl()
   openHotspotsFromUrl()
+  openFavoritesFromUrl()
   // Keep the address bar shareable as the view changes.
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, densityUnit], syncUrl)
 }
@@ -194,6 +197,32 @@ function openHotspotsFromUrl() {
     })
   }
 }
+/** #45 ?fav=1: same one-shot pending-flag pattern as #43 hotspots. */
+const pendingFavFromUrl = ref(false)
+function stripFavParam() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('fav')) return
+  url.searchParams.delete('fav')
+  history.replaceState(history.state, '', url)
+}
+function tryOpenFavoritesFromUrl() {
+  if (!pendingFavFromUrl.value) return
+  if (!tracts.value?.features.length) return
+  pendingFavFromUrl.value = false
+  if (!selectedGeoid.value) favoritesOpen.value = true
+  stripFavParam()
+}
+function openFavoritesFromUrl() {
+  if (new URLSearchParams(window.location.search).get('fav') !== '1') return
+  pendingFavFromUrl.value = true
+  tryOpenFavoritesFromUrl()
+  if (pendingFavFromUrl.value) {
+    const stop = watch([() => tracts.value?.features.length ?? 0, selectedGeoid, loading], () => {
+      tryOpenFavoritesFromUrl()
+      if (!pendingFavFromUrl.value) stop()
+    })
+  }
+}
 function pickFromHotspots(geoid: string) {
   cityStore.select(geoid)
 }
@@ -221,6 +250,7 @@ const findControl = () => (mdAndUp.value ? '#find-tract-btn' : '#more-actions-bt
 useOverlayFocus(layersOpen, firstFocusableIn('#layers-panel'))
 useOverlayFocus(finderOpen, '#tract-finder-panel input', findControl, () => !drawerOpen.value)
 useOverlayFocus(hotspotsOpen, '#hotspots-panel .hotspots-close', () => '#map-stage', () => !drawerOpen.value)
+useOverlayFocus(favoritesOpen, '#favorites-panel .favorites-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(compareOpen, '#compare-panel .compare-close', () => '#city-picker-btn')
 const tractFromFinder = ref(false)
 function pickFromFinder(geoid: string) {
@@ -310,6 +340,8 @@ watch(drawerOpen, async (open) => {
         :city-id="city?.id ?? null" @pick="pickFromFinder" />
       <HotspotsPanel v-model="hotspotsOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" @pick="pickFromHotspots" />
+      <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots" />
       <template v-if="mdAndUp">
         <v-btn id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
           <v-icon icon="mdi-magnify" />
@@ -339,6 +371,7 @@ watch(drawerOpen, async (open) => {
         <v-list density="comfortable">
           <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
           <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
+          <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
@@ -396,6 +429,7 @@ watch(drawerOpen, async (open) => {
         <div class="d-flex ga-1 mt-1">
           <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
           <v-btn v-if="tracts?.features.length" variant="text" size="small" class="overview-action" @click="hotspotsOpen = true">Hotspots</v-btn>
+          <v-btn variant="text" size="small" class="overview-action" @click="favoritesOpen = true">Starred</v-btn>
           <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
         </div>
       </v-sheet>
@@ -409,6 +443,7 @@ watch(drawerOpen, async (open) => {
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
         <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Low-canopy hotspots" @click="hotspotsOpen = true" />
+        <v-btn icon="mdi-star-outline" variant="text" size="small" class="overview-icon" aria-label="Starred tracts" @click="favoritesOpen = true" />
         <v-btn icon="mdi-information-outline" variant="text" size="small" class="overview-icon" aria-label="About" @click="aboutOpen = true" />
       </v-sheet>
       </div>
