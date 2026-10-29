@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 import MapView from '@/components/MapView.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import TractDetails from '@/components/TractDetails.vue'
@@ -19,6 +19,17 @@ const notBuilt = ref<PlaceResult | null>(null)
 const defaultCity = computed(() => cities.value.find((c) => c.id === DEFAULT_CITY) ?? cities.value[0] ?? null)
 const loadingName = computed(() => city.value?.cityName ?? meta.value?.cityName ?? 'this place')
 const { mdAndUp } = useDisplay()
+const theme = useTheme()
+const isDark = computed(() => theme.global.name.value === 'treeDark')
+const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Switch to dark mode'))
+const themeAnnounce = ref('')
+function toggleTheme() {
+  const next = isDark.value ? 'treeLight' : 'treeDark'
+  theme.global.name.value = next
+  try { localStorage.setItem('ste-theme', next) } catch { /* storage unavailable */ }
+  themeAnnounce.value = next === 'treeDark' ? 'Dark mode on' : 'Light mode on'
+}
+const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.value?.cityName || 'the map'}`)
 
 const selectedGeoid = ref<string | null>(null)
 const showTrees = ref(true)
@@ -94,26 +105,40 @@ onMounted(init)
       <PlacePicker v-if="cities.length" :cities="cities" :selected-id="cityId" :label="meta?.cityName ?? ''"
         :mobile="!mdAndUp" @select="selectCity" @not-built="notBuilt = $event; selectedGeoid = null" />
 
-      <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="white">
+      <v-sheet v-if="meta && mdAndUp" class="px-3 py-1 mr-2" rounded color="surface">
         <MapLegend :meta="meta" dense />
       </v-sheet>
 
       <v-menu :close-on-content-click="false" location="bottom end">
         <template #activator="{ props: act }">
-          <v-btn v-bind="act" icon="mdi-layers-outline" aria-label="Layers" />
+          <v-btn v-bind="act" icon aria-label="Layers">
+            <v-icon icon="mdi-layers-outline" />
+            <v-tooltip activator="parent" location="bottom">Layers</v-tooltip>
+          </v-btn>
         </template>
         <v-card min-width="260">
           <v-card-title class="text-subtitle-1">Layers</v-card-title>
           <v-card-text class="pt-0">
-            <v-switch v-model="showTrees" label="Tree points (zoom in)" color="primary" hide-details density="compact" />
-            <v-switch v-model="showParks" label="Parks (OSM)" color="primary" hide-details density="compact" />
-            <v-switch v-model="showRoads" label="Streets with no tree nearby" color="orange-darken-2" hide-details density="compact" />
-            <v-switch v-model="highlightBottomQuartile" label="Outline bottom-quartile tracts" color="deep-orange" hide-details density="compact" />
+            <v-switch v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
+            <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
+            <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
+            <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
           </v-card-text>
         </v-card>
       </v-menu>
-      <v-btn icon="mdi-crosshairs-gps" aria-label="Reset view" @click="mapRef?.fitData()" />
-      <v-btn icon="mdi-information-outline" aria-label="About" @click="aboutOpen = true" />
+      <v-btn icon :aria-label="resetLabel" @click="mapRef?.fitData()">
+        <v-icon icon="mdi-fit-to-screen-outline" />
+        <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
+      </v-btn>
+      <v-btn icon aria-label="About" @click="aboutOpen = true">
+        <v-icon icon="mdi-information-outline" />
+        <v-tooltip activator="parent" location="bottom">About</v-tooltip>
+      </v-btn>
+      <v-btn icon :aria-label="themeLabel" @click="toggleTheme">
+        <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" />
+        <v-tooltip activator="parent" location="bottom">{{ themeLabel }}</v-tooltip>
+      </v-btn>
+      <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
@@ -125,7 +150,7 @@ onMounted(init)
     <v-main class="position-relative">
       <MapView v-if="city && meta && tracts && parks && !notBuilt" :key="city.id" ref="mapRef" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads"
         :selected-geoid="selectedGeoid" :show-trees="showTrees" :show-parks="showParks" :show-roads="showRoads"
-        :highlight-bottom-quartile="highlightBottomQuartile" @select="selectedGeoid = $event" />
+        :highlight-bottom-quartile="highlightBottomQuartile" :dark="isDark" @select="selectedGeoid = $event" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -135,7 +160,7 @@ onMounted(init)
         <p>Check your connection and try again. If it keeps happening, the data files may be updating — please open an issue.</p>
         <div class="d-flex flex-wrap ga-2 mt-3">
           <v-btn variant="flat" color="white" @click="retry">Try again</v-btn>
-          <v-btn variant="outlined" :href="ISSUE_URL" target="_blank" rel="noopener">Open a GitHub issue</v-btn>
+          <v-btn variant="outlined" :href="ISSUE_URL" target="_blank" rel="noopener noreferrer">Open a GitHub issue<span class="sr-only"> (opens in new tab)</span></v-btn>
         </div>
         <v-expansion-panels class="mt-3" variant="accordion">
           <v-expansion-panel title="Details" :text="error" />
@@ -151,16 +176,16 @@ onMounted(init)
           </v-card-text>
           <v-card-actions>
             <v-btn color="primary" variant="flat" @click="selectCity(DEFAULT_CITY)">Show Portland, OR</v-btn>
-            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener noreferrer">How to add a city</v-btn>
+            <v-btn variant="text" :href="README_URL" target="_blank" rel="noopener noreferrer">How to add a city<span class="sr-only"> (opens in new tab)</span></v-btn>
           </v-card-actions>
         </v-card>
       </div>
 
-      <v-sheet v-if="meta && !mdAndUp" class="mobile-legend pa-2" rounded elevation="2">
+      <v-sheet v-if="meta && !mdAndUp" class="mobile-legend pa-2" rounded elevation="2" color="surface">
         <MapLegend :meta="meta" />
       </v-sheet>
 
-      <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" max-width="300">
+      <v-sheet v-if="meta && !selectedTract && mdAndUp" class="hint pa-3" rounded elevation="2" color="surface" max-width="300">
         <div class="text-body-2">
           <strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees across
           <strong>{{ meta.counts.tracts }}</strong> census tracts
@@ -186,9 +211,9 @@ onMounted(init)
             100% free: static data files shipped with the site, a no-key basemap, no database, no API keys.
           </p>
           <div class="text-caption">
-            Data © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a> (ODbL) ·
+            Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors<span class="sr-only"> (opens in new tab)</span></a> (ODbL) ·
             Tracts: U.S. Census Bureau {{ meta?.censusVintage }} ·
-            Basemap: <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> / OpenMapTiles.
+            Basemap: <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> / OpenMapTiles.
             <span v-if="updated"> OSM data as of {{ updated }}.</span>
           </div>
         </v-card-text>
@@ -205,8 +230,17 @@ onMounted(init)
 .hint {
   position: absolute;
   left: 12px;
-  top: 12px;
+  /* v-main already offsets the app bar; keep a clear gap so the first stats line is visible. */
+  top: 16px;
   z-index: 2;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 .mobile-legend {
   position: absolute;

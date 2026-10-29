@@ -27,6 +27,10 @@ function fmt(n: number) {
         <span class="swatch" :style="{ background: r.color }" />
         <span class="text-caption">{{ r.label }}</span>
       </div>
+      <div class="d-flex align-center ga-1">
+        <span class="swatch line" style="background: #ef6c00" />
+        <span class="text-caption">No mapped tree within 20 m (plant-here)</span>
+      </div>
     </div>
   </div>
 </template>
@@ -38,6 +42,10 @@ function fmt(n: number) {
   height: 12px;
   border-radius: 2px;
   border: 1px solid rgba(0, 0, 0, 0.2);
+}
+.swatch.line {
+  height: 4px;
+  border: 0;
 }
 .legend.dense .text-caption {
   line-height: 1.1;
