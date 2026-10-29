@@ -101,6 +101,8 @@ Compare — optionally compare packaged city-level tree stats side by side. Uses
 
 Find tract — search the open city’s tracts by name or GEOID and jump to one on the map. Runs entirely in your browser.
 
+Plant-here streets — in a tract’s details, see the longest low-tree street segments and zoom to one. Uses the same packaged OSM-derived road data as the orange map layer.
+
 To add a city: edit `city.config.json` (below), run `npm run data:refresh` to build its static files, put them
 in a folder under `public/` (e.g. `public/data-seattle/`), and add an entry to `public/cities.json` with
 `id`, `cityName`, `subtitle`, `dataPath` (that folder, relative to the site root) and `bbox`.

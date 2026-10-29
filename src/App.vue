@@ -196,7 +196,7 @@ const satFallback = ref(false)
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
       :scrim="false" :class="{ 'bottom-drawer': !mdAndUp }">
       <TractDetails v-if="selectedTract && meta" :tract="selectedTract" :meta="meta"
-        :total="tracts?.features.length ?? 0" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
+        :roads="roads" :total="tracts?.features.length ?? 0" @fly-to-road="(f) => mapRef?.fitRoad(f)" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
     </v-navigation-drawer>
 
     <v-main class="d-flex flex-column">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap, type StyleSpecification } from 'maplibre-gl'
-import type { FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
 import { storeToRefs } from 'pinia'
 import { dataUrl } from '@/composables/useData'
@@ -128,6 +128,30 @@ function setVis(id: string, on: boolean) {
 }
 
 /** #33: on phones the tract sheet covers most of the screen — fit the tract into the strip above it. */
+function geomBbox(geom: unknown): [number, number, number, number] | null {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  const walk = (c: unknown): void => {
+    if (Array.isArray(c) && typeof c[0] === 'number') {
+      const [x, y] = c as number[]
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    } else if (Array.isArray(c)) c.forEach(walk)
+  }
+  walk((geom as { coordinates?: unknown } | null)?.coordinates)
+  return Number.isFinite(minX) ? [minX, minY, maxX, maxY] : null
+}
+
+/** #36: zoom to one plant-here road segment; on phones keep it above the bottom sheet. */
+function fitRoad(feature: Feature) {
+  if (!map) return
+  const b = geomBbox(feature.geometry)
+  if (!b) return
+  const h = map.getContainer().clientHeight
+  const padding = props.mobile
+    ? { top: 32, left: 32, right: 32, bottom: Math.max(32, Math.round(h * 0.6)) }
+    : 48
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding, maxZoom: 18, duration: 500 })
+}
+
 function fitSelectedAboveSheet(g: string) {
   if (!map || !props.mobile) return
   const f = props.tracts.features.find((t) => t.properties.geoid === g)
@@ -165,6 +189,7 @@ defineExpose({
     map?.flyTo({ center: [lon, lat], zoom })
   },
   fitData,
+  fitRoad,
 })
 
 onMounted(() => {

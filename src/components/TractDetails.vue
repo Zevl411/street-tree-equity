@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
 import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
 
-const props = defineProps<{ tract: TractProps; meta: Meta; total: number }>()
-const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark] }>()
+const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null }>()
+const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature] }>()
 
 const vsCity = computed(() => {
   const city = props.meta.overall.treesPerAcre
@@ -34,6 +35,37 @@ const parkRows = computed(() =>
     .map((p) => ({ park: p, title: parkTitle(p), inside: p.inside === true }))
     .sort((a, b) => Number(b.inside) - Number(a.inside) || a.park.distanceKm - b.park.distanceKm),
 )
+
+// #36 Plant-here streets: low-tree road segments in this tract, longest first.
+const ROAD_PLACEHOLDERS = new Set(['unnamed', 'null', 'undefined'])
+function roadTitle(name: unknown): string {
+  const n = typeof name === 'string' ? name.trim() : ''
+  return n && !ROAD_PLACEHOLDERS.has(n.toLowerCase()) ? n : 'Unnamed street'
+}
+function humanizeHighway(h: unknown): string {
+  if (typeof h !== 'string' || !h.trim()) return ''
+  const t = h.trim().replace(/_/g, ' ')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+const roadRows = computed(() => {
+  const feats = props.roads?.features ?? []
+  return feats
+    .filter((f) => f.properties?.geoid === props.tract.geoid)
+    .map((f, i) => {
+      const lengthM = Number(f.properties?.lengthM) || 0
+      const mi = (lengthM * 0.000621371).toFixed(2)
+      const hw = humanizeHighway(f.properties?.highway)
+      const title = roadTitle(f.properties?.name)
+      return { key: `${i}`, feature: f as Feature, title, lengthM, mi,
+        subtitle: `${mi} mi (${Math.round(lengthM)} m)${hw ? ` · ${hw}` : ''}` }
+    })
+    .sort((a, b) => b.lengthM - a.lengthM || a.title.localeCompare(b.title))
+})
+const showRoadSection = computed(() => props.tract.lowTreeRoadPct !== null && !!props.roads?.features?.length)
+const ROAD_LIMIT = 8
+const roadsExpanded = ref(false)
+watch(() => props.tract.geoid, () => (roadsExpanded.value = false))
+const visibleRoads = computed(() => (roadsExpanded.value ? roadRows.value : roadRows.value.slice(0, ROAD_LIMIT)))
 
 const copied = ref(false)
 async function copyGeoid() {
@@ -134,6 +166,25 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       </v-list-item>
       <v-list-item v-if="!parkRows.length" title="No parks in our data near this tract." />
     </v-list>
+
+    <template v-if="showRoadSection">
+      <v-divider />
+      <v-list density="compact" lines="two">
+        <v-list-subheader>Plant-here streets · {{ roadRows.length }}</v-list-subheader>
+        <div class="text-caption text-medium-emphasis px-4 pb-1">
+          Longest stretches with no mapped tree within {{ bufferM }} m. Tap to zoom.
+        </div>
+        <v-list-item v-for="row in visibleRoads" :key="row.key" prepend-icon="mdi-road-variant" :title="row.title"
+          :subtitle="row.subtitle" class="touch-row" :aria-label="`Zoom to ${row.title}, ${row.mi} miles`"
+          @click="emit('flyToRoad', row.feature)" />
+        <v-list-item v-if="!roadRows.length" title="No plant-here street segments in our data for this tract." />
+        <div v-if="roadRows.length > ROAD_LIMIT" class="px-2 pb-1">
+          <v-btn variant="text" class="touch-h44" @click="roadsExpanded = !roadsExpanded">
+            {{ roadsExpanded ? 'Show fewer' : `Show all ${roadRows.length} streets` }}
+          </v-btn>
+        </div>
+      </v-list>
+    </template>
 
     <v-divider />
     <div class="d-flex align-center px-4 py-1 text-caption text-medium-emphasis">
