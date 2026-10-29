@@ -85,6 +85,10 @@ const citationsText = computed(() => [
 ].join('\n'))
 const citationsSnack = ref(false)
 const citationsFallbackOpen = ref(false)
+function selectCitations() {
+  const el = document.querySelector<HTMLTextAreaElement>('#citations-fallback textarea')
+  el?.focus(); el?.select()
+}
 async function copyCitations() {
   if (await copyText(citationsText.value)) citationsSnack.value = true
   else citationsFallbackOpen.value = true
@@ -618,10 +622,10 @@ watch(drawerOpen, async (open) => {
       </v-card>
     </v-dialog>
     <v-snackbar v-model="citationsSnack" timeout="2500" class="safe-snack">Citations copied</v-snackbar>
-    <v-dialog v-model="citationsFallbackOpen" max-width="480">
-      <v-card title="Copy citations">
+    <v-dialog v-model="citationsFallbackOpen" max-width="480" @after-enter="selectCitations">
+      <v-card id="citations-fallback" title="Copy citations">
         <v-card-text>
-          <v-textarea :model-value="citationsText" readonly autofocus rows="7" variant="outlined" density="compact" label="Citations" />
+          <v-textarea :model-value="citationsText" readonly autofocus rows="7" variant="outlined" density="compact" label="Citations" @focus="(e: FocusEvent) => (e.target as HTMLTextAreaElement).select()" />
         </v-card-text>
         <v-card-actions><v-spacer /><v-btn color="primary" variant="text" @click="citationsFallbackOpen = false">Close</v-btn></v-card-actions>
       </v-card>
