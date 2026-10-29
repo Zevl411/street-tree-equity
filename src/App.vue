@@ -31,7 +31,7 @@ import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids } from '@/utils/hotspots'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
-const { meta, tracts, parks, roads, trees, loading, error, load } = useData()
+const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
 /** #51: hide the trees switch when the pack ships no tree points. */
 const treesAvailable = computed(() => !!trees.value?.features.length)
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
@@ -200,7 +200,9 @@ async function selectCity(id: string, restore: SessionView | null = null) {
   if (!res) return
   initialView.value = restore && restore.cityId === res.entry.id ? restore : null
   if (res.changed || !meta.value) {
-    const ok = await load(res.entry.dataPath)
+    // #94: small viewports defer trees.geojson until Load / deep-link / resize to mdAndUp.
+    const ok = await load(res.entry.dataPath, { deferTrees: !mdAndUp.value })
+    if (ok && treesDeferred.value && wantTreesFromLink) { wantTreesFromLink = false; void loadTreePoints() }
     if (!ok || cityStore.city?.id !== res.entry.id) return
     await nextTick()
   }
@@ -208,7 +210,7 @@ async function selectCity(id: string, restore: SessionView | null = null) {
 }
 
 function retry() {
-  if (city.value) load(city.value.dataPath)
+  if (city.value) load(city.value.dataPath, { deferTrees: !mdAndUp.value })
 }
 
 // #61: move focus to Try again once when the error alert appears.
@@ -221,6 +223,8 @@ async function init() {
   if (link.theme && link.theme !== ui.theme) ui.setTheme(link.theme)
   if (link.basemap) ui.setBasemap(link.basemap)
   if (link.layers) applyLayers(link.layers)
+  // #94: a trees-on deep link auto-loads points once on mobile.
+  wantTreesFromLink = !!link.layers?.trees
   if (link.unit) ui.setDensityUnit(link.unit)
   if (link.hc) ui.setChoroplethMode('contrast')
   if (link.legend !== null) ui.setLegendExpanded(link.legend)
@@ -256,8 +260,22 @@ async function init() {
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
 }
 
+/** #94: one-shot auto-load for `?layers=` with trees (first pack only). */
+let wantTreesFromLink = false
+/** #94: fetch deferred tree points; turns overlay on; retryable snack on failure. */
+async function loadTreePoints(silentFail = false) {
+  const ok = await loadTrees()
+  if (ok) showTrees.value = true
+  else if (!silentFail && treesDeferred.value) linkSnack.value = 'Couldn’t load tree points'
+}
+// #94: crossing to desktop fetches once if still deferred (keeps the user's showTrees). Desktop→phone keeps trees.
+watch(mdAndUp, (md) => { if (md && treesDeferred.value && !treesLoading.value) void loadTrees() })
+// #94: re-encode layers when deferral flips.
+watch(treesDeferred, () => syncUrl())
+
 function currentLayers(): LayerFlags {
-  return { trees: showTrees.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value, bm: belowMedian.value }
+  // #94: don't advertise points that aren't loaded.
+  return { trees: showTrees.value && !treesDeferred.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value, bm: belowMedian.value }
 }
 /** Presets omit `bm` (#59) so they leave the median dim as-is. */
 function applyLayers(f: Omit<LayerFlags, 'bm'> & { bm?: boolean }) {
@@ -731,6 +749,13 @@ watch(drawerOpen, async (open) => {
               color="primary" hide-details density="compact"
               @update:model-value="(v: boolean | null) => ui.setChoroplethPalette(v ? 'cb' : 'default')" />
             <div class="text-caption text-medium-emphasis ms-1 mb-1">Blues–greens ramp; High contrast still uses its own colors.</div>
+            <div v-if="treesDeferred && !treesAvailable" class="mb-1">
+              <v-btn variant="tonal" size="small" prepend-icon="mdi-pine-tree" aria-label="Load individual tree points"
+                :disabled="treesLoading" :loading="treesLoading" @click="loadTreePoints()">
+                {{ treesLoading ? 'Loading tree points…' : 'Load tree points' }}
+              </v-btn>
+              <div class="text-caption text-medium-emphasis ms-1 mt-1">Optional · can be a large file on cellular</div>
+            </div>
             <v-switch v-if="treesAvailable" v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />

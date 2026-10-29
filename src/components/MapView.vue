@@ -149,6 +149,43 @@ function refreshTractOpacity() {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-opacity', tractFillOpacity())
 }
 
+/** #51/#57/#94: trees source + layers; called on style.load and when deferred trees arrive. */
+function addTreeLayers(m: MlMap, before?: string) {
+  if (!props.trees?.features.length || m.getSource('trees')) return
+  // #57: MapLibre built-in clustering on the #51 trees source.
+  m.addSource('trees', { type: 'geojson', data: props.trees, cluster: true, clusterRadius: 50, clusterMaxZoom: TREE_CLUSTER_MAX_ZOOM })
+  const vis = showTrees.value ? 'visible' : 'none'
+  m.addLayer({
+    id: 'trees', type: 'circle', source: 'trees',
+    filter: ['!', ['has', 'point_count']],
+    layout: { visibility: vis },
+    paint: treePaint(),
+  }, before)
+  const cp = clusterPaint()
+  m.addLayer({
+    id: 'trees-clusters', type: 'circle', source: 'trees', minzoom: 11,
+    filter: ['has', 'point_count'],
+    layout: { visibility: vis },
+    paint: {
+      'circle-radius': ['step', ['get', 'point_count'], 14, 25, 18, 100, 22, 500, 28] as ExpressionSpecification,
+      'circle-opacity': 0.85,
+      'circle-color': cp.fill, 'circle-stroke-color': cp.stroke, 'circle-stroke-width': cp.strokeWidth,
+    },
+  }, before)
+  m.addLayer({
+    id: 'trees-cluster-count', type: 'symbol', source: 'trees', minzoom: 11,
+    filter: ['has', 'point_count'],
+    layout: {
+      visibility: vis,
+      'text-field': '{point_count_abbreviated}',
+      'text-size': 11,
+      'text-font': ['Noto Sans Regular'],
+      'text-allow-overlap': true,
+    },
+    paint: { 'text-color': cp.text },
+  }, before)
+}
+
 function addDataLayers(m: MlMap) {
   const pal = palette(isDark.value, basemap.value === 'satellite')
   const before = firstSymbolLayerId(m)
@@ -184,40 +221,7 @@ function addDataLayers(m: MlMap) {
     layout: { 'line-cap': 'round', visibility: showRoads.value ? 'visible' : 'none' },
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
   }, before)
-  if (props.trees?.features.length) {
-    // #57: MapLibre built-in clustering on the #51 trees source.
-    m.addSource('trees', { type: 'geojson', data: props.trees, cluster: true, clusterRadius: 50, clusterMaxZoom: TREE_CLUSTER_MAX_ZOOM })
-    const vis = showTrees.value ? 'visible' : 'none'
-    m.addLayer({
-      id: 'trees', type: 'circle', source: 'trees',
-      filter: ['!', ['has', 'point_count']],
-      layout: { visibility: vis },
-      paint: treePaint(),
-    }, before)
-    const cp = clusterPaint()
-    m.addLayer({
-      id: 'trees-clusters', type: 'circle', source: 'trees', minzoom: 11,
-      filter: ['has', 'point_count'],
-      layout: { visibility: vis },
-      paint: {
-        'circle-radius': ['step', ['get', 'point_count'], 14, 25, 18, 100, 22, 500, 28] as ExpressionSpecification,
-        'circle-opacity': 0.85,
-        'circle-color': cp.fill, 'circle-stroke-color': cp.stroke, 'circle-stroke-width': cp.strokeWidth,
-      },
-    }, before)
-    m.addLayer({
-      id: 'trees-cluster-count', type: 'symbol', source: 'trees', minzoom: 11,
-      filter: ['has', 'point_count'],
-      layout: {
-        visibility: vis,
-        'text-field': '{point_count_abbreviated}',
-        'text-size': 11,
-        'text-font': ['Noto Sans Regular'],
-        'text-allow-overlap': true,
-      },
-      paint: { 'text-color': cp.text },
-    }, before)
-  }
+  addTreeLayers(m, before)
   // #60: halo + core, added last so the ring sits above trees/clusters and #36 dashes.
   const sp = selectedPaint()
   const selFilter = ['==', ['get', 'geoid'], selectedGeoid.value ?? ''] as any
@@ -489,6 +493,13 @@ watch(choroplethPalette, () => {
 watch(isDark, applySelectedPaint)
 watch(() => props.focusMode, applySelectedPaint)
 watch(densityUnit, mountScale)
+// #94: late-loaded (deferred) trees — add source/layers below the selection halo, or swap data.
+watch(() => props.trees, (t) => {
+  if (!map || !ready.value || !t?.features.length) return
+  const src = map.getSource('trees') as GeoJSONSource | undefined
+  if (src) { src.setData(t); return }
+  addTreeLayers(map, map.getLayer('tracts-selected-halo') ? 'tracts-selected-halo' : firstSymbolLayerId(map))
+})
 watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
