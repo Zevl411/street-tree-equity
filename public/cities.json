@@ -39,6 +39,19 @@
         26.08
       ],
       "status": "ready"
+    },
+    {
+      "id": "central-miami-fl",
+      "cityName": "Miami, FL",
+      "subtitle": "Central Miami",
+      "dataPath": "data/central-miami-fl",
+      "bbox": [
+        -80.3,
+        25.74,
+        -80.18,
+        25.85
+      ],
+      "status": "ready"
     }
   ]
 }
