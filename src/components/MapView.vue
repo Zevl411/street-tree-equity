@@ -3,7 +3,10 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap } from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
+import { storeToRefs } from 'pinia'
 import { dataUrl } from '@/composables/useData'
+import { useCityStore } from '@/stores/city'
+import { useUiStore } from '@/stores/ui'
 
 // Free, no-key basemap. OpenFreeMap is free to use with no registration or API key.
 // Swap via VITE_BASEMAP_STYLE (any MapLibre style URL that needs no key).
@@ -26,14 +29,10 @@ const props = defineProps<{
   tracts: TractCollection
   parks: ParkCollection
   roads: FeatureCollection | null
-  selectedGeoid: string | null
-  showTrees: boolean
-  showParks: boolean
-  showRoads: boolean
-  highlightBottomQuartile: boolean
-  dark?: boolean
 }>()
-const emit = defineEmits<{ select: [geoid: string | null] }>()
+const cityStore = useCityStore()
+const { selectedGeoid } = storeToRefs(cityStore)
+const { isDark, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(useUiStore())
 
 const el = ref<HTMLDivElement | null>(null)
 let map: MlMap | null = null
@@ -52,7 +51,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 }
 
 function addDataLayers(m: MlMap) {
-  const pal = palette(!!props.dark)
+  const pal = palette(isDark.value)
   const before = firstSymbolLayerId(m)
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
@@ -73,23 +72,23 @@ function addDataLayers(m: MlMap) {
   m.addLayer({
     id: 'tracts-bottom', type: 'line', source: 'tracts',
     filter: ['==', ['get', 'bottomQuartile'], true],
-    layout: { visibility: props.highlightBottomQuartile ? 'visible' : 'none' },
+    layout: { visibility: highlightBottomQuartile.value ? 'visible' : 'none' },
     paint: { 'line-color': '#d84315', 'line-width': 2, 'line-dasharray': [2, 1.5] },
   }, before)
   m.addLayer({
     id: 'parks-fill', type: 'fill', source: 'parks',
-    layout: { visibility: props.showParks ? 'visible' : 'none' },
+    layout: { visibility: showParks.value ? 'visible' : 'none' },
     paint: { 'fill-color': '#1b5e20', 'fill-opacity': 0.25, 'fill-outline-color': '#1b5e20' },
   }, before)
   m.addLayer({
     id: 'roads-low', type: 'line', source: 'roads',
     filter: ['==', ['get', 'geoid'], '__none__'],
-    layout: { 'line-cap': 'round', visibility: props.showRoads ? 'visible' : 'none' },
+    layout: { 'line-cap': 'round', visibility: showRoads.value ? 'visible' : 'none' },
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
   }, before)
   m.addLayer({
     id: 'trees', type: 'circle', source: 'trees', minzoom: 13,
-    layout: { visibility: props.showTrees ? 'visible' : 'none' },
+    layout: { visibility: showTrees.value ? 'visible' : 'none' },
     paint: {
       'circle-color': '#2e7d32',
       'circle-stroke-color': pal.treeStroke,
@@ -99,7 +98,7 @@ function addDataLayers(m: MlMap) {
   }, before)
   m.addLayer({
     id: 'tracts-selected', type: 'line', source: 'tracts',
-    filter: ['==', ['get', 'geoid'], props.selectedGeoid ?? ''],
+    filter: ['==', ['get', 'geoid'], selectedGeoid.value ?? ''],
     paint: { 'line-color': pal.selected, 'line-width': 3 },
   })
 }
@@ -110,7 +109,7 @@ function setVis(id: string, on: boolean) {
 
 function applySelection() {
   if (!map || !ready.value) return
-  const g = props.selectedGeoid
+  const g = selectedGeoid.value
   map.setFilter('tracts-selected', ['==', ['get', 'geoid'], g ?? ''])
   // Low-tree road segments: only the selected tract, or all of them when nothing is selected.
   map.setFilter('roads-low', g ? ['==', ['get', 'geoid'], g] : null)
@@ -133,7 +132,7 @@ onMounted(() => {
   const b = props.meta.dataBbox
   map = new maplibregl.Map({
     container: el.value,
-    style: styleUrl(!!props.dark),
+    style: styleUrl(isDark.value),
     bounds: [[b[0], b[1]], [b[2], b[3]]],
     fitBoundsOptions: { padding: 24 },
     attributionControl: {
@@ -171,7 +170,7 @@ onMounted(() => {
   map.on('click', (e) => {
     if (!map) return
     const hit = map.queryRenderedFeatures(e.point, { layers: ['tracts-fill'] })
-    emit('select', hit.length ? String(hit[0].properties.geoid) : null)
+    cityStore.select(hit.length ? String(hit[0].properties.geoid) : null)
   })
   map.on('click', 'parks-fill', (e) => {
     const f = e.features?.[0]
@@ -187,17 +186,17 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }
 
-watch(() => props.dark, (d) => {
+watch(isDark, (d) => {
   if (!map || ENV_STYLE) return
   ready.value = false
-  // Visibility/selection are read from props inside addDataLayers + applySelection on style.load.
-  map.setStyle(styleUrl(!!d))
+  // Visibility/selection are read from the stores inside addDataLayers + applySelection on style.load.
+  map.setStyle(styleUrl(d))
 })
-watch(() => props.selectedGeoid, applySelection)
-watch(() => props.showTrees, (v) => setVis('trees', v))
-watch(() => props.showParks, (v) => setVis('parks-fill', v))
-watch(() => props.showRoads, (v) => setVis('roads-low', v))
-watch(() => props.highlightBottomQuartile, (v) => setVis('tracts-bottom', v))
+watch(selectedGeoid, applySelection)
+watch(showTrees, (v) => setVis('trees', v))
+watch(showParks, (v) => setVis('parks-fill', v))
+watch(showRoads, (v) => setVis('roads-low', v))
+watch(highlightBottomQuartile, (v) => setVis('tracts-bottom', v))
 watch(() => props.roads, (r) => {
   const src = map?.getSource('roads') as GeoJSONSource | undefined
   if (src && r) src.setData(r)
