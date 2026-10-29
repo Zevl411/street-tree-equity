@@ -102,6 +102,11 @@ export const useUiStore = defineStore('ui', () => {
   const highlightBottomQuartile = ref(false)
   /** #59: not persisted — session + share link (`bm`) only. */
   const belowMedian = ref(false)
+  /** #73: histogram bin filter — session only (never ste-*). null = all bins. */
+  const densityBinIndex = ref<number | null>(null)
+  function setDensityBin(i: number | null, binCount?: number) {
+    densityBinIndex.value = i !== null && Number.isInteger(i) && i >= 0 && (binCount === undefined || i < binCount) ? i : null
+  }
   const aboutOpen = ref(false)
 
   return {
@@ -112,5 +117,6 @@ export const useUiStore = defineStore('ui', () => {
     choroplethMode, setChoroplethMode,
     legendExpandedPref, setLegendExpanded,
     showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen,
+    densityBinIndex, setDensityBin,
   }
 })

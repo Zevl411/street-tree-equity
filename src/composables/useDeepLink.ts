@@ -39,6 +39,8 @@ export interface DeepLink {
   hc: boolean | null
   /** #70 stretch: `legend=0|1`; null when absent. */
   legend: boolean | null
+  /** #73 stretch: `bin=i` histogram bin; null when absent/invalid (clamped after meta loads). */
+  bin: number | null
 }
 
 export function readDeepLink(search: string = window.location.search): DeepLink {
@@ -54,19 +56,22 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     layers: parseLayers(q.get('layers')),
     hc: q.get('hc') === '1' ? true : null,
     legend: ((l) => (l === '1' ? true : l === '0' ? false : null))(q.get('legend')),
+    bin: ((b) => (b !== null && /^\d{1,2}$/.test(b) ? Number(b) : null))(q.get('bin')),
     unit: ((u) => (u === 'acre' || u === 'km2' ? u : null))(q.get('unit')?.trim().toLowerCase()),
   }
 }
 
 /** Rewrite the view params in place (no reload). Drops invalid/stale ones like `tract`. */
-export interface ShareFlags { choroplethMode?: ChoroplethMode; legend?: boolean | null }
+export interface ShareFlags { choroplethMode?: ChoroplethMode; legend?: boolean | null; bin?: number | null }
 
 /** #70: shared hc/legend rules for writeDeepLink + tractShareUrl. */
 export function applyShareFlags(q: URLSearchParams, v: ShareFlags): void {
   q.delete('hc')
   q.delete('legend')
+  q.delete('bin')
   if (v.choroplethMode === 'contrast') q.set('hc', '1')
   if (v.legend != null) q.set('legend', v.legend ? '1' : '0')
+  if (v.bin != null) q.set('bin', String(v.bin))
 }
 
 export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit } & ShareFlags): void {
