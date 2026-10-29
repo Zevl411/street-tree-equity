@@ -54,6 +54,6 @@ export function belowMedianOrder(tracts: TractCollection | null | undefined): { 
   return (tracts?.features ?? [])
     .map((f) => f.properties)
     .filter((p) => Number.isFinite(p.treesPerAcre) && p.treesPerAcre <= med)
-    .sort((a, b) => a.rank - b.rank || (a.geoid < b.geoid ? -1 : a.geoid > b.geoid ? 1 : 0))
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0) || (a.geoid < b.geoid ? -1 : a.geoid > b.geoid ? 1 : 0))
     .map((p) => ({ geoid: p.geoid, name: p.name }))
 }
