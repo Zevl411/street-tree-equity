@@ -10,6 +10,7 @@ import TractDetails from '@/components/TractDetails.vue'
 import PlacePicker from '@/components/PlacePicker.vue'
 import CompareCities from '@/components/CompareCities.vue'
 import TractFinder from '@/components/TractFinder.vue'
+import HotspotsPanel from '@/components/HotspotsPanel.vue'
 import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
@@ -31,6 +32,7 @@ const themeLabel = computed(() => (isDark.value ? 'Switch to light mode' : 'Swit
 const resetLabel = computed(() => `Show all of ${meta.value?.subtitle || meta.value?.cityName || 'the map'}`)
 const layersOpen = ref(false)
 const finderOpen = ref(false)
+const hotspotsOpen = ref(false)
 const legendExpanded = ref(false)
 const mapRef = ref<InstanceType<typeof MapView> | null>(null)
 
@@ -71,6 +73,7 @@ async function init() {
   if (link.geoid && tracts.value?.features.some((f) => f.properties.geoid === link.geoid)) cityStore.select(link.geoid)
   syncUrl()
   openCompareFromUrl()
+  openHotspotsFromUrl()
   // Keep the address bar shareable as the view changes.
   watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, densityUnit], syncUrl)
 }
@@ -147,6 +150,42 @@ function openCompareFromUrl() {
   }
 }
 
+/** #43 ?hotspots=1 opens the panel once tracts are ready, then the flag is stripped from the URL. */
+const pendingHotspotsFromUrl = ref(false)
+function stripHotspotsParam() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('hotspots')) return
+  url.searchParams.delete('hotspots')
+  history.replaceState(history.state, '', url)
+}
+function tryOpenHotspotsFromUrl() {
+  if (!pendingHotspotsFromUrl.value) return
+  if (!tracts.value?.features.length) return
+  // Deep-link geoid wins; still strip the one-shot flag.
+  if (selectedGeoid.value) {
+    pendingHotspotsFromUrl.value = false
+    stripHotspotsParam()
+    return
+  }
+  pendingHotspotsFromUrl.value = false
+  hotspotsOpen.value = true
+  stripHotspotsParam()
+}
+function openHotspotsFromUrl() {
+  if (new URLSearchParams(window.location.search).get('hotspots') !== '1') return
+  pendingHotspotsFromUrl.value = true
+  tryOpenHotspotsFromUrl()
+  if (pendingHotspotsFromUrl.value) {
+    const stop = watch([() => tracts.value?.features.length ?? 0, selectedGeoid, loading], () => {
+      tryOpenHotspotsFromUrl()
+      if (!pendingHotspotsFromUrl.value) stop()
+    })
+  }
+}
+function pickFromHotspots(geoid: string) {
+  cityStore.select(geoid)
+}
+
 const linkSnack = ref('')
 async function copyLink() {
   syncUrl()
@@ -169,6 +208,7 @@ function skipToMap() {
 const findControl = () => (mdAndUp.value ? '#find-tract-btn' : '#more-actions-btn')
 useOverlayFocus(layersOpen, firstFocusableIn('#layers-panel'))
 useOverlayFocus(finderOpen, '#tract-finder-panel input', findControl, () => !drawerOpen.value)
+useOverlayFocus(hotspotsOpen, '#hotspots-panel .hotspots-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(compareOpen, '#compare-panel .compare-close', () => '#city-picker-btn')
 const tractFromFinder = ref(false)
 function pickFromFinder(geoid: string) {
@@ -256,6 +296,8 @@ watch(drawerOpen, async (open) => {
       </component>
       <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-id="city?.id ?? null" @pick="pickFromFinder" />
+      <HotspotsPanel v-model="hotspotsOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" @pick="pickFromHotspots" />
       <template v-if="mdAndUp">
         <v-btn id="find-tract-btn" icon aria-label="Find tract" @click="finderOpen = true">
           <v-icon icon="mdi-magnify" />
@@ -284,6 +326,7 @@ watch(drawerOpen, async (open) => {
         </template>
         <v-list density="comfortable">
           <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
+          <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
           <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
@@ -340,6 +383,7 @@ watch(drawerOpen, async (open) => {
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
           <v-btn variant="tonal" size="small" class="overview-action" color="primary" @click="startCompare">Compare cities</v-btn>
+          <v-btn v-if="tracts?.features.length" variant="text" size="small" class="overview-action" @click="hotspotsOpen = true">Hotspots</v-btn>
           <v-btn variant="text" size="small" class="overview-action" @click="aboutOpen = true">About</v-btn>
         </div>
       </v-sheet>
@@ -352,6 +396,7 @@ watch(drawerOpen, async (open) => {
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
+        <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Low-canopy hotspots" @click="hotspotsOpen = true" />
         <v-btn icon="mdi-information-outline" variant="text" size="small" class="overview-icon" aria-label="About" @click="aboutOpen = true" />
       </v-sheet>
       </div>
