@@ -52,7 +52,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, showTrees, showParks, showRoads, highlightBottomQuartile } = storeToRefs(ui)
 const emit = defineEmits<{ satelliteError: [] }>()
 
 const el = ref<HTMLDivElement | null>(null)
@@ -73,6 +73,12 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
   return m.getStyle().layers?.find((l) => l.type === 'symbol')?.id
 }
 
+/** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims. */
+function tractFillOpacity(): ExpressionSpecification {
+  const base = fillOpacity.value
+  return ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, base + 0.12), base]
+}
+
 function addDataLayers(m: MlMap) {
   const pal = palette(isDark.value, basemap.value === 'satellite')
   const before = firstSymbolLayerId(m)
@@ -85,7 +91,7 @@ function addDataLayers(m: MlMap) {
     id: 'tracts-fill', type: 'fill', source: 'tracts',
     paint: {
       'fill-color': fillColor(),
-      'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], pal.hover, pal.base],
+      'fill-opacity': tractFillOpacity(),
     },
   }, before)
   m.addLayer({
@@ -292,6 +298,9 @@ watch(isDark, () => {
 watch(selectedGeoid, (g) => {
   applySelection()
   if (g && ready.value) fitSelectedAboveSheet(g)
+})
+watch(fillOpacity, () => {
+  if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-opacity', tractFillOpacity())
 })
 watch(showTrees, (v) => setVis('trees', v))
 watch(showParks, (v) => setVis('parks-fill', v))

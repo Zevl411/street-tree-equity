@@ -11,6 +11,18 @@ export const ACRES_PER_KM2 = 1 / 0.0040468564224
 const THEME_KEY = 'ste-theme'
 const BASEMAP_KEY = 'ste-basemap'
 const UNIT_KEY = 'ste-density-unit'
+const FILL_OPACITY_KEY = 'ste-fill-opacity'
+
+export const FILL_OPACITY_MIN = 0.3
+export const FILL_OPACITY_MAX = 1
+export const FILL_OPACITY_DEFAULT = 0.65
+
+/** #48: clamp to [0.3, 1]; non-finite → default. */
+export function clampFillOpacity(v: unknown): number {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
+  if (!Number.isFinite(n)) return FILL_OPACITY_DEFAULT
+  return Math.min(FILL_OPACITY_MAX, Math.max(FILL_OPACITY_MIN, n))
+}
 
 function read(key: string): string | null {
   try { return localStorage.getItem(key) } catch { return null }
@@ -59,6 +71,13 @@ export const useUiStore = defineStore('ui', () => {
     densityUnit.value = u
   }
 
+  // #48: tract choropleth fill opacity; persisted locally, not in deep links.
+  const fillOpacity = ref<number>(clampFillOpacity(read(FILL_OPACITY_KEY)))
+  watch(fillOpacity, (v) => write(FILL_OPACITY_KEY, String(v)))
+  function setFillOpacity(v: number): void {
+    fillOpacity.value = clampFillOpacity(v)
+  }
+
   const showTrees = ref(true)
   const showParks = ref(true)
   const showRoads = ref(true)
@@ -69,6 +88,7 @@ export const useUiStore = defineStore('ui', () => {
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
     densityUnit, setDensityUnit,
+    fillOpacity, setFillOpacity,
     showTrees, showParks, showRoads, highlightBottomQuartile, aboutOpen,
   }
 })
