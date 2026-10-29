@@ -1,3 +1,4 @@
+import { DEFAULT_METRIC, normalizeMetric, type MetricId } from '@/utils/metrics'
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
 import type { ChoroplethMode } from '@/utils/choropleth'
 
@@ -46,6 +47,8 @@ export interface DeepLink {
   theme: ThemeName | null
   layers: LayerFlags | null
   unit: DensityUnit | null
+  /** #97: always a registered metric (unknown → trees) */
+  metric: MetricId
   /** #70: `hc=1` → contrast ramp; null when absent (keep stored mode). */
   hc: boolean | null
   /** #70 stretch: `legend=0|1`; null when absent. */
@@ -68,6 +71,8 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     hc: q.get('hc') === '1' ? true : null,
     legend: ((l) => (l === '1' ? true : l === '0' ? false : null))(q.get('legend')),
     bin: ((b) => (b !== null && /^\d{1,2}$/.test(b) ? Number(b) : null))(q.get('bin')),
+    // #97: unknown / missing → trees
+    metric: normalizeMetric(q.get('metric')),
     unit: ((u) => (u === 'acre' || u === 'km2' ? u : null))(q.get('unit')?.trim().toLowerCase()),
   }
 }
@@ -85,10 +90,10 @@ export function applyShareFlags(q: URLSearchParams, v: ShareFlags): void {
   if (v.bin != null) q.set('bin', String(v.bin))
 }
 
-export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit } & ShareFlags): void {
+export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit; metric?: MetricId } & ShareFlags): void {
   const url = new URL(window.location.href)
   const q = url.searchParams
-  for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit']) q.delete(k)
+  for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit', 'metric']) q.delete(k)
   if (v.city) q.set('city', v.city)
   if (v.geoid) q.set('geoid', v.geoid)
   q.set('basemap', v.basemap)
@@ -96,6 +101,8 @@ export function writeDeepLink(v: { city: string | null; geoid: string | null; ba
   const layers = encodeLayers(v.layers)
   if (layers !== null) q.set('layers', layers)
   if (v.unit === 'km2') q.set('unit', 'km2')
+  // #97: omit when default metric
+  if (v.metric && v.metric !== DEFAULT_METRIC) q.set('metric', v.metric)
   applyShareFlags(q, v)
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 }
