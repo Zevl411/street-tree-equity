@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import type { FeatureCollection } from 'geojson'
 import type { CityManifest, Meta, ParkCollection, TractCollection } from '@/types'
 
@@ -20,6 +20,8 @@ export function useData() {
   const tracts = ref<TractCollection | null>(null)
   const parks = ref<ParkCollection | null>(null)
   const roads = ref<FeatureCollection | null>(null)
+  // #51: static pack tree points (optional). shallowRef — can be large; never deep-reactive / Pinia.
+  const trees = shallowRef<FeatureCollection | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
@@ -28,16 +30,19 @@ export function useData() {
     error.value = null
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f)
     try {
-      const [m, t, p, r] = await Promise.all([
+      const [m, t, p, r, tr] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
         get<FeatureCollection>('roads-lowtree.geojson').catch(() => null),
+        // Missing/invalid trees.geojson is not an error: overlay just hides.
+        get<FeatureCollection>('trees.geojson').catch(() => null),
       ])
       meta.value = m
       tracts.value = t
       parks.value = p
       roads.value = r
+      trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -45,5 +50,5 @@ export function useData() {
     }
   }
 
-  return { meta, tracts, parks, roads, loading, error, load }
+  return { meta, tracts, parks, roads, trees, loading, error, load }
 }
