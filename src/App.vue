@@ -16,6 +16,7 @@ import { useData } from '@/composables/useData'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { readSessionView, writeSessionView, type SessionView } from '@/composables/useSessionView'
+import { copyText } from '@/utils/clipboard'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
@@ -232,12 +233,17 @@ function pickFromHotspots(geoid: string) {
 const linkSnack = ref('')
 async function copyLink() {
   syncUrl()
-  try {
-    await navigator.clipboard.writeText(window.location.href)
-    linkSnack.value = 'Link copied'
-  } catch {
-    linkSnack.value = 'Couldn’t copy link — copy it from the address bar.'
-  }
+  const href = window.location.href
+  if (await copyText(href)) { linkSnack.value = 'Map link copied'; return }
+  shareFallbackUrl.value = href
+  shareFallbackOpen.value = true
+}
+/** #50 fallback when both Clipboard API and execCommand fail. */
+const shareFallbackOpen = ref(false)
+const shareFallbackUrl = ref('')
+function selectShareUrl() {
+  const el = document.querySelector<HTMLTextAreaElement>('#share-fallback textarea')
+  el?.focus(); el?.select()
 }
 
 onMounted(init)
@@ -383,9 +389,9 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-fit-to-screen-outline" />
           <v-tooltip activator="parent" location="bottom">{{ resetLabel }}</v-tooltip>
         </v-btn>
-        <v-btn icon aria-label="Copy link to this view" @click="copyLink">
+        <v-btn icon aria-label="Share map link" @click="copyLink">
           <v-icon icon="mdi-link-variant" />
-          <v-tooltip activator="parent" location="bottom">Copy link to this view</v-tooltip>
+          <v-tooltip activator="parent" location="bottom">Share map link</v-tooltip>
         </v-btn>
         <v-btn icon aria-label="About" @click="aboutOpen = true">
           <v-icon icon="mdi-information-outline" />
@@ -405,7 +411,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" title="Fit map to city" @click="mapRef?.fitData()" />
-          <v-list-item prepend-icon="mdi-link-variant" title="Copy link to this view" @click="copyLink" />
+          <v-list-item prepend-icon="mdi-link-variant" title="Share map link" @click="copyLink" />
           <v-list-item prepend-icon="mdi-keyboard-outline" title="Keyboard shortcuts" @click="shortcutsOpen = true" />
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
         </v-list>
@@ -529,6 +535,20 @@ watch(drawerOpen, async (open) => {
       </v-card>
     </v-dialog>
     <v-snackbar v-model="satFallback" timeout="5000" class="safe-snack">Satellite imagery unavailable — showing streets.</v-snackbar>
+    <v-dialog v-model="shareFallbackOpen" max-width="420" @after-enter="selectShareUrl">
+      <v-card id="share-fallback" title="Share map link">
+        <v-card-text>
+          <v-textarea :model-value="shareFallbackUrl" readonly autofocus rows="3" variant="outlined" density="compact"
+            aria-label="Map link" hide-details @focus="(e: FocusEvent) => (e.target as HTMLTextAreaElement).select()" />
+          <div class="text-caption text-medium-emphasis mt-2">Clipboard blocked — select the link and copy.</div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="selectShareUrl">Select all</v-btn>
+          <v-btn variant="text" @click="shareFallbackOpen = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     <v-snackbar :model-value="!!linkSnack" timeout="3000" class="safe-snack" @update:model-value="(v: boolean) => { if (!v) linkSnack = '' }">{{ linkSnack }}</v-snackbar>
   </v-app>
 </template>
