@@ -20,7 +20,7 @@ function roadSide(t) {
   if (t.sidewalk === 'both' || t['sidewalk:both'] === 'yes' || (t['sidewalk:left'] === 'yes' && t['sidewalk:right'] === 'yes')) return 'both'
   if (t.sidewalk === 'left' || t['sidewalk:left'] === 'yes') return 'left'
   if (t.sidewalk === 'right' || t['sidewalk:right'] === 'yes') return 'right'
-  if (t.sidewalk === 'yes') return 'both'
+  if (t.sidewalk === 'yes') return 'yes'
   return null
 }
 
