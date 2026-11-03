@@ -12,16 +12,19 @@ export interface LayerFlags {
   bm: boolean
   /** #102: OSM school dots (default off). */
   schools: boolean
+  /** #104: OSM bike lanes / transit stops overlays (default off). */
+  bike: boolean
+  transit: boolean
 }
 
-export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false }
-const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools'] as const
+export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false, bike: false, transit: false }
+const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools', 'bike', 'transit'] as const
 
 /** `layers=trees,parks,bq` → flags. Unknown tokens ignored; empty value = all off; absent = null. */
 export function parseLayers(raw: string | null): LayerFlags | null {
   if (raw === null) return null
   const set = new Set(raw.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))
-  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools') }
+  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools'), bike: set.has('bike'), transit: set.has('transit') }
 }
 
 /** Flags → token string, or null when they equal the app default (keeps share links short). */

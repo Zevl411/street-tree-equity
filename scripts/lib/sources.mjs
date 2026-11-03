@@ -47,6 +47,7 @@ export async function overpass(name, query) {
             Accept: 'application/json',
           },
           body: new URLSearchParams({ data: query }),
+          signal: AbortSignal.timeout(180000),
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()

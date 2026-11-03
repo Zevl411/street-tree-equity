@@ -52,6 +52,8 @@ const props = defineProps<{
   initialView?: SessionView | null
   parks: ParkCollection
   roads: FeatureCollection | null
+  bike?: FeatureCollection | null
+  transit?: FeatureCollection | null
   /** #51: pack tree points; null = pack has none (layer not added). */
   trees?: FeatureCollection | null
   /** #102: OSM school points; null = pack has none (layer not added). */
@@ -65,7 +67,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -195,6 +197,9 @@ function addDataLayers(m: MlMap) {
   m.addSource('tracts', { type: 'geojson', data: props.tracts, promoteId: 'geoid' })
   m.addSource('parks', { type: 'geojson', data: props.parks })
   m.addSource('roads', { type: 'geojson', data: props.roads ?? { type: 'FeatureCollection', features: [] } })
+  const empty = { type: 'FeatureCollection', features: [] } as FeatureCollection
+  m.addSource('bike', { type: 'geojson', data: props.bike ?? empty })
+  m.addSource('transit', { type: 'geojson', data: props.transit ?? empty })
 
   m.addLayer({
     id: 'tracts-fill', type: 'fill', source: 'tracts',
@@ -223,6 +228,21 @@ function addDataLayers(m: MlMap) {
     filter: ['==', ['get', 'geoid'], '__none__'],
     layout: { 'line-cap': 'round', visibility: showRoads.value ? 'visible' : 'none' },
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
+  }, before)
+  // #104: bike lines above tract fill, beside low-tree roads; transit dots above. Not click targets (tract click passes through).
+  m.addLayer({
+    id: 'bike-lines', type: 'line', source: 'bike',
+    layout: { 'line-cap': 'round', 'line-join': 'round', visibility: showBike.value ? 'visible' : 'none' },
+    paint: { 'line-color': isDark.value ? '#4fc3f7' : '#0277bd', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1, 16, 3.5], 'line-opacity': 0.9 },
+  }, before)
+  m.addLayer({
+    id: 'transit-stops', type: 'circle', source: 'transit',
+    layout: { visibility: showTransit.value ? 'visible' : 'none' },
+    paint: {
+      'circle-color': '#c2185b', 'circle-opacity': 0.85,
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 16, 5],
+      'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1,
+    },
   }, before)
   addTreeLayers(m, before)
   // #102: school dots — no click handler, so tract clicks pass through.
@@ -525,6 +545,14 @@ watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
 watch(showSchools, (v) => setVis('schools', v))
+watch(showBike, (v) => setVis('bike-lines', v))
+watch(showTransit, (v) => setVis('transit-stops', v))
+watch(isDark, (d) => { if (map?.getLayer('bike-lines')) map.setPaintProperty('bike-lines', 'line-color', d ? '#4fc3f7' : '#0277bd') })
+watch(() => [props.bike, props.transit], () => {
+  const e = { type: 'FeatureCollection', features: [] } as FeatureCollection
+  ;(map?.getSource('bike') as GeoJSONSource | undefined)?.setData(props.bike ?? e)
+  ;(map?.getSource('transit') as GeoJSONSource | undefined)?.setData(props.transit ?? e)
+})
 watch(highlightBottomQuartile, (v) => setVis('tracts-bottom', v))
 watch(() => props.roads, (r) => {
   const src = map?.getSource('roads') as GeoJSONSource | undefined
