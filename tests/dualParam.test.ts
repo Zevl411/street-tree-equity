@@ -1,0 +1,45 @@
+// #118 parser unit tests: node --test tests/dualParam.test.ts
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { dualPairAvailable, encodeDualParam, parseDualParam } from '../src/utils/dualParam.ts'
+import { resolveMetric } from '../src/utils/metrics.ts'
+
+const p = (raw: string | null) => parseDualParam(raw, resolveMetric)
+
+test('valid pair, left first', () => assert.deepEqual(p('trees,risk'), { left: 'trees', right: 'risk' }))
+test('case-insensitive', () => {
+  assert.deepEqual(p('TREES,Risk'), { left: 'trees', right: 'risk' })
+  assert.deepEqual(p('novehicle,FOODACCESS'), { left: 'noVehicle', right: 'foodAccess' })
+})
+test('whitespace trimmed', () => assert.deepEqual(p('  trees ,  asthma '), { left: 'trees', right: 'asthma' }))
+test('aliases resolve like ?metric=', () => {
+  assert.deepEqual(p('children,casthma'), { left: 'under18', right: 'asthma' })
+  assert.deepEqual(p('under18plus,trees'), { left: 'under18', right: 'trees' })
+})
+test('identical (incl. via alias) → null', () => {
+  assert.equal(p('trees,trees'), null)
+  assert.equal(p('asthma,CASTHMA'), null)
+})
+test('unknown → null', () => {
+  assert.equal(p('trees,bogus'), null)
+  assert.equal(p('bogus,risk'), null)
+})
+test('missing / single / empty / >2 → null', () => {
+  assert.equal(p(null), null)
+  assert.equal(p(''), null)
+  assert.equal(p('trees'), null)
+  assert.equal(p('trees,'), null)
+  assert.equal(p(',risk'), null)
+  assert.equal(p('trees,risk,parks'), null)
+})
+test('availability: both in pack and ≥2 metrics', () => {
+  const pair = p('trees,risk')
+  assert.equal(dualPairAvailable(pair, ['trees', 'risk', 'parks']), true)
+  assert.equal(dualPairAvailable(pair, ['trees', 'parks']), false)
+  assert.equal(dualPairAvailable(pair, ['trees']), false)
+  assert.equal(dualPairAvailable(null, ['trees', 'risk']), false)
+})
+test('encode lowercase, left first; round-trips', () => {
+  assert.equal(encodeDualParam('noVehicle', 'trees'), 'novehicle,trees')
+  assert.deepEqual(p(encodeDualParam('foodAccess', 'rentBurden')), { left: 'foodAccess', right: 'rentBurden' })
+})

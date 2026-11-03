@@ -1,4 +1,5 @@
-import { DEFAULT_METRIC, normalizeMetric, type MetricId } from '@/utils/metrics'
+import { DEFAULT_METRIC, normalizeMetric, resolveMetric, type MetricId } from '@/utils/metrics'
+import { encodeDualParam, parseDualParam, type DualPair } from '@/utils/dualParam'
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
 import type { ChoroplethMode } from '@/utils/choropleth'
 
@@ -64,6 +65,8 @@ export interface DeepLink {
   legend: boolean | null
   /** #73 stretch: `bin=i` histogram bin; null when absent/invalid (clamped after meta loads). */
   bin: number | null
+  /** #118: `dual=left,right` parsed pair (known + different); availability checked after pack load. */
+  dual: DualPair | null
 }
 
 export function readDeepLink(search: string = window.location.search): DeepLink {
@@ -82,6 +85,7 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     bin: ((b) => (b !== null && /^\d{1,2}$/.test(b) ? Number(b) : null))(q.get('bin')),
     // #97: unknown / missing → trees
     metric: normalizeMetric(q.get('metric')),
+    dual: parseDualParam(q.get('dual'), resolveMetric),
     unit: ((u) => (u === 'acre' || u === 'km2' ? u : null))(q.get('unit')?.trim().toLowerCase()),
   }
 }
@@ -99,10 +103,10 @@ export function applyShareFlags(q: URLSearchParams, v: ShareFlags): void {
   if (v.bin != null) q.set('bin', String(v.bin))
 }
 
-export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit; metric?: MetricId } & ShareFlags): void {
+export function writeDeepLink(v: { city: string | null; geoid: string | null; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit; metric?: MetricId; dual?: DualPair | null } & ShareFlags): void {
   const url = new URL(window.location.href)
   const q = url.searchParams
-  for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit', 'metric']) q.delete(k)
+  for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit', 'metric', 'dual']) q.delete(k)
   if (v.city) q.set('city', v.city)
   if (v.geoid) q.set('geoid', v.geoid)
   q.set('basemap', v.basemap)
@@ -112,6 +116,8 @@ export function writeDeepLink(v: { city: string | null; geoid: string | null; ba
   if (v.unit === 'km2') q.set('unit', 'km2')
   // #97: omit when default metric
   if (v.metric && v.metric !== DEFAULT_METRIC) q.set('metric', v.metric)
+  // #118: only while dual view is on (left first); off → omitted.
+  if (v.dual) q.set('dual', encodeDualParam(v.dual.left, v.dual.right))
   applyShareFlags(q, v)
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 }

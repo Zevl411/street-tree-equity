@@ -26,6 +26,7 @@ import { readSessionView, writeSessionView, type SessionView } from '@/composabl
 import { copyText } from '@/utils/clipboard'
 import { choroplethColors } from '@/utils/choropleth'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
+import { dualPairAvailable } from '@/utils/dualParam'
 import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
@@ -293,6 +294,7 @@ async function init() {
   if (link.geoid && inPack(link.geoid)) cityStore.select(link.geoid)
   else if (!link.geoid && stored?.cityId === cityStore.cityId && inPack(stored.geoid)) cityStore.select(stored.geoid!)
   watch(selectedGeoid, (g) => { if (cityStore.cityId) writeSessionView({ cityId: cityStore.cityId, geoid: g }) }, { immediate: true })
+  applyDualFromUrl(link)
   syncUrl()
   openCompareFromUrl()
   openHotspotsFromUrl()
@@ -312,7 +314,21 @@ async function init() {
     if (ui.densityBinIndex !== null) ui.setDensityBin(ui.densityBinIndex, n)
   })
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showSidewalks, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showSidewalks, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex, () => ui.dualView, () => ui.dualLeft, () => ui.dualRight], syncUrl)
+}
+
+/** #118: restore a valid `?dual=` pair once the first pack is loaded; invalid → ignored (single map). */
+function applyDualFromUrl(link: ReturnType<typeof readDeepLink>) {
+  if (!new URLSearchParams(window.location.search).has('dual')) return
+  const avail = availMetrics.value
+  if (!dualPairAvailable(link.dual, avail)) { console.debug('[dual] ignoring ?dual= (invalid or unavailable for this pack)'); return }
+  ui.dualLeft = link.dual.left; ui.dualRight = link.dual.right
+  const v = readSessionView()
+  if (v && v.cityId === cityStore.cityId) initialView.value = v
+  ui.setDualView(true)
+  // Soft: metric= equal to the right side starts Hotspots primary = right.
+  if (link.metric === link.dual.right) ui.dualPrimary = 'right'
+  dualAnnounce.value = `Dual view on: ${dualLabel(link.dual.left)} and ${dualLabel(link.dual.right)}`
 }
 
 /** #94: one-shot auto-load for `?layers=` with trees (first pack only). */
@@ -359,7 +375,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, metric: ui.activeMetric, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
+  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, metric: ui.activeMetric, dual: ui.dualView ? { left: ui.dualLeft, right: ui.dualRight } : null, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
 }
 
 const compareOpen = ref(false)
