@@ -64,6 +64,11 @@ export interface TractProps {
   pctAsthmaLo?: number
   pctAsthmaHi?: number
   asthmaAdultPop?: number
+  /** #119: CDC PLACES 2025 DIABETES crude prevalence (0–100, 1 dp) + 95% CI + adult pop weight */
+  pctDiabetes?: number
+  pctDiabetesLo?: number
+  pctDiabetesHi?: number
+  diabetesAdultPop?: number
   nriSoviScore?: number
   nriEalScore?: number
   nearestGroceryKm?: number
@@ -111,10 +116,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; asthma?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; asthma?: number[]; diabetes?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -130,7 +135,7 @@ export interface Meta {
   /** #115 ACS B01001 provenance (same vintage as acs) */
   acsUnder18?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   /** #117 CDC PLACES provenance */
-  cdcPlaces?: { release: string; measure: string; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string> }
+  cdcPlaces?: { release: string; measure: string; measures?: string[]; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string> }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; cdcPlaces?: string }
