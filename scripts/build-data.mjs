@@ -29,6 +29,7 @@ import * as turf from '@turf/turf'
 import { cachedDownload, overpass, setRawOptions } from './lib/sources.mjs'
 import { fetchGroceries, applyGroceries } from './lib/groceries.mjs'
 import { fetchSchools, applySchools } from './lib/schools.mjs'
+import { fetchLibraries, applyLibraries } from './lib/libraries.mjs'
 import { fetchBike, fetchTransit, applyMobility } from './lib/mobility.mjs'
 import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
 
@@ -162,6 +163,8 @@ log(`schools: ${schools.length} points`)
 // #104: bike lines + transit stops overlays
 const bike = await fetchBike(ob)
 const transit = await fetchTransit(ob)
+const libraries = await fetchLibraries(ob)
+log(`libraries + community centres: ${libraries.length} points`)
 log(`bike: ${bike.length} ways; transit: ${transit.length} stops`)
 
 // ---------------------------------------------------------------------------
@@ -300,6 +303,7 @@ for (const f of tractOut) f.properties.bottomQuartile = f.properties.treesPerAcr
 const gr = applyGroceries(tractOut, groceries)
 // #102: schools overlay + tract counts (no metricBreaks)
 const sc = applySchools(tractOut, schools)
+const lib = applyLibraries(tractOut, libraries)
 const mob = applyMobility(tractOut, bike, transit)
 const sizes = {}
 sizes.tracts = await writeJson('tracts-equity.geojson', turf.featureCollection(tractOut))
@@ -307,6 +311,7 @@ sizes.parks = await writeJson('parks.geojson', turf.featureCollection(parks))
 sizes.groceries = await writeJson('groceries.geojson', turf.featureCollection(groceries))
 sizes.schools = await writeJson('schools.geojson', turf.featureCollection(schools))
 sizes.bike = await writeJson('bike.geojson', turf.featureCollection(bike))
+sizes.libraries = await writeJson('libraries.geojson', turf.featureCollection(libraries))
 sizes.transit = await writeJson('transit.geojson', turf.featureCollection(transit))
 sizes.trees = await writeJson('trees.geojson', turf.featureCollection(treeFeatures))
 sizes.roads = await writeJson('roads-lowtree.geojson', turf.featureCollection(lowRoads))
@@ -321,7 +326,7 @@ const meta = {
   generatedAt: new Date().toISOString(),
   osmTimestamp,
   censusVintage: `${year} cartographic boundary (cb_${year}_${stateFips}_tract_500k)`,
-  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, bikeKm: mob.bikeKm, transitStops: mob.transitStops, lowTreeRoadSegments: lowRoads.length },
+  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, bikeKm: mob.bikeKm, transitStops: mob.transitStops, libraries: lib.libraries, communityCentres: lib.communityCentres, lowTreeRoadSegments: lowRoads.length },
   overall: {
     treesPerAcre: +(totalTrees / totalAcres).toFixed(3),
     parksPerAcre: +(tractOut.reduce((s, f) => s + f.properties.parksInside, 0) / totalAcres).toFixed(5),

@@ -17,6 +17,8 @@ const props = defineProps<{
   cityId: string | null
   /** #102: pack ships schools.geojson + schoolsInside; false → omit school caption. */
   hasSchools?: boolean
+  /** #108: pack ships libraries.geojson + civicInside; false → omit civic caption. */
+  hasLibraries?: boolean
 }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
@@ -41,6 +43,14 @@ const schoolCaption = computed(() => {
   if (!items.value.some((f) => Number.isFinite((f.properties as { schoolsInside?: number }).schoolsInside))) return ''
   const n = items.value.reduce((a, f) => a + ((f.properties as { schoolsInside?: number }).schoolsInside ?? 0), 0)
   return n ? `${n} ${n === 1 ? 'school' : 'schools'} in these hotspots` : 'No schools in these hotspots'
+})
+// #108 soft: libraries + community centres in hotspots (sum civicInside).
+const civicCaption = computed(() => {
+  if (!props.hasLibraries || props.loading || !items.value.length) return ''
+  const v = items.value.map((f) => (f.properties as { civicInside?: number }).civicInside).filter((n): n is number => typeof n === 'number')
+  if (!v.length) return ''
+  const n = v.reduce((a, b) => a + b, 0)
+  return n ? `${n} libraries & community centres in these hotspots` : 'None in these hotspots'
 })
 // #104 soft: transit stop caption; '' when pack has no transit data.
 const transitCaption = computed(() => {
@@ -80,6 +90,7 @@ function pick(geoid: string) {
           {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>
         <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
+        <p v-if="civicCaption" class="text-caption text-medium-emphasis mb-1 hotspots-civic">{{ civicCaption }}</p>
         <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>

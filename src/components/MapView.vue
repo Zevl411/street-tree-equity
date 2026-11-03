@@ -59,6 +59,8 @@ const props = defineProps<{
   trees?: FeatureCollection | null
   /** #102: OSM school points; null = pack has none (layer not added). */
   schools?: FeatureCollection | null
+  /** #108: OSM library + community_centre points; null = pack has none (layer not added). */
+  libraries?: FeatureCollection | null
   /** #60 stretch: #54 focus mode bumps the selected outline. */
   focusMode?: boolean
   /** #90: while the Hotspots panel is open, dim tracts not in this set. */
@@ -75,7 +77,7 @@ let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -263,6 +265,21 @@ function addDataLayers(m: MlMap) {
         'circle-color': '#5e35b1', 'circle-opacity': 0.9,
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
         'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.25,
+      },
+    }, before)
+  }
+  // #108: libraries (solid) + community centres (hollow) teal dots — no click handler, tract clicks pass through.
+  if (props.libraries?.features.length) {
+    m.addSource('libraries', { type: 'geojson', data: props.libraries })
+    m.addLayer({
+      id: 'libraries', type: 'circle', source: 'libraries',
+      layout: { visibility: showLibraries.value ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#00897b',
+        'circle-opacity': ['match', ['get', 'amenity'], 'community_centre', 0.15, 0.9],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
+        'circle-stroke-color': ['match', ['get', 'amenity'], 'community_centre', '#00897b', '#ffffff'],
+        'circle-stroke-width': ['match', ['get', 'amenity'], 'community_centre', 2, 1.25],
       },
     }, before)
   }
@@ -564,6 +581,7 @@ watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
 watch(showSchools, (v) => setVis('schools', v))
+watch(showLibraries, (v) => setVis('libraries', v))
 watch(showBike, (v) => setVis('bike-lines', v))
 watch(showTransit, (v) => setVis('transit-stops', v))
 watch(isDark, (d) => { if (map?.getLayer('bike-lines')) map.setPaintProperty('bike-lines', 'line-color', d ? '#4fc3f7' : '#0277bd') })

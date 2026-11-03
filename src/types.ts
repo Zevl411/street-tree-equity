@@ -57,6 +57,11 @@ export interface TractProps {
   bikeKmPerKm2?: number
   transitStopsInside?: number
   nearestTransitKm?: number
+  /** #108 OSM amenity=library / community_centre join (overlay + Hotspots count; not a MetricId) */
+  librariesInside?: number
+  communityCentresInside?: number
+  civicInside?: number
+  nearestLibraryKm?: number
   nearestParks: NearbyPark[]
   roadKm: number | null
   lowTreeRoadKm: number | null
@@ -87,7 +92,7 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; lowTreeRoadSegments: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; lowTreeRoadSegments: number }
   overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
