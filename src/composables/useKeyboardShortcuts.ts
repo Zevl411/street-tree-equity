@@ -9,6 +9,8 @@ export interface ShortcutHandlers {
   toggleHotspots: () => void
   help: () => void
   toggleFullscreen?: () => void
+  /** #74: b toggles the city-median filter. */
+  toggleBelowMedian?: () => void
   /** #77: n/p cycle below-median tracts. */
   jumpBelowMedian?: (dir: 1 | -1) => void
   /** #84: `*` (Shift+8 / numpad) toggles star on the selected tract. */
@@ -40,6 +42,7 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
       case 's': h.toggleBasemap(); break
       case 'h': h.toggleHotspots(); break
       case 'f': h.toggleFullscreen?.(); break
+      case 'b': h.toggleBelowMedian?.(); break
       case 'n': h.jumpBelowMedian?.(1); break
       case 'p': h.jumpBelowMedian?.(-1); break
       case '*': e.preventDefault(); h.toggleStar?.(); break

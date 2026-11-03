@@ -632,8 +632,18 @@ useKeyboardShortcuts({
   },
   help: () => { if (!anyOverlayOpen()) shortcutsOpen.value = true },
   jumpBelowMedian,
+  toggleBelowMedian,
   toggleStar,
 })
+// #74: `b` toggles the city-median filter (same as Layers switch). #95 announce fires from the existing watcher.
+function toggleBelowMedian() {
+  if (anyOverlayOpen()) return
+  if (!medianAvailable.value) {
+    linkSnack.value = 'City-median filter needs at least 2 tracts with data'
+    return
+  }
+  belowMedian.value = !belowMedian.value
+}
 // #84: `*` stars/unstars the selected tract (same toggle as TractDetails). Drawer/focus OK; overlays ignore.
 const starAnnounce = ref('')
 function toggleStar() {
@@ -700,8 +710,11 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ['Esc', 'Close panel, clear selection, or exit focus'],
   ] },
   { id: 'filters', title: 'Filters', rows: [
-    ['h', 'Low-canopy hotspots'], ['n', 'Next below-median tract'], ['p', 'Previous below-median tract'],
-  ], caption: 'n / p need Below city median on.' },
+    ['b', 'Toggle city-median filter'],
+    ['h', 'Low-canopy hotspots'],
+    ['n', 'Next below-median tract'],
+    ['p', 'Previous below-median tract'],
+  ], caption: 'n / p need the city-median filter on.' },
   { id: 'find', title: 'Find & export', rows: [['/', 'Find tract'], ['*', 'Star / unstar selected tract']] },
   { id: 'help', title: 'Help', rows: [['?', 'Keyboard shortcuts']] },
 ]
