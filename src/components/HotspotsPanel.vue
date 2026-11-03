@@ -60,7 +60,7 @@ function pick(geoid: string) {
       </v-card-title>
       <v-card-text class="pb-2">
         <p class="text-caption text-medium-emphasis mb-1">
-          {{ loading ? 'Loading tracts…' : `Lowest tree density in ${cityName} · tap to open` }}
+          {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
