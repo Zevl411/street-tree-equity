@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty'
 
 export interface MetricDef {
   id: MetricId
@@ -36,6 +36,8 @@ export interface MetricDef {
   currency?: boolean
   /** #106: 0–1 share displayed as percent */
   percent?: boolean
+  /** #107: value already 0–100 percent points */
+  percentPoints?: boolean
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -115,11 +117,25 @@ export const METRICS: Record<MetricId, MetricDef> = {
     fine: true, overallKey: 'foodAccessLowShare', hotspotNoun: ['high low-access tract', 'high low-access tracts'], hotspotTitle: 'Highest low-access share', missingCaption: 'This pack has no food-access metric yet',
     higherIsBetter: false, usesDensityUnit: false, percent: true,
   },
+  // #107: ACS 5-year B17001 — % of people below poverty (0–100); higher = worse (NOT income's true).
+  poverty: {
+    id: 'poverty',
+    shortLabel: 'Poverty',
+    valueKey: 'pctPoverty',
+    legendTitle: () => 'Population below poverty level',
+    unitNoun: 'poverty rate',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median poverty rate',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctPoverty', hotspotNoun: ['highest-poverty tract', 'highest-poverty tracts'], hotspotTitle: 'Highest poverty', missingCaption: 'This pack has no poverty metric yet',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 /** #103: unitless display — currency metrics → USD no cents, else 1 decimal. */
 export function fmtUnitless(def: MetricDef, n: number): string {
+  if (def.percentPoints) return `${n.toFixed(1)}%`
   if (def.percent) return `${(n * 100).toFixed(1)}%`
   return def.currency ? USD.format(n) : n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }

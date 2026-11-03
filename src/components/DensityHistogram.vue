@@ -16,7 +16,7 @@ const median = computed(() => (props.belowMedian ? cityMedian(props.tracts, ui.m
 
 const bins = computed(() => {
   const isKm2 = ui.effectiveUnit === 'km2'
-  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1, (ui.metric.currency || ui.metric.percent) ? (n: number) => fmtUnitless(ui.metric, n) : undefined)
+  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1, (ui.metric.currency || ui.metric.percent || ui.metric.percentPoints) ? (n: number) => fmtUnitless(ui.metric, n) : undefined)
   const raw = binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey)
   const counts = rows.map((_, i) => raw[i] ?? 0)
   const max = Math.max(1, ...counts)

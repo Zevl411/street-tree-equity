@@ -114,7 +114,7 @@ async function compare() {
 
 const fmt = (n: number | null, d = 3) => (n == null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: d }))
 /** #103: metric values (currency-aware) */
-const fmtV = (n: number | null, d = 3) => (n == null ? '—' : (ui.metric.currency || ui.metric.percent) ? fmtUnitless(ui.metric, n) : fmt(n, d))
+const fmtV = (n: number | null, d = 3) => (n == null ? '—' : (ui.metric.currency || ui.metric.percent || ui.metric.percentPoints) ? fmtUnitless(ui.metric, n) : fmt(n, d))
 const rows = computed(() => {
   const r = result.value
   if (!r) return []

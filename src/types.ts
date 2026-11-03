@@ -43,6 +43,9 @@ export interface TractProps {
   foodAccessLowShare1mi?: number
   foodAccessLila?: number
   foodAccessLowIncome?: number
+  /** #107: ACS B17001 % below poverty (0–100, 1 dp) + derived MOE */
+  pctPoverty?: number
+  pctPovertyMoe?: number
   nriSoviScore?: number
   nriEalScore?: number
   nearestGroceryKm?: number
@@ -82,19 +85,21 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
   fara?: { version: string; updated: string; retrievedAt: string; sourceUrl: string; columns?: Record<string, string> }
   /** #103 ACS provenance */
   acs?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
+  /** #107 ACS B17001 provenance (same vintage as acs) */
+  acsPoverty?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>

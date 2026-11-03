@@ -15,7 +15,7 @@ const isKm2 = computed(() => lunit.value === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() =>
-  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1, (lm.value.currency || lm.value.percent) ? (n: number) => fmtUnitless(lm.value, n) : undefined),
+  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1, (lm.value.currency || lm.value.percent || lm.value.percentPoints) ? (n: number) => fmtUnitless(lm.value, n) : undefined),
 )
 const counts = computed(() => binCounts(props.tracts, props.meta.breaks, lm.value.valueKey))
 </script>
