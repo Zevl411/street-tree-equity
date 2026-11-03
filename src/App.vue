@@ -845,7 +845,7 @@ watch(drawerOpen, async (open) => {
               @update:model-value="(v: MetricId) => ui.setActiveMetric(v)">
               <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id] || ui.dualView">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
-            <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric — use Left/Right above</div>
+            <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric — use the Left/Right selects below</div>
             <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual view" color="primary" density="compact" hide-details inset
               class="dual-switch" :class="{ 'switch-touch': !mdAndUp }" @click.stop @update:model-value="(v) => setDual(!!v)" />
             <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">Needs two metrics in this pack</div>
