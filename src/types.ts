@@ -54,6 +54,11 @@ export interface TractProps {
   pctRentBurdenMoe?: number
   pctSevereRentBurden?: number
   rentBurdenBase?: number
+  /** #115: ACS B01001 % residents under 18 (0–100, 1 dp) + derived MOE, count, % under 5 */
+  pctUnder18?: number
+  pctUnder18Moe?: number
+  popUnder18?: number
+  pctUnder5?: number
   nriSoviScore?: number
   nriEalScore?: number
   nearestGroceryKm?: number
@@ -98,10 +103,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -114,9 +119,11 @@ export interface Meta {
   acsNoVehicle?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   /** #111 ACS B25070 provenance (same vintage as acs) */
   acsRentBurden?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
+  /** #115 ACS B01001 provenance (same vintage as acs) */
+  acsUnder18?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>

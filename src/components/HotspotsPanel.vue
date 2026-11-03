@@ -5,6 +5,7 @@ import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { fmtUnitless, metricValue } from '@/utils/metrics'
 import { hotspotTracts } from '@/utils/hotspots'
+import { hotspotAscending } from '@/utils/metrics'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
 /** #43 Low-canopy hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
@@ -29,7 +30,7 @@ const total = computed(() => props.tracts?.length ?? 0)
 const ui = useUiStore()
 /** #98/#99: amenity metrics → metric-def title, sorted by active valueKey. */
 const isParks = computed(() => ui.metric.fine)
-const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey, ui.metric.higherIsBetter))
+const items = computed(() => hotspotTracts(props.tracts, ui.metric.valueKey, hotspotAscending(ui.metric)))
 const val = (p: object) => metricValue(p, ui.metric.valueKey)
 const unitless = computed(() => !ui.metric.usesDensityUnit)
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
@@ -97,7 +98,7 @@ function pick(geoid: string) {
           </v-btn-toggle>
         </div>
         <p class="text-caption text-medium-emphasis mb-1">
-          {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
+          {{ loading ? 'Loading tracts…' : `${hotspotAscending(ui.metric) ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>
         <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
         <p v-if="civicCaption" class="text-caption text-medium-emphasis mb-1 hotspots-civic">{{ civicCaption }}</p>
