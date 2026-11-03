@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity'
 
 export interface MetricDef {
   id: MetricId
@@ -214,6 +214,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmSwitchLabel: 'Above city median',
     fine: false, overallKey: 'pctLep', hotspotNoun: ['high limited-English tract', 'high limited-English tracts'], hotspotTitle: 'Highest limited-English share', missingCaption: 'This pack has no limited-English metric yet',
     tooltip: 'Share of residents age 5+ who speak English less than ‘very well’',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
+  // #121: CDC PLACES 2025 — OBESITY crude prevalence, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  obesity: {
+    id: 'obesity',
+    shortLabel: 'Obesity',
+    valueKey: 'pctObesity',
+    legendTitle: () => 'Adults with obesity',
+    unitNoun: 'obesity share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median obesity share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctObesity', hotspotNoun: ['high-obesity tract', 'high-obesity tracts'], hotspotTitle: 'Highest obesity share', missingCaption: 'This pack has no obesity metric yet',
+    tooltip: 'Model-based share of adults with obesity (CDC PLACES). Shown as community-need context alongside canopy.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
 }
