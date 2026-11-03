@@ -32,7 +32,7 @@ import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { fmtUnitless, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
-const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
+const { meta, tracts, parks, roads, trees, schools, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
 /** #51: hide the trees switch when the pack ships no tree points. */
 const treesAvailable = computed(() => !!trees.value?.features.length)
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
@@ -54,7 +54,7 @@ const packRows = computed<{ label: string; value: string; mono?: boolean }[]>(()
   return rows
 })
 const ui = useUiStore()
-const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
+const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, showSchools, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
 // #88: offline hint on pack-error (checked when the error renders).
 const isOffline = computed(() => !!error.value && typeof navigator !== 'undefined' && !navigator.onLine)
@@ -186,7 +186,7 @@ const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.o
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
 const citationsText = computed(() => [
   'Street Tree Equity — data sources',
-  `- Street trees & parks: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
+  `- Street trees, parks, groceries & schools: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
   ...(meta.value?.acs ? [`- Median household income (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acs.table} (${meta.value.acs.vintage}). Retrieved ${meta.value.acs.retrievedAt} from ${meta.value.acs.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
@@ -271,7 +271,7 @@ async function init() {
     if (ui.densityBinIndex !== null) ui.setDensityBin(ui.densityBinIndex, n)
   })
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
+  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, showSchools, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex], syncUrl)
 }
 
 /** #94: one-shot auto-load for `?layers=` with trees (first pack only). */
@@ -289,19 +289,20 @@ watch(treesDeferred, () => syncUrl())
 
 function currentLayers(): LayerFlags {
   // #94: don't advertise points that aren't loaded.
-  return { trees: showTrees.value && !treesDeferred.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value, bm: belowMedian.value }
+  return { trees: showTrees.value && !treesDeferred.value, parks: showParks.value, roads: showRoads.value, bq: highlightBottomQuartile.value, bm: belowMedian.value, schools: showSchools.value && !!schools.value }
 }
 /** Presets omit `bm` (#59) so they leave the median dim as-is. */
-function applyLayers(f: Omit<LayerFlags, 'bm'> & { bm?: boolean }) {
+function applyLayers(f: Omit<LayerFlags, 'bm' | 'schools'> & { bm?: boolean; schools?: boolean }) {
   showTrees.value = f.trees
   showParks.value = f.parks
   showRoads.value = f.roads
   highlightBottomQuartile.value = f.bq
   if (f.bm !== undefined) belowMedian.value = f.bm
+  if (f.schools !== undefined) showSchools.value = f.schools
 }
 
 /** One-tap layer presets (#37). They only set the four switches; switches stay the source of truth. */
-const LAYER_PRESETS: { id: string; label: string; flags: Omit<LayerFlags, 'bm'> }[] = [
+const LAYER_PRESETS: { id: string; label: string; flags: Omit<LayerFlags, 'bm' | 'schools'> }[] = [
   { id: 'equity', label: 'Equity', flags: { trees: true, parks: true, roads: false, bq: true } },
   { id: 'plant', label: 'Plant-here', flags: { trees: true, parks: false, roads: true, bq: false } },
   { id: 'parks', label: 'Parks', flags: { trees: true, parks: true, roads: false, bq: false } },
@@ -842,6 +843,10 @@ watch(drawerOpen, async (open) => {
             </div>
             <v-switch v-if="treesAvailable" v-model="showTrees" label="Individual trees (visible when zoomed in)" color="primary" hide-details density="compact" />
             <v-switch v-model="showParks" label="Parks" color="primary" hide-details density="compact" />
+            <template v-if="schools?.features.length">
+              <v-switch v-model="showSchools" label="Schools" color="primary" hide-details density="compact" />
+              <div class="text-caption text-medium-emphasis ms-1 mb-1">OSM amenity=school</div>
+            </template>
             <v-switch v-model="showRoads" label="Plant-here streets (orange)" color="orange-darken-2" hide-details density="compact" />
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
             <v-switch v-model="belowMedian" :label="ui.metric.bmSwitchLabel" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
@@ -857,7 +862,7 @@ watch(drawerOpen, async (open) => {
       <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-id="city?.id ?? null" @pick="pickFromFinder" />
       <HotspotsPanel v-model="hotspotsOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
-        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" :has-schools="!!schools" @pick="pickFromHotspots"
         @exported="linkSnack = 'Hotspots CSV downloaded'" />
       <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
@@ -946,7 +951,7 @@ watch(drawerOpen, async (open) => {
           <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
         </v-btn>
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
+        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :trees="trees" :schools="schools" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center" role="status" aria-live="polite">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -1066,7 +1071,7 @@ watch(drawerOpen, async (open) => {
 
           <h3 class="text-subtitle-1 font-weight-bold mb-1">Data sources</h3>
           <ul class="about-sources text-body-2 mb-4">
-            <li><strong>Street trees &amp; parks</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
+            <li><strong>Street trees, parks, groceries &amp; schools</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
             <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
             <li v-if="meta?.acs"><strong>Median household income (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acs.table }} ({{ meta.acs.vintage }}). Retrieved {{ meta.acs.retrievedAt }} from <a :href="meta.acs.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acs.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
