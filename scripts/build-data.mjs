@@ -29,6 +29,7 @@ import * as turf from '@turf/turf'
 import { cachedDownload, overpass, setRawOptions } from './lib/sources.mjs'
 import { fetchGroceries, applyGroceries } from './lib/groceries.mjs'
 import { fetchSchools, applySchools } from './lib/schools.mjs'
+import { fetchBike, fetchTransit, applyMobility } from './lib/mobility.mjs'
 import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -158,6 +159,10 @@ const groceries = await fetchGroceries(ob)
 log(`groceries: ${groceries.length} points`)
 const schools = await fetchSchools(ob)
 log(`schools: ${schools.length} points`)
+// #104: bike lines + transit stops overlays
+const bike = await fetchBike(ob)
+const transit = await fetchTransit(ob)
+log(`bike: ${bike.length} ways; transit: ${transit.length} stops`)
 
 // ---------------------------------------------------------------------------
 // 4. Roads with no mapped tree nearby (stretch: "plant here" candidates)
@@ -295,11 +300,14 @@ for (const f of tractOut) f.properties.bottomQuartile = f.properties.treesPerAcr
 const gr = applyGroceries(tractOut, groceries)
 // #102: schools overlay + tract counts (no metricBreaks)
 const sc = applySchools(tractOut, schools)
+const mob = applyMobility(tractOut, bike, transit)
 const sizes = {}
 sizes.tracts = await writeJson('tracts-equity.geojson', turf.featureCollection(tractOut))
 sizes.parks = await writeJson('parks.geojson', turf.featureCollection(parks))
 sizes.groceries = await writeJson('groceries.geojson', turf.featureCollection(groceries))
 sizes.schools = await writeJson('schools.geojson', turf.featureCollection(schools))
+sizes.bike = await writeJson('bike.geojson', turf.featureCollection(bike))
+sizes.transit = await writeJson('transit.geojson', turf.featureCollection(transit))
 sizes.trees = await writeJson('trees.geojson', turf.featureCollection(treeFeatures))
 sizes.roads = await writeJson('roads-lowtree.geojson', turf.featureCollection(lowRoads))
 const totalTrees = treeFeatures.length
@@ -313,7 +321,7 @@ const meta = {
   generatedAt: new Date().toISOString(),
   osmTimestamp,
   censusVintage: `${year} cartographic boundary (cb_${year}_${stateFips}_tract_500k)`,
-  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, lowTreeRoadSegments: lowRoads.length },
+  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, bikeKm: mob.bikeKm, transitStops: mob.transitStops, lowTreeRoadSegments: lowRoads.length },
   overall: {
     treesPerAcre: +(totalTrees / totalAcres).toFixed(3),
     parksPerAcre: +(tractOut.reduce((s, f) => s + f.properties.parksInside, 0) / totalAcres).toFixed(5),
