@@ -187,6 +187,8 @@ export const useUiStore = defineStore('ui', () => {
   const showTransit = ref(false)
   /** #108: OSM libraries + community centres dots — session + share (`layers=libraries`) only; default off. */
   const showLibraries = ref(false)
+  /** #122: OSM community gardens + allotments dots — session + share (`layers=gardens`) only; default off. */
+  const showGardens = ref(false)
   /** #110: OSM mapped sidewalks — default off; share `layers=sidewalks` only. */
   const showSidewalks = ref(false)
   const highlightBottomQuartile = ref(false)
@@ -208,7 +210,7 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,
-    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showSidewalks, highlightBottomQuartile, belowMedian, aboutOpen,
+    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showSidewalks, highlightBottomQuartile, belowMedian, aboutOpen,
     densityBinIndex, setDensityBin,
   }
 })

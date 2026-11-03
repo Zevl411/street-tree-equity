@@ -33,6 +33,8 @@ export function useData() {
   const schools = shallowRef<FeatureCollection | null>(null)
   /** #108: OSM library + community_centre points (optional; missing file → null, switch hidden). */
   const libraries = shallowRef<FeatureCollection | null>(null)
+  /** #122: OSM garden + allotments points (optional; missing file → null, switch hidden). */
+  const gardens = shallowRef<FeatureCollection | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
@@ -50,6 +52,7 @@ export function useData() {
     trees.value = null
     schools.value = null
     libraries.value = null
+    gardens.value = null
   }
 
   /** Resolves true when this load won and succeeded. */
@@ -103,7 +106,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr, sc, bk, ts, lb, sw] = await Promise.all([
+      const [m, t, p, r, tr, sc, bk, ts, lb, sw, gd] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -116,6 +119,7 @@ export function useData() {
         get<FeatureCollection>('transit.geojson').catch(() => null),
         get<FeatureCollection>('libraries.geojson').catch(() => null),
         get<FeatureCollection>('sidewalks.geojson').catch(() => null),
+        get<FeatureCollection>('gardens.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -128,6 +132,7 @@ export function useData() {
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
       schools.value = sc && Array.isArray(sc.features) ? sc : null
       libraries.value = lb && Array.isArray(lb.features) && lb.features.length > 0 ? lb : null
+      gardens.value = gd && Array.isArray(gd.features) && gd.features.length > 0 ? gd : null
       packPath = dataPath
       treesDeferred.value = !!opts.deferTrees
       void saveLastPack(kept)
@@ -145,5 +150,5 @@ export function useData() {
     }
   }
 
-  return { meta, schools, libraries, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, libraries, gardens, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }

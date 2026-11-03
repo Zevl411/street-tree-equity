@@ -20,6 +20,8 @@ const props = defineProps<{
   hasSchools?: boolean
   /** #108: pack ships libraries.geojson + civicInside; false → omit civic caption. */
   hasLibraries?: boolean
+  /** #122: pack ships gardens.geojson + gardensInside; false → omit gardens caption. */
+  hasGardens?: boolean
   /** #113: dual view on → [left, right] labels for the primary-pane segmented control. */
   dualLabels?: [string, string] | null
 }>()
@@ -54,6 +56,14 @@ const civicCaption = computed(() => {
   if (!v.length) return ''
   const n = v.reduce((a, b) => a + b, 0)
   return n ? `${n} ${n === 1 ? 'library or community centre' : 'libraries & community centres'} in these hotspots` : 'None in these hotspots'
+})
+// #122 soft: gardens + allotments in hotspots (sum gardensInside + allotmentsInside).
+const gardensCaption = computed(() => {
+  if (!props.hasGardens || props.loading || !items.value.length) return ''
+  const v = items.value.map((f) => f.properties as { gardensInside?: number; allotmentsInside?: number }).filter((p) => typeof p.gardensInside === 'number' || typeof p.allotmentsInside === 'number')
+  if (!v.length) return ''
+  const n = v.reduce((a, p) => a + (p.gardensInside ?? 0) + (p.allotmentsInside ?? 0), 0)
+  return n ? `${n} ${n === 1 ? 'garden or allotment' : 'gardens & allotments'} in these hotspots` : 'None in these hotspots'
 })
 // #104 soft: transit stop caption; '' when pack has no transit data.
 const transitCaption = computed(() => {
@@ -102,6 +112,7 @@ function pick(geoid: string) {
         </p>
         <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
         <p v-if="civicCaption" class="text-caption text-medium-emphasis mb-1 hotspots-civic">{{ civicCaption }}</p>
+        <p v-if="gardensCaption" class="text-caption text-medium-emphasis mb-1 hotspots-gardens">{{ gardensCaption }}</p>
         <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
