@@ -22,6 +22,8 @@ export const CSV_HEADERS = [
   'pct_no_vehicle', 'pct_no_vehicle_moe',
   // #111 soft: ACS B25070
   'pct_rent_burden', 'pct_rent_burden_moe', 'pct_severe_rent_burden',
+  // #115 soft: ACS B01001
+  'pct_under_18', 'pct_under_18_moe', 'pop_under_18',
   // #104 soft: mobility overlays
   'bike_km', 'transit_stops',
 ] as const
@@ -42,7 +44,7 @@ function row(t: TractProps, meta: Meta): string {
     meta.cityName, meta.subtitle, meta.censusVintage, meta.generatedAt,
     t.parksPerAcre, t.parkAreaAcres, t.groceriesPerAcre,
     t.nriRiskScore, t.nriRiskRating, t.nriSoviScore, t.medianIncome,
-    t.foodAccessLowShare, t.foodAccessLowShare1mi, t.foodAccessLila, t.pctPoverty, t.pctPovertyMoe, t.pctNoVehicle, t.pctNoVehicleMoe, t.pctRentBurden, t.pctRentBurdenMoe, t.pctSevereRentBurden,
+    t.foodAccessLowShare, t.foodAccessLowShare1mi, t.foodAccessLila, t.pctPoverty, t.pctPovertyMoe, t.pctNoVehicle, t.pctNoVehicleMoe, t.pctRentBurden, t.pctRentBurdenMoe, t.pctSevereRentBurden, t.pctUnder18, t.pctUnder18Moe, t.popUnder18,
     t.bikeKm, t.transitStopsInside,
   ].map(cell).join(',')
 }
@@ -92,7 +94,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           parks_per_acre: t.parksPerAcre ?? null, park_area_acres: t.parkAreaAcres ?? null, groceries_per_acre: t.groceriesPerAcre ?? null,
           nri_risk_score: t.nriRiskScore ?? null, nri_risk_rating: t.nriRiskRating ?? null, nri_sovi_score: t.nriSoviScore ?? null, median_income: t.medianIncome ?? null,
           food_access_low_share: t.foodAccessLowShare ?? null, food_access_low_share_1mi: t.foodAccessLowShare1mi ?? null, food_access_lila: t.foodAccessLila ?? null,
-          pct_poverty: t.pctPoverty ?? null, pct_poverty_moe: t.pctPovertyMoe ?? null, pct_no_vehicle: t.pctNoVehicle ?? null, pct_no_vehicle_moe: t.pctNoVehicleMoe ?? null, pct_rent_burden: t.pctRentBurden ?? null, pct_rent_burden_moe: t.pctRentBurdenMoe ?? null, pct_severe_rent_burden: t.pctSevereRentBurden ?? null,
+          pct_poverty: t.pctPoverty ?? null, pct_poverty_moe: t.pctPovertyMoe ?? null, pct_no_vehicle: t.pctNoVehicle ?? null, pct_no_vehicle_moe: t.pctNoVehicleMoe ?? null, pct_rent_burden: t.pctRentBurden ?? null, pct_rent_burden_moe: t.pctRentBurdenMoe ?? null, pct_severe_rent_burden: t.pctSevereRentBurden ?? null, pct_under_18: t.pctUnder18 ?? null, pct_under_18_moe: t.pctUnder18Moe ?? null, pop_under_18: t.popUnder18 ?? null,
           bike_km: t.bikeKm ?? null, transit_stops: t.transitStopsInside ?? null,
         },
       }

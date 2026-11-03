@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18'
 
 export interface MetricDef {
   id: MetricId
@@ -30,6 +30,8 @@ export interface MetricDef {
   missingCaption: string
   /** #100: false → hotspots sort desc, BM dims below median */
   higherIsBetter: boolean
+  /** #115: Designer per-metric Hotspots sort override; absent → derived from higherIsBetter (true → asc) */
+  hotspotSort?: 'asc' | 'desc'
   /** #100: false → unitless (no acre/km² toggle, 1 decimal) */
   usesDensityUnit: boolean
   /** #103: USD currency display (no cents) */
@@ -156,6 +158,25 @@ export const METRICS: Record<MetricId, MetricDef> = {
     fine: false, overallKey: 'pctRentBurden', hotspotNoun: ['most rent-burdened tract', 'most rent-burdened tracts'], hotspotTitle: 'Most rent-burdened', missingCaption: 'This pack has no rent-burden metric yet',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #115: ACS 5-year B01001 — % residents under 18 (M003–006 + F027–030)/001. Hotspots desc via hotspotSort override.
+  under18: {
+    id: 'under18',
+    shortLabel: 'Under 18',
+    valueKey: 'pctUnder18',
+    legendTitle: () => 'Residents under 18',
+    unitNoun: 'under-18 share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median under-18 share',
+    bmSwitchLabel: 'Below city median',
+    fine: false, overallKey: 'pctUnder18', hotspotNoun: ['child-heavy tract', 'child-heavy tracts'], hotspotTitle: 'Most children', missingCaption: 'This pack has no under-18 metric yet',
+    hotspotSort: 'desc',
+    higherIsBetter: true, usesDensityUnit: false, percentPoints: true,
+  },
+}
+
+/** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
+export function hotspotAscending(def: MetricDef): boolean {
+  return def.hotspotSort ? def.hotspotSort === 'asc' : def.higherIsBetter
 }
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -168,7 +189,11 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
 
-const METRIC_BY_LOWER: Record<string, MetricId> = Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id]))
+const METRIC_BY_LOWER: Record<string, MetricId> = {
+  ...Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id])),
+  // #115 soft aliases
+  under18plus: 'under18', children: 'under18',
+}
 
 export function isMetricId(v: unknown): v is MetricId {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(METRICS, v)

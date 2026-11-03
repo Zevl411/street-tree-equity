@@ -30,7 +30,7 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
-import { availableMetrics, defaultDualPair, fmtUnitless, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
+import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -75,7 +75,7 @@ const metricOk = computed(() => Object.fromEntries(METRIC_IDS.map((id) => [id, m
 watch([metricOk, loading], ([ok, busy]) => {
   if (!busy && meta.value && !ok[ui.activeMetric]) ui.setActiveMetric('trees')
 })
-const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value, ui.metric.higherIsBetter)))
+const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value, hotspotAscending(ui.metric))))
 const favoritesOpen = ref(false)
 const shortcutsOpen = ref(false)
 const resetConfirmOpen = ref(false)
@@ -226,6 +226,7 @@ const citationsText = computed(() => [
   ...(meta.value?.acsPoverty ? [`- Poverty rate (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsPoverty.table}, Poverty Status in the Past 12 Months (${meta.value.acsPoverty.vintage}). Retrieved ${meta.value.acsPoverty.retrievedAt} from ${meta.value.acsPoverty.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.acsNoVehicle ? [`- Households without a vehicle (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsNoVehicle.table}, Household Size by Vehicles Available (${meta.value.acsNoVehicle.vintage}). Retrieved ${meta.value.acsNoVehicle.retrievedAt} from ${meta.value.acsNoVehicle.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.acsRentBurden ? [`- Rent-burdened renter households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsRentBurden.table}, Gross Rent as a Percentage of Household Income in the Past 12 Months (${meta.value.acsRentBurden.vintage}). Retrieved ${meta.value.acsRentBurden.retrievedAt} from ${meta.value.acsRentBurden.sourceUrl}. Public domain.`] : []),
+  ...(meta.value?.acsUnder18 ? [`- Residents under 18 (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsUnder18.table}, Sex by Age (${meta.value.acsUnder18.vintage}). Retrieved ${meta.value.acsUnder18.retrievedAt} from ${meta.value.acsUnder18.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.fara ? [`- ${FARA_CITATION} Retrieved ${meta.value.fara.retrievedAt} from ${meta.value.fara.sourceUrl}`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
@@ -703,7 +704,7 @@ const jumpAnnounce = ref('')
 function jumpBelowMedian(dir: 1 | -1) {
   if (anyOverlayOpen()) return
   if (!medianAvailable.value) return
-  const set = belowMedianOrder(tracts.value, vk.value, ui.metric.higherIsBetter)
+  const set = belowMedianOrder(tracts.value, vk.value, hotspotAscending(ui.metric))
   if (!set.length) return
   if (!belowMedian.value) { linkSnack.value = `Turn on ${ui.metric.bmSwitchLabel} first`; return }
   const cur = set.findIndex((t) => t.geoid === selectedGeoid.value)
@@ -729,7 +730,7 @@ function announceFilter(text: string) {
 watch(() => cityStore.cityId, quietFilters, { flush: 'sync' })
 watch(loading, quietFilters, { flush: 'sync' })
 watch(belowMedian, (on) => {
-  announceFilter(on ? `${ui.metric.bmSwitchLabel} on · ${plural(belowMedianOrder(tracts.value, vk.value, ui.metric.higherIsBetter).length, 'tract', 'tracts')}` : `${ui.metric.bmSwitchLabel} off`)
+  announceFilter(on ? `${ui.metric.bmSwitchLabel} on · ${plural(belowMedianOrder(tracts.value, vk.value, hotspotAscending(ui.metric)).length, 'tract', 'tracts')}` : `${ui.metric.bmSwitchLabel} off`)
 })
 watch(() => ui.densityBinIndex, (i) => {
   if (i === null) { announceFilter('All density bins'); return }
@@ -742,7 +743,7 @@ watch(() => ui.densityBinIndex, (i) => {
 })
 watch(hotspotsOpen, (open) => {
   if (!open) return
-  const n = hotspotTracts(tracts.value?.features, vk.value, ui.metric.higherIsBetter).length
+  const n = hotspotTracts(tracts.value?.features, vk.value, hotspotAscending(ui.metric)).length
   const hn = ui.metric.hotspotNoun
   if (hn) announceFilter(n ? plural(n, hn[0], hn[1]) : `No ${hn[1]}`)
   else announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
@@ -1150,6 +1151,7 @@ watch(drawerOpen, async (open) => {
             <li v-if="meta?.acsPoverty"><strong>Poverty rate (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsPoverty.table }}, Poverty Status in the Past 12 Months ({{ meta.acsPoverty.vintage }}). Retrieved {{ meta.acsPoverty.retrievedAt }} from <a :href="meta.acsPoverty.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsPoverty.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.acsNoVehicle"><strong>Households without a vehicle (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsNoVehicle.table }}, Household Size by Vehicles Available ({{ meta.acsNoVehicle.vintage }}). Retrieved {{ meta.acsNoVehicle.retrievedAt }} from <a :href="meta.acsNoVehicle.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsNoVehicle.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.acsRentBurden"><strong>Rent-burdened renter households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsRentBurden.table }}, Gross Rent as a Percentage of Household Income in the Past 12 Months ({{ meta.acsRentBurden.vintage }}). Retrieved {{ meta.acsRentBurden.retrievedAt }} from <a :href="meta.acsRentBurden.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsRentBurden.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
+            <li v-if="meta?.acsUnder18"><strong>Residents under 18 (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsUnder18.table }}, Sex by Age ({{ meta.acsUnder18.vintage }}). Retrieved {{ meta.acsUnder18.retrievedAt }} from <a :href="meta.acsUnder18.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsUnder18.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.fara"><strong>Food access (tract)</strong> — {{ FARA_CITATION }} Retrieved {{ meta.fara.retrievedAt }} from <a :href="meta.fara.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.fara.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>

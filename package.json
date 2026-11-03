@@ -22,7 +22,8 @@
     "add:fara": "node scripts/add-usda-fara.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:poverty": "node scripts/add-acs-poverty.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:novehicle": "node scripts/add-acs-novehicle.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
-    "add:rentburden": "node scripts/add-acs-rentburden.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl"
+    "add:rentburden": "node scripts/add-acs-rentburden.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
+    "add:under18": "node scripts/add-acs-under18.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
