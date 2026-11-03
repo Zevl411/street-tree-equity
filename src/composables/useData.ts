@@ -39,6 +39,8 @@ export function useData() {
   const fountains = shallowRef<FeatureCollection | null>(null)
   /** #128: OSM post office points (optional; missing/empty → null, switch hidden). */
   const postOffices = shallowRef<FeatureCollection | null>(null)
+  /** #130: OSM playground points (optional; missing/empty → null, switch hidden). */
+  const playgrounds = shallowRef<FeatureCollection | null>(null)
   /** #112: OSM pharmacy + clinic/doctors points (optional; missing/empty → switch hidden). */
   const clinics = shallowRef<FeatureCollection | null>(null)
   /** #116: OSM hospital + fire_station points (optional; missing/empty → switch hidden). */
@@ -63,6 +65,7 @@ export function useData() {
     gardens.value = null
     fountains.value = null
     postOffices.value = null
+    playgrounds.value = null
     clinics.value = null
     emergency.value = null
   }
@@ -118,7 +121,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr, sc, bk, ts, lb, sw, gd, ft, po, cl, em] = await Promise.all([
+      const [m, t, p, r, tr, sc, bk, ts, lb, sw, gd, ft, po, pg, cl, em] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -134,6 +137,7 @@ export function useData() {
         get<FeatureCollection>('gardens.geojson').catch(() => null),
         get<FeatureCollection>('fountains.geojson').catch(() => null),
         get<FeatureCollection>('postoffices.geojson').catch(() => null),
+        get<FeatureCollection>('playgrounds.geojson').catch(() => null),
         get<FeatureCollection>('clinics.geojson').catch(() => null),
         get<FeatureCollection>('emergency.geojson').catch(() => null),
       ])
@@ -151,6 +155,7 @@ export function useData() {
       gardens.value = gd && Array.isArray(gd.features) && gd.features.length > 0 ? gd : null
       fountains.value = ft && Array.isArray(ft.features) && ft.features.length > 0 ? ft : null
       postOffices.value = po && Array.isArray(po.features) && po.features.length > 0 ? po : null
+      playgrounds.value = pg && Array.isArray(pg.features) && pg.features.length > 0 ? pg : null
       clinics.value = cl && Array.isArray(cl.features) && cl.features.length > 0 ? cl : null
       emergency.value = em && Array.isArray(em.features) && em.features.length > 0 ? em : null
       packPath = dataPath
@@ -170,5 +175,5 @@ export function useData() {
     }
   }
 
-  return { meta, schools, libraries, gardens, fountains, postOffices, clinics, emergency, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, libraries, gardens, fountains, postOffices, playgrounds, clinics, emergency, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }
