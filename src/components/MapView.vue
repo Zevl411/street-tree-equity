@@ -62,6 +62,8 @@ const props = defineProps<{
   schools?: FeatureCollection | null
   /** #108: OSM library + community_centre points; null = pack has none (layer not added). */
   libraries?: FeatureCollection | null
+  /** #122: OSM garden + allotments points; null = pack has none (layer not added). */
+  gardens?: FeatureCollection | null
   /** #60 stretch: #54 focus mode bumps the selected outline. */
   focusMode?: boolean
   /** #90: while the Hotspots panel is open, dim tracts not in this set. */
@@ -78,7 +80,7 @@ let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showSidewalks, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showSidewalks, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 /** #108 soft: community-centre ring width — heavier on dark/satellite for contrast. */
 function civicRingWidth() { return isDark.value || basemap.value === 'satellite' ? 2.75 : 2 }
 let scaleCtrl: maplibregl.ScaleControl | null = null
@@ -299,6 +301,21 @@ function addDataLayers(m: MlMap) {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
         'circle-stroke-color': ['match', ['get', 'amenity'], 'community_centre', '#00897b', '#ffffff'],
         'circle-stroke-width': ['match', ['get', 'amenity'], 'community_centre', civicRingWidth(), 1.25],
+      },
+    }, before)
+  }
+  // #122: gardens (solid) + allotments (hollow) lime dots — no click handler, tract clicks pass through.
+  if (props.gardens?.features.length) {
+    m.addSource('gardens', { type: 'geojson', data: props.gardens })
+    m.addLayer({
+      id: 'gardens', type: 'circle', source: 'gardens',
+      layout: { visibility: showGardens.value ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#7cb342',
+        'circle-opacity': ['match', ['get', 'kind'], 'allotments', 0.15, 0.9],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
+        'circle-stroke-color': ['match', ['get', 'kind'], 'allotments', '#7cb342', '#ffffff'],
+        'circle-stroke-width': ['match', ['get', 'kind'], 'allotments', civicRingWidth(), 1.25],
       },
     }, before)
   }
@@ -601,6 +618,8 @@ watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
 watch(showSchools, (v) => setVis('schools', v))
 watch(showLibraries, (v) => setVis('libraries', v))
+watch(showGardens, (v) => setVis('gardens', v))
+watch([isDark, basemap], () => { if (map?.getLayer('gardens')) map.setPaintProperty('gardens', 'circle-stroke-width', ['match', ['get', 'kind'], 'allotments', civicRingWidth(), 1.25]) })
 // #108 soft: thicker hollow community-centre rings on dark / satellite basemaps.
 watch([isDark, basemap], () => { if (map?.getLayer('libraries')) map.setPaintProperty('libraries', 'circle-stroke-width', ['match', ['get', 'amenity'], 'community_centre', civicRingWidth(), 1.25]) })
 watch(showBike, (v) => setVis('bike-lines', v))

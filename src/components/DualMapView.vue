@@ -24,6 +24,7 @@ const props = defineProps<{
   trees?: FeatureCollection | null
   schools?: FeatureCollection | null
   libraries?: FeatureCollection | null
+  gardens?: FeatureCollection | null
   focusMode?: boolean
   hotspotsOpen?: boolean
   hotspotGeoids?: string[]
@@ -68,7 +69,7 @@ defineExpose({
       :class="mobile ? (mobilePrimary === id ? 'pane-main' : 'pane-peek') : ''">
       <MapView :ref="setPane(id)" :metric-id="metricOf(id)" :secondary="id !== 'left'" :mobile="mobile" :initial-view="initialView"
         :data-path="dataPath" :meta="metas[id]" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit"
-        :trees="trees" :schools="schools" :libraries="libraries" :sidewalks="sidewalks" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoids"
+        :trees="trees" :schools="schools" :libraries="libraries" :gardens="gardens" :sidewalks="sidewalks" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoids"
         @camera="(c: CameraState) => onCamera(id, c)" @satellite-error="emit('satelliteError')" />
       <v-sheet v-if="!mobile || mobilePrimary === id" class="pane-legend pa-2" rounded elevation="2" color="surface">
         <div class="text-subtitle-2">{{ title(id) }}</div>
