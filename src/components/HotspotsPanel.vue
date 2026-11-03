@@ -42,10 +42,13 @@ const schoolCaption = computed(() => {
   const n = items.value.reduce((a, f) => a + ((f.properties as { schoolsInside?: number }).schoolsInside ?? 0), 0)
   return n ? `${n} ${n === 1 ? 'school' : 'schools'} in these hotspots` : 'No schools in these hotspots'
 })
-// #104 soft: sum of transit stops in the listed hotspots; null when the pack has no transit data.
-const transitInHotspots = computed(() => {
+// #104 soft: transit stop caption; '' when pack has no transit data.
+const transitCaption = computed(() => {
+  if (props.loading || !items.value.length) return ''
   const v = items.value.map((f) => f.properties.transitStopsInside).filter((n): n is number => typeof n === 'number')
-  return v.length ? v.reduce((a, b) => a + b, 0) : null
+  if (!v.length) return ''
+  const n = v.reduce((a, b) => a + b, 0)
+  return n ? `${n} ${n === 1 ? 'transit stop' : 'transit stops'} in these hotspots` : 'No transit stops in these hotspots'
 })
 const noTracts = computed(() => !props.loading && total.value === 0)
 const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${ui.metric.hotspotNoun ? ui.metric.hotspotNoun[1] : 'low-canopy tracts'}`))
@@ -77,7 +80,7 @@ function pick(geoid: string) {
           {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>
         <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
-        <p v-if="!loading && transitInHotspots != null && items.length" class="text-caption text-medium-emphasis mb-1">{{ transitInHotspots }} transit stops in these hotspots</p>
+        <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
         <p v-else-if="!loading && !items.length" class="text-body-2 mt-2">No hotspots to show.</p>
