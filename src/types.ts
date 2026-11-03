@@ -106,6 +106,11 @@ export interface TractProps {
   allotmentsInside?: number
   greenGrowInside?: number
   nearestGardenKm?: number
+  /** #112 OSM amenity=pharmacy / clinic / doctors join (overlay + Hotspots count; not a MetricId) */
+  pharmaciesInside?: number
+  clinicsInside?: number
+  healthInside?: number
+  nearestPharmacyKm?: number
   nearestParks: NearbyPark[]
   roadKm: number | null
   lowTreeRoadKm: number | null
@@ -136,7 +141,7 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; pharmacies?: number; clinics?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
   overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
