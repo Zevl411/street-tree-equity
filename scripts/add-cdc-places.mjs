@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * #117/#119: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119) OBESITY (obesity, #121) and MHLTH (frequent mental distress, #125) in one pass.
+ * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121) and MHLTH (frequent mental distress, #125) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \

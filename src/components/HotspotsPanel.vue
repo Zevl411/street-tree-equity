@@ -22,6 +22,8 @@ const props = defineProps<{
   hasLibraries?: boolean
   /** #122: pack ships gardens.geojson + gardensInside; false → omit gardens caption. */
   hasGardens?: boolean
+  /** #126: pack ships fountains.geojson + fountainsInside; false → omit fountains caption. */
+  hasFountains?: boolean
   /** #112: pack ships clinics.geojson + healthInside; false → omit health caption. */
   hasClinics?: boolean
   /** #113: dual view on → [left, right] labels for the primary-pane segmented control. */
@@ -66,6 +68,14 @@ const gardensCaption = computed(() => {
   if (!v.length) return ''
   const n = v.reduce((a, p) => a + (p.gardensInside ?? 0) + (p.allotmentsInside ?? 0), 0)
   return n ? `${n} ${n === 1 ? 'garden or allotment' : 'gardens & allotments'} in these hotspots` : 'None in these hotspots'
+})
+// #126 soft: drinking fountains in hotspots (sum fountainsInside).
+const fountainsCaption = computed(() => {
+  if (!props.hasFountains || props.loading || !items.value.length) return ''
+  const v = items.value.map((f) => (f.properties as { fountainsInside?: number }).fountainsInside).filter((n): n is number => typeof n === 'number')
+  if (!v.length) return ''
+  const n = v.reduce((a, b) => a + b, 0)
+  return n ? `${n} ${n === 1 ? 'drinking fountain' : 'drinking fountains'} in these hotspots` : 'None in these hotspots'
 })
 // #112 soft: pharmacies + clinics in hotspots (sum healthInside).
 const healthCaption = computed(() => {
@@ -124,6 +134,7 @@ function pick(geoid: string) {
         <p v-if="civicCaption" class="text-caption text-medium-emphasis mb-1 hotspots-civic">{{ civicCaption }}</p>
         <p v-if="healthCaption" class="text-caption text-medium-emphasis mb-1 hotspots-health">{{ healthCaption }}</p>
         <p v-if="gardensCaption" class="text-caption text-medium-emphasis mb-1 hotspots-gardens">{{ gardensCaption }}</p>
+        <p v-if="fountainsCaption" class="text-caption text-medium-emphasis mb-1 hotspots-fountains">{{ fountainsCaption }}</p>
         <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
