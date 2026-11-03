@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden'
 
 export interface MetricDef {
   id: MetricId
@@ -141,6 +141,19 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmCaption: 'Dims tracts below this city’s median no-vehicle share',
     bmSwitchLabel: 'Above city median',
     fine: false, overallKey: 'pctNoVehicle', hotspotNoun: ['most car-free tract', 'most car-free tracts'], hotspotTitle: 'Most car-free households', missingCaption: 'This pack has no vehicle-access metric yet',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
+  // #111: ACS 5-year B25070 — % of renters (computed burden) paying ≥30% of income on gross rent; higher = worse.
+  rentBurden: {
+    id: 'rentBurden',
+    shortLabel: 'Rent burden',
+    valueKey: 'pctRentBurden',
+    legendTitle: () => 'Renters paying ≥30% of income',
+    unitNoun: 'rent-burden share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median rent-burden share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctRentBurden', hotspotNoun: ['most rent-burdened tract', 'most rent-burdened tracts'], hotspotTitle: 'Most rent-burdened', missingCaption: 'This pack has no rent-burden metric yet',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
 }
