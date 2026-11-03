@@ -279,6 +279,7 @@ function copyLink() {
     <v-divider />
     <v-list density="compact" lines="two">
       <v-list-subheader v-if="tract.foodAccessLowShare != null">Low food access (½ mi) · {{ (tract.foodAccessLowShare * 100).toFixed(1) }}%<template v-if="tract.foodAccessLowShare1mi != null"> · 1 mi {{ (tract.foodAccessLowShare1mi * 100).toFixed(1) }}%</template><template v-if="tract.foodAccessLila"> · low-income &amp; low-access</template><template v-else-if="tract.foodAccessLowIncome"> · low-income tract</template></v-list-subheader>
+      <v-list-subheader v-if="tract.pctNoVehicle != null">Households with no vehicle · {{ tract.pctNoVehicle.toFixed(1) }}%<template v-if="tract.pctNoVehicleMoe != null"> (±{{ tract.pctNoVehicleMoe.toFixed(1) }})</template></v-list-subheader>
       <v-list-subheader v-if="tract.pctPoverty != null">Below poverty level · {{ tract.pctPoverty.toFixed(1) }}%<template v-if="tract.pctPovertyMoe != null"> (±{{ tract.pctPovertyMoe.toFixed(1) }})</template></v-list-subheader>
       <v-list-subheader v-if="tract.medianIncome != null">Median household income · {{ usd(tract.medianIncome) }}<template v-if="tract.medianIncomeMoe != null"> (±{{ usd(tract.medianIncomeMoe) }})</template></v-list-subheader>
       <v-list-subheader v-if="tract.nriRiskScore != null">NRI risk score · {{ tract.nriRiskScore.toFixed(1) }}<template v-if="tract.nriRiskRating"> ({{ tract.nriRiskRating }})</template><template v-if="tract.nriSoviScore != null"> · social vulnerability {{ tract.nriSoviScore.toFixed(1) }}</template></v-list-subheader>

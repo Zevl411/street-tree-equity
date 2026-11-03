@@ -46,6 +46,9 @@ export interface TractProps {
   /** #107: ACS B17001 % below poverty (0–100, 1 dp) + derived MOE */
   pctPoverty?: number
   pctPovertyMoe?: number
+  /** #109: ACS B08201 % households with no vehicle (0–100, 1 dp) + derived MOE */
+  pctNoVehicle?: number
+  pctNoVehicleMoe?: number
   nriSoviScore?: number
   nriEalScore?: number
   nearestGroceryKm?: number
@@ -85,10 +88,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -97,9 +100,11 @@ export interface Meta {
   acs?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   /** #107 ACS B17001 provenance (same vintage as acs) */
   acsPoverty?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
+  /** #109 ACS B08201 provenance (same vintage as acs) */
+  acsNoVehicle?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>

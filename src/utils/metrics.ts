@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle'
 
 export interface MetricDef {
   id: MetricId
@@ -130,6 +130,19 @@ export const METRICS: Record<MetricId, MetricDef> = {
     fine: false, overallKey: 'pctPoverty', hotspotNoun: ['highest-poverty tract', 'highest-poverty tracts'], hotspotTitle: 'Highest poverty', missingCaption: 'This pack has no poverty metric yet',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #109: ACS 5-year B08201 — % of households with no vehicle (0–100); higher = more need.
+  noVehicle: {
+    id: 'noVehicle',
+    shortLabel: 'No vehicle',
+    valueKey: 'pctNoVehicle',
+    legendTitle: () => 'Households with no vehicle',
+    unitNoun: 'no-vehicle share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median no-vehicle share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctNoVehicle', hotspotNoun: ['most car-free tract', 'most car-free tracts'], hotspotTitle: 'Most car-free households', missingCaption: 'This pack has no vehicle-access metric yet',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -142,13 +155,16 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
 
+const METRIC_BY_LOWER: Record<string, MetricId> = Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id]))
+
 export function isMetricId(v: unknown): v is MetricId {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(METRICS, v)
 }
 /** Clamp to a registered id; unknown / missing → trees. */
 export function normalizeMetric(v: unknown): MetricId {
-  const s = typeof v === 'string' ? v.trim().toLowerCase() : v
-  return isMetricId(s) ? s : DEFAULT_METRIC
+  if (typeof v !== 'string') return DEFAULT_METRIC
+  // #109: case-insensitive (noVehicle / novehicle, foodAccess / foodaccess)
+  return METRIC_BY_LOWER[v.trim().toLowerCase()] ?? DEFAULT_METRIC
 }
 export function metricDef(id: unknown): MetricDef {
   return METRICS[normalizeMetric(id)]
