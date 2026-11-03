@@ -50,7 +50,7 @@ const civicCaption = computed(() => {
   const v = items.value.map((f) => (f.properties as { civicInside?: number }).civicInside).filter((n): n is number => typeof n === 'number')
   if (!v.length) return ''
   const n = v.reduce((a, b) => a + b, 0)
-  return n ? `${n} libraries & community centres in these hotspots` : 'None in these hotspots'
+  return n ? `${n} ${n === 1 ? 'library or community centre' : 'libraries & community centres'} in these hotspots` : 'None in these hotspots'
 })
 // #104 soft: transit stop caption; '' when pack has no transit data.
 const transitCaption = computed(() => {

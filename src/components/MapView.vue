@@ -78,6 +78,8 @@ const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
 const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+/** #108 soft: community-centre ring width — heavier on dark/satellite for contrast. */
+function civicRingWidth() { return isDark.value || basemap.value === 'satellite' ? 2.75 : 2 }
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -279,7 +281,7 @@ function addDataLayers(m: MlMap) {
         'circle-opacity': ['match', ['get', 'amenity'], 'community_centre', 0.15, 0.9],
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
         'circle-stroke-color': ['match', ['get', 'amenity'], 'community_centre', '#00897b', '#ffffff'],
-        'circle-stroke-width': ['match', ['get', 'amenity'], 'community_centre', 2, 1.25],
+        'circle-stroke-width': ['match', ['get', 'amenity'], 'community_centre', civicRingWidth(), 1.25],
       },
     }, before)
   }
@@ -582,6 +584,8 @@ watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
 watch(showSchools, (v) => setVis('schools', v))
 watch(showLibraries, (v) => setVis('libraries', v))
+// #108 soft: thicker hollow community-centre rings on dark / satellite basemaps.
+watch([isDark, basemap], () => { if (map?.getLayer('libraries')) map.setPaintProperty('libraries', 'circle-stroke-width', ['match', ['get', 'amenity'], 'community_centre', civicRingWidth(), 1.25]) })
 watch(showBike, (v) => setVis('bike-lines', v))
 watch(showTransit, (v) => setVis('transit-stops', v))
 watch(isDark, (d) => { if (map?.getLayer('bike-lines')) map.setPaintProperty('bike-lines', 'line-color', d ? '#4fc3f7' : '#0277bd') })
