@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed'
 
 export interface MetricDef {
   id: MetricId
@@ -244,6 +244,21 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults with obesity (CDC PLACES). Shown as community-need context alongside canopy.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #124: build-time 0–100 composite (inverted trees + poverty + soft asthma; pack min-max, equal weights).
+  // Union/registry appended after snap; the Layers switch sits right after Trees via METRIC_SWITCH_ORDER.
+  plantNeed: {
+    id: 'plantNeed',
+    shortLabel: 'Planting need',
+    valueKey: 'plantNeed',
+    legendTitle: () => 'Planting need score (0–100)',
+    unitNoun: 'planting-need score',
+    spreadUnit: () => ' pts',
+    bmCaption: 'Dims tracts below this city’s median planting need',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'plantNeed', hotspotNoun: ['high planting-need tract', 'high planting-need tracts'], hotspotTitle: 'Highest planting need', missingCaption: 'This pack has no planting-need score yet',
+    tooltip: 'Score 0–100 combining few trees, poverty, and (where available) adult asthma, relative within this city. Higher = more need.',
+    higherIsBetter: true, hotspotSort: 'desc', usesDensityUnit: false,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -260,6 +275,8 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
+/** #124: Layers switch order — Planting need directly after Trees; everything else in registry order. */
+export const METRIC_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed')]
 
 const METRIC_BY_LOWER: Record<string, MetricId> = {
   ...Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id])),
@@ -271,6 +288,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   limitedenglish: 'lep', english: 'lep',
   // #123 soft aliases
   foodstamps: 'snap', pctsnap: 'snap',
+  // #124 soft alias (plantneed comes from the lowercase id)
+  need: 'plantNeed',
 }
 
 export function isMetricId(v: unknown): v is MetricId {
