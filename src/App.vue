@@ -30,7 +30,7 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
-import { fmtUnitless, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
+import { availableMetrics, defaultDualPair, fmtUnitless, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -102,19 +102,38 @@ function setFocus(on: boolean) {
 }
 function toggleFocus() { setFocus(!focusMode.value) }
 const mapRef = ref<Pick<InstanceType<typeof MapView>, 'flyTo' | 'fitData' | 'fitRoad' | 'resize'> | null>(null)
-// #105: dual Trees + Risk (session only). Entry hidden unless the pack has both metrics.
-const dualAvailable = computed(() => !!metricOk.value.trees && !!metricOk.value.risk)
+// #105/#113: dual view of any two available metrics (session only). Entry hidden unless ≥2 metrics.
+const availMetrics = computed(() => availableMetrics(meta.value, tracts.value))
+const dualAvailable = computed(() => availMetrics.value.length >= 2)
 const dualAnnounce = ref('')
-function setDual(on: boolean) {
+const dualOptions = computed(() => availMetrics.value.map((id) => ({ title: METRICS[id].shortLabel, value: id })))
+const dualLabel = (id: MetricId) => METRICS[id].shortLabel
+function setDual(on: boolean, reason?: string) {
   if (on && !dualAvailable.value) return
   if (ui.dualView === on) return
+  if (on) {
+    const avail = availMetrics.value
+    if (!avail.includes(ui.dualLeft) || !avail.includes(ui.dualRight) || ui.dualLeft === ui.dualRight) {
+      const pair = defaultDualPair(avail)!
+      ui.dualLeft = pair[0]; ui.dualRight = pair[1]
+    }
+  }
   // Keep the camera across the single ↔ dual remount (session view is per-city).
   const v = readSessionView()
   if (v && v.cityId === cityStore.cityId) initialView.value = v
   ui.setDualView(on)
-  dualAnnounce.value = on ? 'Dual view on: trees and risk' : 'Dual view off'
+  dualAnnounce.value = on ? `Dual view on: ${dualLabel(ui.dualLeft)} and ${dualLabel(ui.dualRight)}` : (reason ?? 'Dual view off')
 }
-watch(dualAvailable, (ok) => { if (!ok && ui.dualView) setDual(false) })
+function setDualSide(side: 'left' | 'right', id: MetricId) {
+  ui.setDualSide(side, id)
+  const name = mdAndUp.value ? (side === 'left' ? 'Left' : 'Right') : (side === 'left' ? 'Top' : 'Bottom')
+  dualAnnounce.value = `${name} map: ${dualLabel(id)}`
+}
+// Pack switch while dual: revalidate sides; <2 metrics → off.
+watch([availMetrics, loading], ([avail, busy]) => {
+  if (busy || !meta.value || !ui.dualView) return
+  if (!ui.validateDual(avail)) setDual(false, 'Dual view off — this pack has fewer than two metrics')
+})
 
 // #65 fullscreen: real browser Fullscreen API on #map-stage (independent of #54 focus; not persisted).
 type FsDoc = Document & { webkitFullscreenEnabled?: boolean; webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void }
@@ -826,10 +845,16 @@ watch(drawerOpen, async (open) => {
               @update:model-value="(v: MetricId) => ui.setActiveMetric(v)">
               <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id] || ui.dualView">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
-            <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric</div>
-            <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual: Trees + Risk" color="primary" density="compact" hide-details inset
+            <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric — use Left/Right above</div>
+            <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual view" color="primary" density="compact" hide-details inset
               class="dual-switch" :class="{ 'switch-touch': !mdAndUp }" @click.stop @update:model-value="(v) => setDual(!!v)" />
-            <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">This pack has no risk metric yet</div>
+            <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">Needs two metrics in this pack</div>
+            <div v-if="ui.dualView && dualAvailable" class="d-flex ga-2 mb-2 dual-selects" @click.stop>
+              <v-select :model-value="ui.dualLeft" :items="dualOptions" :label="mdAndUp ? 'Left' : 'Top'" density="compact" variant="outlined" hide-details
+                class="dual-left" @update:model-value="(v: MetricId) => setDualSide('left', v)" />
+              <v-select :model-value="ui.dualRight" :items="dualOptions" :label="mdAndUp ? 'Right' : 'Bottom'" density="compact" variant="outlined" hide-details
+                class="dual-right" @update:model-value="(v: MetricId) => setDualSide('right', v)" />
+            </div>
             <div v-if="ui.activeMetric === 'foodAccess'" class="text-caption text-medium-emphasis mb-1">Share of residents &gt;½ mile from a SNAP-authorized store (USDA SRAM 2025). Complements grocery store counts.</div>
             <template v-if="meta && !loading">
               <div v-for="id in METRIC_IDS.filter((i) => !metricOk[i] && METRICS[i].missingCaption)" :key="`miss-${id}`" class="text-caption text-medium-emphasis mb-1">{{ METRICS[id].missingCaption }}</div>
@@ -907,7 +932,7 @@ watch(drawerOpen, async (open) => {
       <TractFinder v-model="finderOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-id="city?.id ?? null" @pick="pickFromFinder" />
       <HotspotsPanel v-model="hotspotsOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
-        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" :has-schools="!!schools" :has-libraries="!!libraries" @pick="pickFromHotspots"
+        :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" :has-schools="!!schools" :has-libraries="!!libraries" :dual-labels="ui.dualView ? [dualLabel(ui.dualLeft), dualLabel(ui.dualRight)] : null" @pick="pickFromHotspots"
         @exported="linkSnack = 'Hotspots CSV downloaded'" />
       <FavoritesPanel v-model="favoritesOpen" :mobile="!mdAndUp" :tracts="tracts?.features ?? null" :loading="loading"
         :city-name="meta?.cityName ?? ''" :unit="densityUnit" :city-id="city?.id ?? null" @pick="pickFromHotspots"
@@ -996,7 +1021,7 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-arrow-collapse-all" />
           <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
         </v-btn>
-      <DualMapView v-if="ui.dualView && dualAvailable && city && meta && tracts && parks" :key="`dual-${city.id}`" ref="mapRef"
+      <DualMapView v-if="ui.dualView && dualAvailable && city && meta && tracts && parks" :key="`dual-${city.id}`" ref="mapRef" :left-metric="ui.dualLeft" :right-metric="ui.dualRight"
         @satellite-error="satFallback = true" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit" :trees="trees" :schools="schools" :libraries="libraries" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" :below-median="belowMedian && medianAvailable" />
       <MapView
         @satellite-error="satFallback = true" v-else-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit" :trees="trees" :schools="schools" :libraries="libraries" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />

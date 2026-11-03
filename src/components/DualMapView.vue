@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** #105: same-city two-metric view — Trees | Risk panes, synced cameras, one selection. */
+/** #105/#113: same-city two-metric view — any two MetricId panes, synced cameras, one selection. */
 import { computed, nextTick, ref, watch } from 'vue'
 import type { FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
@@ -9,6 +9,8 @@ import MapLegend from '@/components/MapLegend.vue'
 import { METRICS, metricMeta, type MetricId } from '@/utils/metrics'
 
 const props = defineProps<{
+  leftMetric: MetricId
+  rightMetric: MetricId
   mobile?: boolean
   dataPath: string
   meta: Meta
@@ -28,45 +30,48 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ satelliteError: [] }>()
 
-const PANES: MetricId[] = ['trees', 'risk']
-const metas = computed(() => Object.fromEntries(PANES.map((id) => [id, metricMeta(props.meta, id)])) as Record<MetricId, Meta>)
-const title = (id: MetricId) => METRICS[id].shortLabel
+type Side = 'left' | 'right'
+const PANES: Side[] = ['left', 'right']
+const metricOf = (s: Side): MetricId => (s === 'left' ? props.leftMetric : props.rightMetric)
+const metas = computed(() => ({ left: metricMeta(props.meta, props.leftMetric), right: metricMeta(props.meta, props.rightMetric) }) as Record<Side, Meta>)
+const title = (s: Side) => METRICS[metricOf(s)].shortLabel
+const regionLabel = computed(() => `Dual map view, ${title('left')} and ${title('right')}`)
 
 // Mobile: segmented primary pane + ≥96px peek of the other.
-const mobilePrimary = ref<MetricId>('trees')
+const mobilePrimary = ref<Side>('left')
 const panes = ref<Record<string, InstanceType<typeof MapView> | null>>({})
-const setPane = (id: MetricId) => (el: unknown) => { panes.value[id] = el as InstanceType<typeof MapView> | null }
-function onCamera(from: MetricId, c: CameraState) {
+const setPane = (id: Side) => (el: unknown) => { panes.value[id] = el as InstanceType<typeof MapView> | null }
+function onCamera(from: Side, c: CameraState) {
   for (const id of PANES) if (id !== from) panes.value[id]?.syncCamera(c)
 }
 watch([mobilePrimary, () => props.mobile], () => nextTick(() => PANES.forEach((id) => panes.value[id]?.resize())))
 
-// Camera commands drive the Trees pane; the Risk pane follows via sync.
+// Camera commands drive the left pane; the right pane follows via sync.
 type PaneApi = InstanceType<typeof MapView>
 defineExpose({
-  flyTo: (...a: Parameters<PaneApi['flyTo']>) => panes.value.trees?.flyTo(...a),
-  fitData: () => panes.value.trees?.fitData(),
-  fitRoad: (...a: Parameters<PaneApi['fitRoad']>) => panes.value.trees?.fitRoad(...a),
+  flyTo: (...a: Parameters<PaneApi['flyTo']>) => panes.value.left?.flyTo(...a),
+  fitData: () => panes.value.left?.fitData(),
+  fitRoad: (...a: Parameters<PaneApi['fitRoad']>) => panes.value.left?.fitRoad(...a),
   resize: () => PANES.forEach((id) => panes.value[id]?.resize()),
 })
 </script>
 
 <template>
-  <div class="dual" :class="mobile ? 'dual-mobile' : 'dual-desktop'" role="region" aria-label="Dual map view, street trees and risk">
+  <div class="dual" :class="mobile ? 'dual-mobile' : 'dual-desktop'" role="region" :aria-label="regionLabel">
     <div v-if="mobile" class="dual-seg">
       <v-btn-toggle v-model="mobilePrimary" mandatory divided variant="outlined" density="comfortable" color="primary" class="w-100" aria-label="Primary dual pane">
-        <v-btn v-for="id in PANES" :key="id" :value="id" class="flex-grow-1" min-height="44">{{ METRICS[id].shortLabel }}</v-btn>
+        <v-btn v-for="id in PANES" :key="id" :value="id" class="flex-grow-1" min-height="44">{{ title(id) }}</v-btn>
       </v-btn-toggle>
     </div>
     <section v-for="id in PANES" :key="id" class="pane" role="region" :aria-label="`${title(id)} map`"
       :class="mobile ? (mobilePrimary === id ? 'pane-main' : 'pane-peek') : ''">
-      <MapView :ref="setPane(id)" :metric-id="id" :secondary="id !== 'trees'" :mobile="mobile" :initial-view="initialView"
+      <MapView :ref="setPane(id)" :metric-id="metricOf(id)" :secondary="id !== 'left'" :mobile="mobile" :initial-view="initialView"
         :data-path="dataPath" :meta="metas[id]" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit"
         :trees="trees" :schools="schools" :libraries="libraries" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoids"
         @camera="(c: CameraState) => onCamera(id, c)" @satellite-error="emit('satelliteError')" />
       <v-sheet v-if="!mobile || mobilePrimary === id" class="pane-legend pa-2" rounded elevation="2" color="surface">
         <div class="text-subtitle-2">{{ title(id) }}</div>
-        <MapLegend :meta="metas[id]" :metric-id="id" :tracts="tracts" :below-median="belowMedian" dense />
+        <MapLegend :meta="metas[id]" :metric-id="metricOf(id)" :tracts="tracts" :below-median="belowMedian" dense />
       </v-sheet>
       <div v-else class="peek-label text-caption">{{ title(id) }}</div>
     </section>

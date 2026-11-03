@@ -19,6 +19,8 @@ const props = defineProps<{
   hasSchools?: boolean
   /** #108: pack ships libraries.geojson + civicInside; false → omit civic caption. */
   hasLibraries?: boolean
+  /** #113: dual view on → [left, right] labels for the primary-pane segmented control. */
+  dualLabels?: [string, string] | null
 }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
@@ -86,6 +88,14 @@ function pick(geoid: string) {
         <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" class="hotspots-close" @click="open = false" />
       </v-card-title>
       <v-card-text class="pb-2">
+        <div v-if="dualLabels" class="d-flex align-center ga-2 mb-2 hotspots-dual">
+          <span class="text-caption">Hotspots for:</span>
+          <v-btn-toggle :model-value="ui.dualPrimary" mandatory divided density="compact" variant="outlined" color="primary"
+            aria-label="Hotspots for" @update:model-value="(v: 'left' | 'right') => (ui.dualPrimary = v)">
+            <v-btn value="left" size="small" min-height="44">{{ dualLabels[0] }}</v-btn>
+            <v-btn value="right" size="small" min-height="44">{{ dualLabels[1] }}</v-btn>
+          </v-btn-toggle>
+        </div>
         <p class="text-caption text-medium-emphasis mb-1">
           {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>

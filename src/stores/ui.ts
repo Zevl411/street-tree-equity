@@ -108,11 +108,35 @@ export const useUiStore = defineStore('ui', () => {
   // #38: display-only density unit; persisted locally, not in deep links.
   // #97 A0: active metric (session only; trees is the only registered metric).
   const activeMetric = ref<MetricId>(DEFAULT_METRIC)
-  // #105: session-only dual Trees + Risk view (never in share URL). While on, the effective
-  // (primary) metric is trees — Hotspots / BM / announces key off it; activeMetric is untouched.
+  // #105/#113: session-only dual view of any two MetricIds (never persisted / in share URL).
+  // While on, the effective (primary) metric is the Hotspots-primary pane (left by default);
+  // activeMetric is untouched so exit restores the single map.
   const dualView = ref(false)
-  function setDualView(v: boolean) { dualView.value = v }
-  const metric = computed(() => METRICS[dualView.value ? 'trees' : activeMetric.value])
+  const dualLeft = ref<MetricId>('trees')
+  const dualRight = ref<MetricId>('risk')
+  const dualPrimary = ref<'left' | 'right'>('left')
+  function setDualView(v: boolean) { dualView.value = v; if (v) dualPrimary.value = 'left' }
+  /** Set one side; picking the other side's metric swaps (never both equal). */
+  function setDualSide(side: 'left' | 'right', id: MetricId) {
+    const self = side === 'left' ? dualLeft : dualRight
+    const other = side === 'left' ? dualRight : dualLeft
+    if (other.value === id) other.value = self.value
+    self.value = id
+  }
+  /** Revalidate against available metrics; returns false when <2 (caller turns dual off). */
+  function validateDual(avail: MetricId[]): boolean {
+    if (avail.length < 2) return false
+    const okL = avail.includes(dualLeft.value), okR = avail.includes(dualRight.value)
+    if (okL && okR && dualLeft.value !== dualRight.value) return true
+    if (!okL && !okR) {
+      const pair = avail.includes('trees') && avail.includes('risk') ? (['trees', 'risk'] as const) : [avail[0], avail[1]]
+      dualLeft.value = pair[0]; dualRight.value = pair[1]
+    } else if (!okL || dualLeft.value === dualRight.value) dualLeft.value = avail.find((i) => i !== dualRight.value)!
+    else dualRight.value = avail.find((i) => i !== dualLeft.value)!
+    return true
+  }
+  const dualPrimaryId = computed<MetricId>(() => (dualPrimary.value === 'left' ? dualLeft.value : dualRight.value))
+  const metric = computed(() => METRICS[dualView.value ? dualPrimaryId.value : activeMetric.value])
   function setActiveMetric(id: unknown) { activeMetric.value = normalizeMetric(id) }
   const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
   watch(densityUnit, (u) => write(UNIT_KEY, u))
@@ -175,6 +199,7 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     activeMetric, metric, setActiveMetric, dualView, setDualView,
+    dualLeft, dualRight, dualPrimary, dualPrimaryId, setDualSide, validateDual,
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
     densityUnit, effectiveUnit, setDensityUnit,

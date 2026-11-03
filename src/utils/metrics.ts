@@ -190,6 +190,18 @@ export function metricAvailable(id: MetricId, meta: Meta | null | undefined, tra
   return !!meta?.metricBreaks?.[id] && (tracts?.features ?? []).some((f) => Number.isFinite((f.properties as unknown as Record<string, number>)[key]))
 }
 
+/** #113: metrics this pack carries, in registry order. */
+export function availableMetrics(meta: Meta | null | undefined, tracts: TractCollection | null | undefined): MetricId[] {
+  return METRIC_IDS.filter((id) => metricAvailable(id, meta, tracts))
+}
+
+/** #113: default dual pair — trees|risk when both available, else first two available. */
+export function defaultDualPair(avail: MetricId[]): [MetricId, MetricId] | null {
+  if (avail.length < 2) return null
+  if (avail.includes('trees') && avail.includes('risk')) return ['trees', 'risk']
+  return [avail[0], avail[1]]
+}
+
 /** #98: meta view whose `breaks`/`colors` follow the metric (trees = pack meta untouched). */
 export function metricMeta(meta: Meta, id: MetricId): Meta {
   if (id === 'trees') return meta
