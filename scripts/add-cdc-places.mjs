@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117) and DIABETES (diagnosed diabetes, #119) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119) and OBESITY (obesity, #121) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -13,6 +13,9 @@
  *   pctAsthmaLo/Hi  ← CASTHMA_Crude95CI  ("( 8.1, 10.3)")
  *   pctDiabetes     ← DIABETES_CrudePrev (#119; crude, 0–100 %)
  *   pctDiabetesLo/Hi← DIABETES_Crude95CI
+ *   pctObesity      ← OBESITY_CrudePrev  (#121; crude, 0–100 %)
+ *   pctObesityLo/Hi ← OBESITY_Crude95CI
+ *   obesityAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
@@ -34,6 +37,7 @@ const POP = 'totalpop18plus', JOIN = 'tractfips'
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
   { measure: 'DIABETES', metricId: 'diabetes', key: 'pctDiabetes', popKey: 'diabetesAdultPop', value: 'diabetes_crudeprev', ci: 'diabetes_crude95ci' },
+  { measure: 'OBESITY', metricId: 'obesity', key: 'pctObesity', popKey: 'obesityAdultPop', value: 'obesity_crudeprev', ci: 'obesity_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
