@@ -180,7 +180,7 @@ function copyLink() {
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
       basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
       choroplethMode: ui.choroplethMode, legend: ui.legendExpandedPref, bin: ui.densityBinIndex,
-      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit },
+      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit, libraries: ui.showLibraries },
     })
   } catch { url = window.location.href }
   void copyWithFallback(url, 'Link copied')
@@ -285,6 +285,7 @@ function copyLink() {
       <v-list-subheader v-if="tract.nriRiskScore != null">NRI risk score · {{ tract.nriRiskScore.toFixed(1) }}<template v-if="tract.nriRiskRating"> ({{ tract.nriRiskRating }})</template><template v-if="tract.nriSoviScore != null"> · social vulnerability {{ tract.nriSoviScore.toFixed(1) }}</template></v-list-subheader>
       <v-list-subheader v-if="tract.groceriesInside != null">Groceries · {{ tract.groceriesInside }} inside this tract<template v-if="tract.nearestGroceryKm != null"> · nearest {{ tract.nearestGroceryKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="(tract.bikeKm != null && tract.bikeKm > 0) || (tract.transitStopsInside != null && tract.transitStopsInside > 0)">Mobility<template v-if="tract.bikeKm != null && tract.bikeKm > 0"> · {{ tract.bikeKm }} km bike lanes</template><template v-if="tract.transitStopsInside != null && tract.transitStopsInside > 0"> · {{ tract.transitStopsInside }} {{ tract.transitStopsInside === 1 ? 'transit stop' : 'transit stops' }}</template></v-list-subheader>
+      <v-list-subheader v-if="tract.librariesInside != null && (tract.librariesInside > 0 || (tract.communityCentresInside ?? 0) > 0)">Libraries: {{ tract.librariesInside }} · Community centres: {{ tract.communityCentresInside ?? 0 }}<template v-if="tract.nearestLibraryKm != null"> · nearest library {{ tract.nearestLibraryKm }} km</template></v-list-subheader>
       <v-list-subheader>Nearest parks · {{ tract.parksInside }} inside this tract</v-list-subheader>
       <v-list-item v-for="row in parkRows" :key="row.park.id" prepend-icon="mdi-pine-tree" :title="row.title"
         :subtitle="`${row.park.distanceKm} km (${miles(row.park.distanceKm)} mi) · ${row.park.areaAcres} acres`"

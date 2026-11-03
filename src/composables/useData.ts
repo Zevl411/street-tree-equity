@@ -29,6 +29,8 @@ export function useData() {
   const trees = shallowRef<FeatureCollection | null>(null)
   /** #102: OSM school points (optional; missing file → null, Schools switch hidden). */
   const schools = shallowRef<FeatureCollection | null>(null)
+  /** #108: OSM library + community_centre points (optional; missing file → null, switch hidden). */
+  const libraries = shallowRef<FeatureCollection | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
@@ -44,6 +46,7 @@ export function useData() {
     roads.value = null
     trees.value = null
     schools.value = null
+    libraries.value = null
   }
 
   /** Resolves true when this load won and succeeded. */
@@ -97,7 +100,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr, sc, bk, ts] = await Promise.all([
+      const [m, t, p, r, tr, sc, bk, ts, lb] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -108,6 +111,7 @@ export function useData() {
         get<FeatureCollection>('schools.geojson').catch(() => null),
         get<FeatureCollection>('bike.geojson').catch(() => null),
         get<FeatureCollection>('transit.geojson').catch(() => null),
+        get<FeatureCollection>('libraries.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -118,6 +122,7 @@ export function useData() {
       transit.value = ts && Array.isArray(ts.features) && ts.features.length > 0 ? ts : null
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
       schools.value = sc && Array.isArray(sc.features) ? sc : null
+      libraries.value = lb && Array.isArray(lb.features) && lb.features.length > 0 ? lb : null
       packPath = dataPath
       treesDeferred.value = !!opts.deferTrees
       void saveLastPack(kept)
@@ -135,5 +140,5 @@ export function useData() {
     }
   }
 
-  return { meta, schools, tracts, parks, roads, bike, transit, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, libraries, tracts, parks, roads, bike, transit, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }
