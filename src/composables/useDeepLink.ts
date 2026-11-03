@@ -20,20 +20,22 @@ export interface LayerFlags {
   libraries: boolean
   /** #122: OSM community gardens + allotments dots (default off). */
   gardens: boolean
+  /** #126: OSM drinking fountains dots (default off). */
+  fountains: boolean
   /** #112: OSM pharmacies + clinics dots (default off). */
   clinics: boolean
   /** #110: OSM mapped sidewalks overlay (default off). */
   sidewalks: boolean
 }
 
-export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false, bike: false, transit: false, libraries: false, sidewalks: false, gardens: false, clinics: false }
-const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools', 'bike', 'transit', 'libraries', 'sidewalks', 'gardens', 'clinics'] as const
+export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false, bike: false, transit: false, libraries: false, sidewalks: false, gardens: false, fountains: false, clinics: false }
+const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools', 'bike', 'transit', 'libraries', 'sidewalks', 'gardens', 'fountains', 'clinics'] as const
 
 /** `layers=trees,parks,bq` → flags. Unknown tokens ignored; empty value = all off; absent = null. */
 export function parseLayers(raw: string | null): LayerFlags | null {
   if (raw === null) return null
   const set = new Set(raw.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))
-  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools'), bike: set.has('bike'), transit: set.has('transit'), libraries: set.has('libraries'), sidewalks: set.has('sidewalks'), gardens: set.has('gardens'), clinics: set.has('clinics') }
+  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools'), bike: set.has('bike'), transit: set.has('transit'), libraries: set.has('libraries'), sidewalks: set.has('sidewalks'), gardens: set.has('gardens'), fountains: set.has('fountains'), clinics: set.has('clinics') }
 }
 
 /** Flags → token string, or null when they equal the app default (keeps share links short). */
