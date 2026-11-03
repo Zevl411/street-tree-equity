@@ -43,3 +43,10 @@ test('encode lowercase, left first; round-trips', () => {
   assert.equal(encodeDualParam('noVehicle', 'trees'), 'novehicle,trees')
   assert.deepEqual(p(encodeDualParam('foodAccess', 'rentBurden')), { left: 'foodAccess', right: 'rentBurden' })
 })
+
+test('#120 lep resolves with aliases and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,lep'), { left: 'trees', right: 'lep' })
+  assert.deepEqual(p('LimitedEnglish,diabetes'), { left: 'lep', right: 'diabetes' })
+  assert.equal(resolveMetric('english'), 'lep')
+  assert.equal(resolveMetric('LEP'), 'lep')
+})
