@@ -180,7 +180,7 @@ function copyLink() {
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
       basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
       choroplethMode: ui.choroplethMode, legend: ui.legendExpandedPref, bin: ui.densityBinIndex,
-      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit, libraries: ui.showLibraries, gardens: ui.showGardens, fountains: ui.showFountains, clinics: ui.showClinics, emergency: ui.showEmergency, sidewalks: ui.showSidewalks },
+      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit, libraries: ui.showLibraries, gardens: ui.showGardens, fountains: ui.showFountains, postoffices: ui.showPostOffices, clinics: ui.showClinics, emergency: ui.showEmergency, sidewalks: ui.showSidewalks },
     })
   } catch { url = window.location.href }
   void copyWithFallback(url, 'Link copied')
@@ -299,6 +299,7 @@ function copyLink() {
       <v-list-subheader v-if="tract.librariesInside != null && (tract.librariesInside > 0 || (tract.communityCentresInside ?? 0) > 0)">Libraries: {{ tract.librariesInside }} · Community centres: {{ tract.communityCentresInside ?? 0 }}<template v-if="tract.nearestLibraryKm != null"> · nearest library {{ tract.nearestLibraryKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="(tract.gardensInside ?? 0) > 0 || (tract.allotmentsInside ?? 0) > 0">Gardens: {{ tract.gardensInside ?? 0 }} · Allotments: {{ tract.allotmentsInside ?? 0 }}<template v-if="tract.nearestGardenKm != null"> · nearest {{ tract.nearestGardenKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="(tract.fountainsInside ?? 0) > 0">Drinking fountains: {{ tract.fountainsInside }}<template v-if="tract.nearestFountainKm != null"> · nearest {{ tract.nearestFountainKm }} km</template></v-list-subheader>
+      <v-list-subheader v-if="(tract.postOfficesInside ?? 0) > 0">Post offices: {{ tract.postOfficesInside }}<template v-if="tract.nearestPostOfficeKm != null"> · nearest {{ tract.nearestPostOfficeKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="tract.pharmaciesInside != null && (tract.pharmaciesInside > 0 || (tract.clinicsInside ?? 0) > 0)">Pharmacies: {{ tract.pharmaciesInside }} · Clinics: {{ tract.clinicsInside ?? 0 }}<template v-if="tract.nearestPharmacyKm != null"> · nearest pharmacy {{ tract.nearestPharmacyKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="(tract.hospitalsInside ?? 0) > 0 || (tract.fireStationsInside ?? 0) > 0">Hospitals: {{ tract.hospitalsInside ?? 0 }} · Fire stations: {{ tract.fireStationsInside ?? 0 }}<template v-if="tract.nearestHospitalKm != null"> · nearest hospital {{ tract.nearestHospitalKm }} km</template></v-list-subheader>
       <v-list-subheader v-if="tract.sidewalkKm != null && tract.sidewalkKm > 0">Walkways: {{ tract.sidewalkKm }} km mapped</v-list-subheader>
