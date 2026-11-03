@@ -59,6 +59,11 @@ export interface TractProps {
   pctUnder18Moe?: number
   popUnder18?: number
   pctUnder5?: number
+  /** #114: ACS B01001 % residents age 65+ (0–100, 1 dp) + derived MOE, count, % 75+ */
+  pctAge65Plus?: number
+  pctAge65PlusMoe?: number
+  pop65Plus?: number
+  pctAge75Plus?: number
   /** #117: CDC PLACES 2025 CASTHMA crude prevalence (0–100, 1 dp) + 95% CI + adult pop weight */
   pctAsthma?: number
   pctAsthmaLo?: number
@@ -147,10 +152,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; pharmacies?: number; clinics?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -165,6 +170,7 @@ export interface Meta {
   acsRentBurden?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   /** #115 ACS B01001 provenance (same vintage as acs) */
   acsUnder18?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
+  acsAge?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   acsLep?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   acsSnap?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   /** #124 planting-need composite provenance */
@@ -173,7 +179,7 @@ export interface Meta {
   cdcPlaces?: { release: string; measure: string; measures?: string[]; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string> }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; acsLep?: string; acsSnap?: string; cdcPlaces?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; acsAge?: string; acsLep?: string; acsSnap?: string; cdcPlaces?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>
