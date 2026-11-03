@@ -108,7 +108,11 @@ export const useUiStore = defineStore('ui', () => {
   // #38: display-only density unit; persisted locally, not in deep links.
   // #97 A0: active metric (session only; trees is the only registered metric).
   const activeMetric = ref<MetricId>(DEFAULT_METRIC)
-  const metric = computed(() => METRICS[activeMetric.value])
+  // #105: session-only dual Trees + Risk view (never in share URL). While on, the effective
+  // (primary) metric is trees — Hotspots / BM / announces key off it; activeMetric is untouched.
+  const dualView = ref(false)
+  function setDualView(v: boolean) { dualView.value = v }
+  const metric = computed(() => METRICS[dualView.value ? 'trees' : activeMetric.value])
   function setActiveMetric(id: unknown) { activeMetric.value = normalizeMetric(id) }
   const densityUnit = ref<DensityUnit>(read(UNIT_KEY) === 'km2' ? 'km2' : 'acre')
   watch(densityUnit, (u) => write(UNIT_KEY, u))
@@ -168,7 +172,7 @@ export const useUiStore = defineStore('ui', () => {
   const aboutOpen = ref(false)
 
   return {
-    activeMetric, metric, setActiveMetric,
+    activeMetric, metric, setActiveMetric, dualView, setDualView,
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,
     densityUnit, effectiveUnit, setDensityUnit,

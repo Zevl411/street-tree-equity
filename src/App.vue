@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 import { VBottomSheet, VMenu } from 'vuetify/components'
 import MapView from '@/components/MapView.vue'
+import DualMapView from '@/components/DualMapView.vue'
 import CreditStrip from '@/components/CreditStrip.vue'
 import MapLegend from '@/components/MapLegend.vue'
 import DensityHistogram from '@/components/DensityHistogram.vue'
@@ -68,7 +69,7 @@ const hotspotsOpen = ref(false)
 // #90: shared hotspot set for map dim (same helper as HotspotsPanel).
 // #98: active choropleth metric value key + meta view (breaks/colors follow metric).
 const vk = computed(() => ui.metric.valueKey)
-const viewMeta = computed(() => (meta.value ? metricMeta(meta.value, ui.activeMetric) : null))
+const viewMeta = computed(() => (meta.value ? metricMeta(meta.value, ui.metric.id) : null))
 // #99: per-metric availability (feature-detect pack fields); fall back to trees when missing.
 const metricOk = computed(() => Object.fromEntries(METRIC_IDS.map((id) => [id, metricAvailable(id, meta.value, tracts.value)])) as Record<MetricId, boolean>)
 watch([metricOk, loading], ([ok, busy]) => {
@@ -100,7 +101,20 @@ function setFocus(on: boolean) {
   focusMode.value = on
 }
 function toggleFocus() { setFocus(!focusMode.value) }
-const mapRef = ref<InstanceType<typeof MapView> | null>(null)
+const mapRef = ref<Pick<InstanceType<typeof MapView>, 'flyTo' | 'fitData' | 'fitRoad' | 'resize'> | null>(null)
+// #105: dual Trees + Risk (session only). Entry hidden unless the pack has both metrics.
+const dualAvailable = computed(() => !!metricOk.value.trees && !!metricOk.value.risk)
+const dualAnnounce = ref('')
+function setDual(on: boolean) {
+  if (on && !dualAvailable.value) return
+  if (ui.dualView === on) return
+  // Keep the camera across the single ↔ dual remount (session view is per-city).
+  const v = readSessionView()
+  if (v && v.cityId === cityStore.cityId) initialView.value = v
+  ui.setDualView(on)
+  dualAnnounce.value = on ? 'Dual view on: trees and risk' : 'Dual view off'
+}
+watch(dualAvailable, (ok) => { if (!ok && ui.dualView) setDual(false) })
 
 // #65 fullscreen: real browser Fullscreen API on #map-stage (independent of #54 focus; not persisted).
 type FsDoc = Document & { webkitFullscreenEnabled?: boolean; webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void }
@@ -627,7 +641,9 @@ useKeyboardShortcuts({
   // #54: overlays → tract drawer → exit focus → no-op.
   escape: () => {
     if (anyOverlayOpen()) return
-    if (selectedGeoid.value) drawerOpen.value = false
+    if (selectedGeoid.value && drawerOpen.value) drawerOpen.value = false
+    else if (ui.dualView) setDual(false)
+    else if (selectedGeoid.value) drawerOpen.value = false
     else if (focusMode.value) setFocus(false)
   },
   toggleFullscreen: () => { if (fsSupported && !anyOverlayOpen()) toggleFs() },
@@ -804,8 +820,12 @@ watch(drawerOpen, async (open) => {
             <v-btn-toggle :model-value="ui.activeMetric" mandatory density="compact" variant="outlined" divided color="primary"
               class="mb-1 unit-toggle metric-toggle" aria-label="Choropleth metric" @click.stop
               @update:model-value="(v: MetricId) => ui.setActiveMetric(v)">
-              <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id]">{{ METRICS[id].shortLabel }}</v-btn>
+              <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id] || ui.dualView">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
+            <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric</div>
+            <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual: Trees + Risk" color="primary" density="compact" hide-details inset
+              class="dual-switch" :class="{ 'switch-touch': !mdAndUp }" @click.stop @update:model-value="(v) => setDual(!!v)" />
+            <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">This pack has no risk metric yet</div>
             <div v-if="ui.activeMetric === 'foodAccess'" class="text-caption text-medium-emphasis mb-1">Share of residents &gt;½ mile from a SNAP-authorized store (USDA SRAM 2025). Complements grocery store counts.</div>
             <template v-if="meta && !loading">
               <div v-for="id in METRIC_IDS.filter((i) => !metricOk[i] && METRICS[i].missingCaption)" :key="`miss-${id}`" class="text-caption text-medium-emphasis mb-1">{{ METRICS[id].missingCaption }}</div>
@@ -949,6 +969,7 @@ watch(drawerOpen, async (open) => {
       </v-menu>
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ jumpAnnounce }}</span>
+      <span class="sr-only" aria-live="polite" aria-atomic="true">{{ dualAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ starAnnounce }}</span>
       <span class="sr-only" aria-live="polite" aria-atomic="true">{{ filterAnnounce }}</span>
     </v-app-bar>
@@ -967,8 +988,10 @@ watch(drawerOpen, async (open) => {
           <v-icon icon="mdi-arrow-collapse-all" />
           <v-tooltip activator="parent" location="right">Exit fullscreen</v-tooltip>
         </v-btn>
+      <DualMapView v-if="ui.dualView && dualAvailable && city && meta && tracts && parks" :key="`dual-${city.id}`" ref="mapRef"
+        @satellite-error="satFallback = true" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="meta" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit" :trees="trees" :schools="schools" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" :below-median="belowMedian && medianAvailable" />
       <MapView
-        @satellite-error="satFallback = true" v-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit" :trees="trees" :schools="schools" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
+        @satellite-error="satFallback = true" v-else-if="city && meta && tracts && parks " :key="city.id" ref="mapRef" :initial-view="initialView" :mobile="!mdAndUp" :data-path="city.dataPath" :meta="viewMeta!" :tracts="tracts" :parks="parks" :roads="roads" :bike="bike" :transit="transit" :trees="trees" :schools="schools" :focus-mode="focusMode" :hotspots-open="hotspotsOpen" :hotspot-geoids="hotspotGeoidList" />
 
       <div v-if="loading" class="d-flex flex-column fill-height align-center justify-center" role="status" aria-live="polite">
         <v-progress-circular indeterminate color="primary" size="48" aria-label="Loading map data" />
@@ -988,7 +1011,7 @@ watch(drawerOpen, async (open) => {
         <div class="text-body-2 mt-2">Or pick another city from the place menu above.</div>
       </v-alert>
       <CreditStrip v-if="city && meta" />
-      <v-sheet v-if="meta && (mdAndUp || !drawerOpen || printing)" class="map-legend-box pa-2" rounded elevation="2" color="surface">
+      <v-sheet v-if="meta && !ui.dualView && (mdAndUp || !drawerOpen || printing)" class="map-legend-box pa-2" rounded elevation="2" color="surface">
         <div v-if="legendExpanded" id="legend-panel">
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-subtitle-2">Legend</span>

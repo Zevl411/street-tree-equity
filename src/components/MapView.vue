@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { METRICS, type MetricId } from '@/utils/metrics'
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type Map as MlMap, type StyleSpecification } from 'maplibre-gl'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, ParkCollection, TractCollection } from '@/types'
@@ -63,7 +64,14 @@ const props = defineProps<{
   /** #90: while the Hotspots panel is open, dim tracts not in this set. */
   hotspotsOpen?: boolean
   hotspotGeoids?: string[]
+  /** #105: dual pane — paint this metric instead of ui.metric. */
+  metricId?: MetricId
+  /** #105: secondary dual pane follows camera; skips its own selection fit. */
+  secondary?: boolean
 }>()
+export type CameraState = { center: [number, number]; zoom: number; bearing: number }
+const pm = computed(() => (props.metricId ? METRICS[props.metricId] : useUiStore().metric))
+let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
@@ -75,7 +83,7 @@ function mountScale() {
   scaleCtrl = new maplibregl.ScaleControl({ maxWidth: 112, unit: densityUnit.value === 'km2' ? 'metric' : 'imperial' })
   map.addControl(scaleCtrl, 'bottom-left')
 }
-const emit = defineEmits<{ satelliteError: [] }>()
+const emit = defineEmits<{ satelliteError: []; camera: [c: CameraState] }>()
 
 const el = ref<HTMLDivElement | null>(null)
 let map: MlMap | null = null
@@ -87,7 +95,7 @@ const ready = ref(false)
 function fillColor(): ExpressionSpecification {
   const { breaks } = props.meta
   const colors = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value)
-  const expr: unknown[] = ['step', ['to-number', ['get', ui.metric.valueKey], -1], colors[0]]
+  const expr: unknown[] = ['step', ['to-number', ['get', pm.value.valueKey], -1], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
   return expr as ExpressionSpecification
 }
@@ -99,7 +107,7 @@ function firstSymbolLayerId(m: MlMap): string | undefined {
 /** #48: user base opacity; hover = min(1, base + 0.12) so hover never dims. */
 /** #59: median of finite treesPerAcre in the loaded pack; null when < 2 values. */
 function cityMedian(): number | null {
-  return sharedCityMedian(props.tracts, ui.metric.valueKey)
+  return sharedCityMedian(props.tracts, pm.value.valueKey)
 }
 const BELOW_MEDIAN_DIM = 0.22
 
@@ -128,7 +136,7 @@ function tractFillOpacity(): ExpressionSpecification {
     const dim = base * BELOW_MEDIAN_DIM
     // Same bin math as binIndex()/fill `step`: index = number of breaks <= v.
     const last = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value).length - 1
-    const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', ui.metric.valueKey], -1], b], 1, 0])]] as unknown as ExpressionSpecification
+    const idx: ExpressionSpecification = ['min', last, ['+', 0, ...props.meta.breaks.map((b) => ['case', ['>=', ['to-number', ['get', pm.value.valueKey], -1], b], 1, 0])]] as unknown as ExpressionSpecification
     return [
       'case',
       ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
@@ -144,7 +152,7 @@ function tractFillOpacity(): ExpressionSpecification {
     'case',
     ['==', ['get', 'geoid'], selectedGeoid.value ?? ''], base,
     // #100: risk (higherIsBetter=false) dims below-median tracts
-    ui.metric.higherIsBetter ? ['>', ['to-number', ['get', ui.metric.valueKey], -1], median] : ['<', ['to-number', ['get', ui.metric.valueKey], -1], median],
+    pm.value.higherIsBetter ? ['>', ['to-number', ['get', pm.value.valueKey], -1], median] : ['<', ['to-number', ['get', pm.value.valueKey], -1], median],
     ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(1, dim + 0.12), dim],
     ['boolean', ['feature-state', 'hover'], false], hover,
     base,
@@ -393,6 +401,12 @@ function fitData() {
 }
 
 defineExpose({
+  /** #105: mirror a peer pane's camera (instant; guarded against echo). */
+  syncCamera(c: CameraState) {
+    if (!map) return
+    applyingCamera = true
+    try { map.jumpTo({ center: c.center, zoom: c.zoom, bearing: c.bearing }) } finally { applyingCamera = false }
+  },
   flyTo(lon: number, lat: number, zoom = 15) {
     if (!map) return
     map.flyTo({ center: [lon, lat], zoom, duration: cameraDuration(600) })
@@ -435,6 +449,11 @@ onMounted(() => {
   // Fires on first load and after every setStyle (theme/basemap swap): re-add our layers each time.
   // #44: remember the camera for this city (debounced; never every frame).
   let viewTimer: ReturnType<typeof setTimeout> | undefined
+  map.on('move', () => {
+    if (applyingCamera || !map) return
+    const c = map.getCenter()
+    emit('camera', { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing() })
+  })
   map.on('moveend', () => {
     clearTimeout(viewTimer)
     viewTimer = setTimeout(() => {
@@ -509,7 +528,7 @@ watch(isDark, () => {
 watch(selectedGeoid, (g) => {
   applySelection()
   if (belowMedian.value || densityBinIndex.value !== null) refreshTractOpacity()
-  if (g && ready.value) fitSelectedAboveSheet(g)
+  if (g && ready.value && !props.secondary) fitSelectedAboveSheet(g)
 })
 watch(fillOpacity, refreshTractOpacity)
 watch(belowMedian, refreshTractOpacity)
@@ -517,7 +536,7 @@ watch(densityBinIndex, refreshTractOpacity)
 watch(() => [props.hotspotsOpen, props.hotspotGeoids], refreshTractOpacity)
 watch(() => props.tracts, refreshTractOpacity)
 // #98: metric switch repaints fill + opacity (meta prop swaps breaks/colors).
-watch(() => [ui.activeMetric, props.meta], () => {
+watch(() => [pm.value.id, props.meta], () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())
   refreshTractOpacity()
 })
