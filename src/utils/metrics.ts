@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus'
 
 export interface MetricDef {
   id: MetricId
@@ -274,6 +274,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults reporting 14+ days of poor mental health in the past month (CDC PLACES). Shown as community-need context alongside canopy.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #114: ACS 5-year B01001 — % residents age 65+ (M020–025 + F044–049)/001. Heat-vulnerability framing; higher = worse.
+  age65: {
+    id: 'age65',
+    shortLabel: 'Age 65+',
+    valueKey: 'pctAge65Plus',
+    legendTitle: () => 'Residents age 65+',
+    unitNoun: 'age 65+ share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median age 65+ share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctAge65Plus', hotspotNoun: ['oldest-skewing tract', 'oldest-skewing tracts'], hotspotTitle: 'Highest share 65+', missingCaption: 'This pack has no age 65+ metric yet',
+    tooltip: 'Higher share = more heat-vulnerable residents',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -291,8 +305,11 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
 /** #124: Layers switch order — Planting need directly after Trees; #125 Mental health right after Obesity; rest in registry order. */
-export const METRIC_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth')
+/** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
+const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'age65' && id !== 'under18')
   .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth'] : [id]))]
+const RB = BASE_SWITCH_ORDER.indexOf('rentBurden')
+export const METRIC_SWITCH_ORDER: MetricId[] = [...BASE_SWITCH_ORDER.slice(0, RB + 1), 'age65', 'under18', ...BASE_SWITCH_ORDER.slice(RB + 1)]
 
 const METRIC_BY_LOWER: Record<string, MetricId> = {
   ...Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id])),
@@ -308,6 +325,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   need: 'plantNeed',
   // #125 soft aliases (mentalhealth comes from the lowercase id)
   mhlth: 'mentalHealth', mental: 'mentalHealth',
+  // #114 soft aliases
+  age65plus: 'age65', seniors: 'age65',
 }
 
 export function isMetricId(v: unknown): v is MetricId {
