@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth'
 
 export interface MetricDef {
   id: MetricId
@@ -288,6 +288,21 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Higher share = more heat-vulnerable residents',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #127: CDC PLACES 2025 — PHLTH frequent physical distress, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  // Registry appended after mentalHealth; Layers switch sits after Mental health (end of PLACES cluster) via METRIC_SWITCH_ORDER.
+  physicalHealth: {
+    id: 'physicalHealth',
+    shortLabel: 'Physical health',
+    valueKey: 'pctPhysicalHealth',
+    legendTitle: () => 'Adults with frequent physical distress',
+    unitNoun: 'physical-distress share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median physical-distress share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctPhysicalHealth', hotspotNoun: ['high physical-distress tract', 'high physical-distress tracts'], hotspotTitle: 'Highest physical-health share', missingCaption: 'This pack has no physical-health metric yet',
+    tooltip: 'Model-based share of adults reporting 14+ days of poor physical health in the past month (CDC PLACES). Community-need context — no causal/diagnostic claim.',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -304,7 +319,7 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
-/** #124: Layers switch order — Planting need directly after Trees; #125 Mental health right after Obesity; rest in registry order. */
+/** #124: Layers switch order — Planting need directly after Trees; #125 Mental health right after Obesity; #127 Physical health right after Mental health; rest in registry order. */
 /** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
 const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'age65' && id !== 'under18')
   .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth'] : [id]))]
@@ -325,6 +340,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   need: 'plantNeed',
   // #125 soft aliases (mentalhealth comes from the lowercase id)
   mhlth: 'mentalHealth', mental: 'mentalHealth',
+  // #127 soft aliases (physicalhealth comes from the lowercase id)
+  phlth: 'physicalHealth', physical: 'physicalHealth',
   // #114 soft aliases
   age65plus: 'age65', seniors: 'age65',
 }

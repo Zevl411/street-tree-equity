@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121) and MHLTH (frequent mental distress, #125) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) and PHLTH (frequent physical distress, #127) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -19,6 +19,9 @@
  *   pctMentalHealth ← MHLTH_CrudePrev    (#125; crude, 0–100 %)
  *   pctMentalHealthLo/Hi ← MHLTH_Crude95CI
  *   mentalHealthAdultPop ← TotalPop18plus
+ *   pctPhysicalHealth ← PHLTH_CrudePrev  (#127; crude, 0–100 %)
+ *   pctPhysicalHealthLo/Hi ← PHLTH_Crude95CI
+ *   physicalHealthAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
@@ -42,6 +45,7 @@ const MEASURES = [
   { measure: 'DIABETES', metricId: 'diabetes', key: 'pctDiabetes', popKey: 'diabetesAdultPop', value: 'diabetes_crudeprev', ci: 'diabetes_crude95ci' },
   { measure: 'OBESITY', metricId: 'obesity', key: 'pctObesity', popKey: 'obesityAdultPop', value: 'obesity_crudeprev', ci: 'obesity_crude95ci' },
   { measure: 'MHLTH', metricId: 'mentalHealth', key: 'pctMentalHealth', popKey: 'mentalHealthAdultPop', value: 'mhlth_crudeprev', ci: 'mhlth_crude95ci' },
+  { measure: 'PHLTH', metricId: 'physicalHealth', key: 'pctPhysicalHealth', popKey: 'physicalHealthAdultPop', value: 'phlth_crudeprev', ci: 'phlth_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
