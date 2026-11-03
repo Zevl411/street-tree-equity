@@ -182,6 +182,7 @@ function flyToPark(p: NearbyPark) {
 
 // #100: FEMA NRI terms — citation + no-endorsement disclaimer (no FEMA/DHS seals).
 const NRI_DISCLAIMER = 'This product uses FEMA’s National Risk Index downloadable datasets but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for data or analyses derived after download.'
+const FARA_CITATION = 'Food Access Research Atlas (tract) — USDA ERS SNAP-authorized Retailer Access Map (SRAM) 2025. This product uses USDA Economic Research Service Food Access Research Atlas data but is not endorsed by USDA or ERS.'
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
 const citationsText = computed(() => [
@@ -189,6 +190,7 @@ const citationsText = computed(() => [
   `- Street trees, parks, groceries & schools: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
   ...(meta.value?.acs ? [`- Median household income (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acs.table} (${meta.value.acs.vintage}). Retrieved ${meta.value.acs.retrievedAt} from ${meta.value.acs.sourceUrl}. Public domain.`] : []),
+  ...(meta.value?.fara ? [`- ${FARA_CITATION} Retrieved ${meta.value.fara.retrievedAt} from ${meta.value.fara.sourceUrl}`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
   '- Satellite: EOxCloudless 2025 by EOX IT Services GmbH — modified Copernicus Sentinel data 2025 — CC BY-NC-SA (non-commercial) — https://cloudless.eox.at',
@@ -797,10 +799,11 @@ watch(drawerOpen, async (open) => {
             <div class="text-caption text-medium-emphasis mt-1 mb-2">One tap sets the switches below. You can still tweak them.</div>
             <div class="text-caption mb-1">Metric</div>
             <v-btn-toggle :model-value="ui.activeMetric" mandatory density="compact" variant="outlined" divided color="primary"
-              class="mb-1 unit-toggle" aria-label="Choropleth metric" @click.stop
+              class="mb-1 unit-toggle metric-toggle" aria-label="Choropleth metric" @click.stop
               @update:model-value="(v: MetricId) => ui.setActiveMetric(v)">
               <v-btn v-for="id in METRIC_IDS" :key="id" :value="id" size="small" :disabled="!metricOk[id]">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
+            <div v-if="ui.activeMetric === 'foodAccess'" class="text-caption text-medium-emphasis mb-1">Share of residents &gt;½ mile from a SNAP-authorized store (USDA SRAM 2025). Complements grocery store counts.</div>
             <template v-if="meta && !loading">
               <div v-for="id in METRIC_IDS.filter((i) => !metricOk[i] && METRICS[i].missingCaption)" :key="`miss-${id}`" class="text-caption text-medium-emphasis mb-1">{{ METRICS[id].missingCaption }}</div>
             </template>
@@ -1074,6 +1077,7 @@ watch(drawerOpen, async (open) => {
             <li><strong>Street trees, parks, groceries &amp; schools</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
             <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
             <li v-if="meta?.acs"><strong>Median household income (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acs.table }} ({{ meta.acs.vintage }}). Retrieved {{ meta.acs.retrievedAt }} from <a :href="meta.acs.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acs.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
+            <li v-if="meta?.fara"><strong>Food access (tract)</strong> — {{ FARA_CITATION }} Retrieved {{ meta.fara.retrievedAt }} from <a :href="meta.fara.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.fara.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>
             <li><strong>Satellite</strong> — <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless 2025<span class="sr-only"> (opens in new tab)</span></a> by EOX · modified Copernicus Sentinel data 2025 · <strong>CC BY-NC-SA (non-commercial)</strong></li>
@@ -1149,6 +1153,8 @@ watch(drawerOpen, async (open) => {
 .about-pack dd { margin: 0; user-select: text; word-break: break-word; }
 .about-pack-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .unit-toggle .v-btn { min-height: 44px; }
+/* #106: 6-way metric switch wraps on narrow drawers */
+.metric-toggle { flex-wrap: wrap; height: auto !important; }
 .skip-link {
   position: absolute;
   left: 8px;

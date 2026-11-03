@@ -14,6 +14,8 @@ export const CSV_HEADERS = [
   'groceries_per_acre',
   // #100 soft: FEMA NRI (appended)
   'nri_risk_score', 'nri_risk_rating', 'nri_sovi_score', 'median_income',
+  // #106 soft: USDA SRAM 2025
+  'food_access_low_share', 'food_access_low_share_1mi', 'food_access_lila',
 ] as const
 
 export const ODBL_NOTICE =
@@ -32,6 +34,7 @@ function row(t: TractProps, meta: Meta): string {
     meta.cityName, meta.subtitle, meta.censusVintage, meta.generatedAt,
     t.parksPerAcre, t.parkAreaAcres, t.groceriesPerAcre,
     t.nriRiskScore, t.nriRiskRating, t.nriSoviScore, t.medianIncome,
+    t.foodAccessLowShare, t.foodAccessLowShare1mi, t.foodAccessLila,
   ].map(cell).join(',')
 }
 
@@ -79,6 +82,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           city_name: meta.cityName, subtitle: meta.subtitle, census_vintage: meta.censusVintage, generated_at: meta.generatedAt,
           parks_per_acre: t.parksPerAcre ?? null, park_area_acres: t.parkAreaAcres ?? null, groceries_per_acre: t.groceriesPerAcre ?? null,
           nri_risk_score: t.nriRiskScore ?? null, nri_risk_rating: t.nriRiskRating ?? null, nri_sovi_score: t.nriSoviScore ?? null, median_income: t.medianIncome ?? null,
+          food_access_low_share: t.foodAccessLowShare ?? null, food_access_low_share_1mi: t.foodAccessLowShare1mi ?? null, food_access_lila: t.foodAccessLila ?? null,
         },
       }
     }),

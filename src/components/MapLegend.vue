@@ -13,7 +13,7 @@ const isKm2 = computed(() => ui.effectiveUnit === 'km2')
 
 // Display-only: breaks stay trees/acre in data and paint.
 const rows = computed(() =>
-  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1, ui.metric.currency ? (n: number) => fmtUnitless(ui.metric, n) : undefined),
+  binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2.value, isKm2.value ? ACRES_PER_KM2 : 1, (ui.metric.currency || ui.metric.percent) ? (n: number) => fmtUnitless(ui.metric, n) : undefined),
 )
 const counts = computed(() => binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey))
 </script>
