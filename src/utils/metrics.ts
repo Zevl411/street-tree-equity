@@ -216,6 +216,11 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
 export function isMetricId(v: unknown): v is MetricId {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(METRICS, v)
 }
+/** #118: strict resolver (case-insensitive + aliases); unknown → null. Same table as normalizeMetric. */
+export function resolveMetric(v: unknown): MetricId | null {
+  if (typeof v !== 'string') return null
+  return METRIC_BY_LOWER[v.trim().toLowerCase()] ?? null
+}
 /** Clamp to a registered id; unknown / missing → trees. */
 export function normalizeMetric(v: unknown): MetricId {
   if (typeof v !== 'string') return DEFAULT_METRIC
