@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes'
 
 export interface MetricDef {
   id: MetricId
@@ -186,6 +186,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bmSwitchLabel: 'Above city median',
     fine: false, overallKey: 'pctAsthma', hotspotNoun: ['high-asthma tract', 'high-asthma tracts'], hotspotTitle: 'Highest asthma share', missingCaption: 'This pack has no asthma metric yet',
     tooltip: 'Model-based share of adults with current asthma (CDC PLACES). Heat and low canopy can worsen respiratory conditions.',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
+  // #119: CDC PLACES 2025 — DIABETES crude prevalence, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  diabetes: {
+    id: 'diabetes',
+    shortLabel: 'Diabetes',
+    valueKey: 'pctDiabetes',
+    legendTitle: () => 'Adults with diabetes',
+    unitNoun: 'diabetes share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median diabetes share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctDiabetes', hotspotNoun: ['high-diabetes tract', 'high-diabetes tracts'], hotspotTitle: 'Highest diabetes share', missingCaption: 'This pack has no diabetes metric yet',
+    tooltip: 'Model-based share of adults with diagnosed diabetes (CDC PLACES). Shown as community-need context alongside canopy.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
 }
