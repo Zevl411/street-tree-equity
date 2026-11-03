@@ -77,7 +77,7 @@ export interface Meta {
   acs?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>
