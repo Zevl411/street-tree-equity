@@ -193,6 +193,8 @@ export const useUiStore = defineStore('ui', () => {
   const showFountains = ref(false)
   /** #112: OSM pharmacies + clinics dots — session + share (`layers=clinics`) only; default off. */
   const showClinics = ref(false)
+  /** #116: OSM hospitals + fire stations dots — session + share (`layers=emergency`) only; default off. */
+  const showEmergency = ref(false)
   /** #110: OSM mapped sidewalks — default off; share `layers=sidewalks` only. */
   const showSidewalks = ref(false)
   const highlightBottomQuartile = ref(false)
@@ -214,7 +216,7 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,
-    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showSidewalks, showClinics, highlightBottomQuartile, belowMedian, aboutOpen,
+    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, aboutOpen,
     densityBinIndex, setDensityBin,
   }
 })

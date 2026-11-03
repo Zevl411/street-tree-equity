@@ -39,6 +39,8 @@ export function useData() {
   const fountains = shallowRef<FeatureCollection | null>(null)
   /** #112: OSM pharmacy + clinic/doctors points (optional; missing/empty → switch hidden). */
   const clinics = shallowRef<FeatureCollection | null>(null)
+  /** #116: OSM hospital + fire_station points (optional; missing/empty → switch hidden). */
+  const emergency = shallowRef<FeatureCollection | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
@@ -59,6 +61,7 @@ export function useData() {
     gardens.value = null
     fountains.value = null
     clinics.value = null
+    emergency.value = null
   }
 
   /** Resolves true when this load won and succeeded. */
@@ -112,7 +115,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr, sc, bk, ts, lb, sw, gd, ft, cl] = await Promise.all([
+      const [m, t, p, r, tr, sc, bk, ts, lb, sw, gd, ft, cl, em] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -128,6 +131,7 @@ export function useData() {
         get<FeatureCollection>('gardens.geojson').catch(() => null),
         get<FeatureCollection>('fountains.geojson').catch(() => null),
         get<FeatureCollection>('clinics.geojson').catch(() => null),
+        get<FeatureCollection>('emergency.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -143,6 +147,7 @@ export function useData() {
       gardens.value = gd && Array.isArray(gd.features) && gd.features.length > 0 ? gd : null
       fountains.value = ft && Array.isArray(ft.features) && ft.features.length > 0 ? ft : null
       clinics.value = cl && Array.isArray(cl.features) && cl.features.length > 0 ? cl : null
+      emergency.value = em && Array.isArray(em.features) && em.features.length > 0 ? em : null
       packPath = dataPath
       treesDeferred.value = !!opts.deferTrees
       void saveLastPack(kept)
@@ -160,5 +165,5 @@ export function useData() {
     }
   }
 
-  return { meta, schools, libraries, gardens, fountains, clinics, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, libraries, gardens, fountains, clinics, emergency, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }

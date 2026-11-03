@@ -26,6 +26,8 @@ const props = defineProps<{
   hasFountains?: boolean
   /** #112: pack ships clinics.geojson + healthInside; false → omit health caption. */
   hasClinics?: boolean
+  /** #116: pack ships emergency.geojson + emergencyInside; false → omit emergency caption. */
+  hasEmergency?: boolean
   /** #113: dual view on → [left, right] labels for the primary-pane segmented control. */
   dualLabels?: [string, string] | null
 }>()
@@ -85,6 +87,14 @@ const healthCaption = computed(() => {
   const n = v.reduce((a, b) => a + b, 0)
   return n ? `${n} ${n === 1 ? 'pharmacy or clinic' : 'pharmacies & clinics'} in these hotspots` : 'None in these hotspots'
 })
+// #116 soft: hospitals + fire stations in hotspots (sum emergencyInside).
+const emergencyCaption = computed(() => {
+  if (!props.hasEmergency || props.loading || !items.value.length) return ''
+  const v = items.value.map((f) => (f.properties as { emergencyInside?: number }).emergencyInside).filter((n): n is number => typeof n === 'number')
+  if (!v.length) return ''
+  const n = v.reduce((a, b) => a + b, 0)
+  return n ? `${n} ${n === 1 ? 'hospital or fire station' : 'hospitals & fire stations'} in these hotspots` : 'None in these hotspots'
+})
 // #104 soft: transit stop caption; '' when pack has no transit data.
 const transitCaption = computed(() => {
   if (props.loading || !items.value.length) return ''
@@ -133,6 +143,7 @@ function pick(geoid: string) {
         <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
         <p v-if="civicCaption" class="text-caption text-medium-emphasis mb-1 hotspots-civic">{{ civicCaption }}</p>
         <p v-if="healthCaption" class="text-caption text-medium-emphasis mb-1 hotspots-health">{{ healthCaption }}</p>
+        <p v-if="emergencyCaption" class="text-caption text-medium-emphasis mb-1 hotspots-emergency">{{ emergencyCaption }}</p>
         <p v-if="gardensCaption" class="text-caption text-medium-emphasis mb-1 hotspots-gardens">{{ gardensCaption }}</p>
         <p v-if="fountainsCaption" class="text-caption text-medium-emphasis mb-1 hotspots-fountains">{{ fountainsCaption }}</p>
         <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
