@@ -240,7 +240,7 @@ function addDataLayers(m: MlMap) {
     layout: { visibility: showTransit.value ? 'visible' : 'none' },
     paint: {
       'circle-color': '#c2185b', 'circle-opacity': 0.85,
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 16, 5],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 3, 16, 5],
       'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1,
     },
   }, before)

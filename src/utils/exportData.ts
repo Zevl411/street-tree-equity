@@ -16,6 +16,8 @@ export const CSV_HEADERS = [
   'nri_risk_score', 'nri_risk_rating', 'nri_sovi_score', 'median_income',
   // #106 soft: USDA SRAM 2025
   'food_access_low_share', 'food_access_low_share_1mi', 'food_access_lila',
+  // #104 soft: mobility overlays
+  'bike_km', 'transit_stops',
 ] as const
 
 export const ODBL_NOTICE =
@@ -35,6 +37,7 @@ function row(t: TractProps, meta: Meta): string {
     t.parksPerAcre, t.parkAreaAcres, t.groceriesPerAcre,
     t.nriRiskScore, t.nriRiskRating, t.nriSoviScore, t.medianIncome,
     t.foodAccessLowShare, t.foodAccessLowShare1mi, t.foodAccessLila,
+    t.bikeKm, t.transitStopsInside,
   ].map(cell).join(',')
 }
 
@@ -83,6 +86,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           parks_per_acre: t.parksPerAcre ?? null, park_area_acres: t.parkAreaAcres ?? null, groceries_per_acre: t.groceriesPerAcre ?? null,
           nri_risk_score: t.nriRiskScore ?? null, nri_risk_rating: t.nriRiskRating ?? null, nri_sovi_score: t.nriSoviScore ?? null, median_income: t.medianIncome ?? null,
           food_access_low_share: t.foodAccessLowShare ?? null, food_access_low_share_1mi: t.foodAccessLowShare1mi ?? null, food_access_lila: t.foodAccessLila ?? null,
+          bike_km: t.bikeKm ?? null, transit_stops: t.transitStopsInside ?? null,
         },
       }
     }),
