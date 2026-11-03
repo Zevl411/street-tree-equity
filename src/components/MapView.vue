@@ -68,6 +68,8 @@ const props = defineProps<{
   fountains?: FeatureCollection | null
   /** #112: OSM pharmacy + clinic/doctors points; null = pack has none (layer not added). */
   clinics?: FeatureCollection | null
+  /** #116: OSM hospital + fire_station points; null = pack has none (layer not added). */
+  emergency?: FeatureCollection | null
   /** #60 stretch: #54 focus mode bumps the selected outline. */
   focusMode?: boolean
   /** #90: while the Hotspots panel is open, dim tracts not in this set. */
@@ -84,7 +86,7 @@ let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showSidewalks, showClinics, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 /** #108 soft: community-centre ring width — heavier on dark/satellite for contrast. */
 function civicRingWidth() { return isDark.value || basemap.value === 'satellite' ? 2.75 : 2 }
 let scaleCtrl: maplibregl.ScaleControl | null = null
@@ -350,6 +352,21 @@ function addDataLayers(m: MlMap) {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
         'circle-stroke-color': ['match', ['get', 'amenity'], 'pharmacy', '#ffffff', '#1e88e5'],
         'circle-stroke-width': ['match', ['get', 'amenity'], 'pharmacy', 1.25, civicRingWidth()],
+      },
+    }, before)
+  }
+  // #116: hospitals (solid) + fire stations (hollow ring) red dots — no click handler, tract clicks pass through.
+  if (props.emergency?.features.length) {
+    m.addSource('emergency', { type: 'geojson', data: props.emergency })
+    m.addLayer({
+      id: 'emergency', type: 'circle', source: 'emergency',
+      layout: { visibility: showEmergency.value ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#e53935',
+        'circle-opacity': ['match', ['get', 'amenity'], 'hospital', 0.9, 0.15],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
+        'circle-stroke-color': ['match', ['get', 'amenity'], 'hospital', '#ffffff', '#e53935'],
+        'circle-stroke-width': ['match', ['get', 'amenity'], 'hospital', 1.25, civicRingWidth()],
       },
     }, before)
   }
@@ -657,6 +674,9 @@ watch([isDark, basemap], () => { if (map?.getLayer('gardens')) map.setPaintPrope
 watch(showClinics, (v) => setVis('clinics', v))
 watch(showFountains, (v) => setVis('fountains', v))
 watch([isDark, basemap], () => { if (map?.getLayer('fountains')) map.setPaintProperty('fountains', 'circle-stroke-width', civicRingWidth()) })
+watch(showEmergency, (v) => setVis('emergency', v))
+// #116: thicker hollow fire-station rings on dark / satellite (same rule as #108).
+watch([isDark, basemap], () => { if (map?.getLayer('emergency')) map.setPaintProperty('emergency', 'circle-stroke-width', ['match', ['get', 'amenity'], 'hospital', 1.25, civicRingWidth()]) })
 // #112: thicker hollow clinic rings on dark / satellite (same rule as #108).
 watch([isDark, basemap], () => { if (map?.getLayer('clinics')) map.setPaintProperty('clinics', 'circle-stroke-width', ['match', ['get', 'amenity'], 'pharmacy', 1.25, civicRingWidth()]) })
 // #108 soft: thicker hollow community-centre rings on dark / satellite basemaps.
