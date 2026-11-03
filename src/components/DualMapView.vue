@@ -29,7 +29,7 @@ const emit = defineEmits<{ satelliteError: [] }>()
 
 const PANES: MetricId[] = ['trees', 'risk']
 const metas = computed(() => Object.fromEntries(PANES.map((id) => [id, metricMeta(props.meta, id)])) as Record<MetricId, Meta>)
-const title = (id: MetricId) => (id === 'trees' ? 'Street trees' : 'Risk (NRI)')
+const title = (id: MetricId) => METRICS[id].shortLabel
 
 // Mobile: segmented primary pane + ≥96px peek of the other.
 const mobilePrimary = ref<MetricId>('trees')
