@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap'
 
 export interface MetricDef {
   id: MetricId
@@ -217,6 +217,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
   // #121: CDC PLACES 2025 — OBESITY crude prevalence, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  // #123: ACS 5-year B22001 — % households that received SNAP (002/001). Placed after lep to keep the ACS cluster contiguous.
+  snap: {
+    id: 'snap',
+    shortLabel: 'SNAP households',
+    valueKey: 'pctSnap',
+    legendTitle: () => 'Households receiving SNAP',
+    unitNoun: 'SNAP share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median SNAP share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctSnap', hotspotNoun: ['high-SNAP tract', 'high-SNAP tracts'], hotspotTitle: 'Highest SNAP share', missingCaption: 'This pack has no SNAP metric yet',
+    tooltip: 'Share of households that received Food Stamps/SNAP in the past 12 months',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
   obesity: {
     id: 'obesity',
     shortLabel: 'Obesity',
@@ -255,6 +269,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   casthma: 'asthma',
   // #120 soft aliases
   limitedenglish: 'lep', english: 'lep',
+  // #123 soft aliases
+  foodstamps: 'snap', pctsnap: 'snap',
 }
 
 export function isMetricId(v: unknown): v is MetricId {
