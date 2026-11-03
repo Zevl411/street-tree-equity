@@ -132,6 +132,9 @@ export interface TractProps {
   /** #128 OSM amenity=post_office join (overlay + Hotspots count; not a MetricId) */
   postOfficesInside?: number
   nearestPostOfficeKm?: number
+  /** #130 OSM leisure=playground join (overlay + Hotspots count; not a MetricId) */
+  playgroundsInside?: number
+  nearestPlaygroundKm?: number
   /** #112 OSM amenity=pharmacy / clinic / doctors join (overlay + Hotspots count; not a MetricId) */
   pharmaciesInside?: number
   clinicsInside?: number
@@ -172,7 +175,7 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; fountains?: number; postOffices?: number; pharmacies?: number; clinics?: number; hospitals?: number; fireStations?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; fountains?: number; postOffices?: number; playgrounds?: number; pharmacies?: number; clinics?: number; hospitals?: number; fireStations?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
   overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
