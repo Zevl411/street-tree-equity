@@ -31,13 +31,13 @@ export function fmtDensity(n: number, isKm2: boolean) {
 }
 
 /** #63: legend bin rows. breaks are trees/acre; k scales display only. lo/hi stay trees/acre. */
-export function binRows(breaks: number[], colors: string[], isKm2: boolean, k: number) {
+export function binRows(breaks: number[], colors: string[], isKm2: boolean, k: number, fmt?: (n: number) => string) {
   return colors.map((color, i) => {
     const loA = i === 0 ? 0 : breaks[i - 1]
     const hiA: number | undefined = breaks[i]
     const lo = loA * k
     const hi = hiA === undefined ? undefined : hiA * k
-    const f = (n: number) => fmtDensity(n, isKm2)
+    const f = fmt ?? ((n: number) => fmtDensity(n, isKm2))
     const label = hi === undefined ? `≥ ${f(lo)}` : lo === hi ? `≈ ${f(lo)}` : `${f(lo)} – ${f(hi)}`
     return { color, label, lo: i === 0 ? -Infinity : loA, hi: hiA }
   })

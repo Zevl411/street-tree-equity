@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome'
 
 export interface MetricDef {
   id: MetricId
@@ -32,6 +32,8 @@ export interface MetricDef {
   higherIsBetter: boolean
   /** #100: false → unitless (no acre/km² toggle, 1 decimal) */
   usesDensityUnit: boolean
+  /** #103: USD currency display (no cents) */
+  currency?: boolean
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -85,6 +87,25 @@ export const METRICS: Record<MetricId, MetricDef> = {
     fine: true, overallKey: 'nriRiskScore', hotspotNoun: ['highest-risk tract', 'highest-risk tracts'], hotspotTitle: 'Highest risk', missingCaption: 'This pack has no risk metric yet',
     higherIsBetter: false, usesDensityUnit: false,
   },
+  // #103: ACS B19013 — need-focused like amenities (lowest first, dims above median); higher is better.
+  income: {
+    id: 'income',
+    shortLabel: 'Income',
+    valueKey: 'medianIncome',
+    legendTitle: () => 'Median household income',
+    unitNoun: 'household income',
+    spreadUnit: () => 'USD',
+    bmCaption: 'Dims tracts above this city’s median household income',
+    bmSwitchLabel: 'Below city median',
+    fine: false, overallKey: 'medianIncome', hotspotNoun: ['lowest-income tract', 'lowest-income tracts'], hotspotTitle: 'Lowest income', missingCaption: 'This pack has no income metric yet',
+    higherIsBetter: true, usesDensityUnit: false, currency: true,
+  },
+}
+
+const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+/** #103: unitless display — currency metrics → USD no cents, else 1 decimal. */
+export function fmtUnitless(def: MetricDef, n: number): string {
+  return def.currency ? USD.format(n) : n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
@@ -126,6 +147,6 @@ export function metricValue(p: object, key: MetricValueKey): number {
 
 /** #100: display a metric value (acre-based); unitless metrics → 1 decimal, no scaling. */
 export function fmtMetric(def: MetricDef, acreValue: number, km2: boolean, acresPerKm2: number): string {
-  if (!def.usesDensityUnit) return acreValue.toLocaleString(undefined, { maximumFractionDigits: 1 })
+  if (!def.usesDensityUnit) return fmtUnitless(def, acreValue)
   return km2 ? (acreValue * acresPerKm2).toLocaleString(undefined, { maximumFractionDigits: 2 }) : acreValue.toFixed(4)
 }

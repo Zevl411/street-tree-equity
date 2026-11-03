@@ -38,6 +38,7 @@ const vsMedian = computed(() => {
   const label = at ? 'At city median' : below ? 'Below city median' : 'Above city median'
   return { label, caption, below, color: at ? 'secondary' : below ? 'warning' : 'success', aria: `${label}: ${caption.replace(MINUS, 'minus ')}` }
 })
+const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const fmtKm2 = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 const tractKm2 = computed(() => props.tract.treesPerKm2 ?? props.tract.treesPerAcre * ACRES_PER_KM2)
 const cityAvgLabel = computed(() => isKm2.value
@@ -277,6 +278,7 @@ function copyLink() {
 
     <v-divider />
     <v-list density="compact" lines="two">
+      <v-list-subheader v-if="tract.medianIncome != null">Median household income · {{ usd(tract.medianIncome) }}<template v-if="tract.medianIncomeMoe != null"> (±{{ usd(tract.medianIncomeMoe) }})</template></v-list-subheader>
       <v-list-subheader v-if="tract.nriRiskScore != null">NRI risk score · {{ tract.nriRiskScore.toFixed(1) }}<template v-if="tract.nriRiskRating"> ({{ tract.nriRiskRating }})</template><template v-if="tract.nriSoviScore != null"> · social vulnerability {{ tract.nriSoviScore.toFixed(1) }}</template></v-list-subheader>
       <v-list-subheader v-if="tract.groceriesInside != null">Groceries · {{ tract.groceriesInside }} inside this tract<template v-if="tract.nearestGroceryKm != null"> · nearest {{ tract.nearestGroceryKm }} km</template></v-list-subheader>
       <v-list-subheader>Nearest parks · {{ tract.parksInside }} inside this tract</v-list-subheader>
