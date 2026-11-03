@@ -27,6 +27,11 @@ export interface TractProps {
   groceriesInside?: number
   groceriesPerAcre?: number
   groceriesPerKm2?: number
+  /** #102: OSM amenity=school join (overlay + Hotspots count; not a MetricId). */
+  schoolsInside?: number
+  schoolsPerAcre?: number
+  schoolsPerKm2?: number
+  nearestSchoolKm?: number
   /** #100 FEMA NRI (tract join) */
   nriRiskScore?: number
   nriRiskRating?: string
@@ -66,8 +71,8 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; groceries?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; bottomQuartileMax: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; lowTreeRoadSegments: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
   metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[] }

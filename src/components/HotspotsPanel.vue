@@ -15,6 +15,8 @@ const props = defineProps<{
   cityName: string
   unit: 'acre' | 'km2'
   cityId: string | null
+  /** #102: pack ships schools.geojson + schoolsInside; false → omit school caption. */
+  hasSchools?: boolean
 }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ pick: [geoid: string]; exported: [] }>()
@@ -33,6 +35,13 @@ function density(tpa: number) {
     ? (tpa * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })
     : tpa.toFixed(isParks.value ? 4 : 2)
 }
+/** #102: sum pack-joined schoolsInside over the current hotspot set (any active metric). */
+const schoolCaption = computed(() => {
+  if (!props.hasSchools || props.loading || !items.value.length) return ''
+  if (!items.value.some((f) => Number.isFinite((f.properties as { schoolsInside?: number }).schoolsInside))) return ''
+  const n = items.value.reduce((a, f) => a + ((f.properties as { schoolsInside?: number }).schoolsInside ?? 0), 0)
+  return n ? `${n} ${n === 1 ? 'school' : 'schools'} in these hotspots` : 'No schools in these hotspots'
+})
 const noTracts = computed(() => !props.loading && total.value === 0)
 const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${ui.metric.hotspotNoun ? ui.metric.hotspotNoun[1] : 'low-canopy tracts'}`))
 
@@ -62,6 +71,7 @@ function pick(geoid: string) {
         <p class="text-caption text-medium-emphasis mb-1">
           {{ loading ? 'Loading tracts…' : `${ui.metric.higherIsBetter ? 'Lowest' : 'Highest'} ${ui.metric.unitNoun} in ${cityName} · tap to open` }}
         </p>
+        <p v-if="schoolCaption" class="text-caption text-medium-emphasis mb-1 hotspots-schools">{{ schoolCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
         <p v-else-if="!loading && !items.length" class="text-body-2 mt-2">No hotspots to show.</p>

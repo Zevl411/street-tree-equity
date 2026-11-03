@@ -54,6 +54,8 @@ const props = defineProps<{
   roads: FeatureCollection | null
   /** #51: pack tree points; null = pack has none (layer not added). */
   trees?: FeatureCollection | null
+  /** #102: OSM school points; null = pack has none (layer not added). */
+  schools?: FeatureCollection | null
   /** #60 stretch: #54 focus mode bumps the selected outline. */
   focusMode?: boolean
   /** #90: while the Hotspots panel is open, dim tracts not in this set. */
@@ -63,7 +65,7 @@ const props = defineProps<{
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 let scaleCtrl: maplibregl.ScaleControl | null = null
 function mountScale() {
   if (!map) return
@@ -223,6 +225,19 @@ function addDataLayers(m: MlMap) {
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
   }, before)
   addTreeLayers(m, before)
+  // #102: school dots — no click handler, so tract clicks pass through.
+  if (props.schools?.features.length) {
+    m.addSource('schools', { type: 'geojson', data: props.schools })
+    m.addLayer({
+      id: 'schools', type: 'circle', source: 'schools',
+      layout: { visibility: showSchools.value ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#5e35b1', 'circle-opacity': 0.9,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 15, 6],
+        'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.25,
+      },
+    }, before)
+  }
   // #60: halo + core, added last so the ring sits above trees/clusters and #36 dashes.
   const sp = selectedPaint()
   const selFilter = ['==', ['get', 'geoid'], selectedGeoid.value ?? ''] as any
@@ -509,6 +524,7 @@ watch(() => props.trees, (t) => {
 watch(showTrees, (v) => TREE_LAYERS.forEach((id) => setVis(id, v)))
 watch(showParks, (v) => setVis('parks-fill', v))
 watch(showRoads, (v) => setVis('roads-low', v))
+watch(showSchools, (v) => setVis('schools', v))
 watch(highlightBottomQuartile, (v) => setVis('tracts-bottom', v))
 watch(() => props.roads, (r) => {
   const src = map?.getSource('roads') as GeoJSONSource | undefined

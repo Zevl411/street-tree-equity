@@ -152,6 +152,8 @@ export const useUiStore = defineStore('ui', () => {
   const showTrees = ref(true)
   const showParks = ref(true)
   const showRoads = ref(true)
+  /** #102: OSM school dots — session + share (`layers=schools`) only; default off. */
+  const showSchools = ref(false)
   const highlightBottomQuartile = ref(false)
   /** #59: not persisted — session + share link (`bm`) only. */
   const belowMedian = ref(false)
@@ -170,7 +172,7 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,
-    showTrees, showParks, showRoads, highlightBottomQuartile, belowMedian, aboutOpen,
+    showTrees, showParks, showRoads, showSchools, highlightBottomQuartile, belowMedian, aboutOpen,
     densityBinIndex, setDensityBin,
   }
 })

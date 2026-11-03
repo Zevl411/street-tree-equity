@@ -24,6 +24,8 @@ export function useData() {
   const roads = ref<FeatureCollection | null>(null)
   // #51: static pack tree points (optional). shallowRef — can be large; never deep-reactive / Pinia.
   const trees = shallowRef<FeatureCollection | null>(null)
+  /** #102: OSM school points (optional; missing file → null, Schools switch hidden). */
+  const schools = shallowRef<FeatureCollection | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
@@ -36,6 +38,7 @@ export function useData() {
     parks.value = null
     roads.value = null
     trees.value = null
+    schools.value = null
   }
 
   /** Resolves true when this load won and succeeded. */
@@ -89,7 +92,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr] = await Promise.all([
+      const [m, t, p, r, tr, sc] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -97,6 +100,7 @@ export function useData() {
         // Missing/invalid trees.geojson is not an error: overlay just hides.
         // #94: on small viewports trees.geojson is not fetched until the user asks.
         opts.deferTrees ? Promise.resolve(null) : get<FeatureCollection>('trees.geojson').catch(() => null),
+        get<FeatureCollection>('schools.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -104,6 +108,7 @@ export function useData() {
       parks.value = p
       roads.value = r
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
+      schools.value = sc && Array.isArray(sc.features) ? sc : null
       packPath = dataPath
       treesDeferred.value = !!opts.deferTrees
       void saveLastPack(kept)
@@ -121,5 +126,5 @@ export function useData() {
     }
   }
 
-  return { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }

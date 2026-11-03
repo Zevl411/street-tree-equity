@@ -180,7 +180,7 @@ function copyLink() {
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
       basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
       choroplethMode: ui.choroplethMode, legend: ui.legendExpandedPref, bin: ui.densityBinIndex,
-      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian },
+      layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools },
     })
   } catch { url = window.location.href }
   void copyWithFallback(url, 'Link copied')
