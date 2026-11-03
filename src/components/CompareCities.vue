@@ -6,7 +6,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
 import { cityMedian, densityPercentile, sortedDensities } from '@/utils/densityBins'
-import { metricValue } from '@/utils/metrics'
+import { fmtUnitless, metricValue } from '@/utils/metrics'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
 const props = defineProps<{ mobile?: boolean; initial?: [string, string] | null }>()
@@ -113,6 +113,8 @@ async function compare() {
 }
 
 const fmt = (n: number | null, d = 3) => (n == null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: d }))
+/** #103: metric values (currency-aware) */
+const fmtV = (n: number | null, d = 3) => (n == null ? '—' : ui.metric.currency ? fmtUnitless(ui.metric, n) : fmt(n, d))
 const rows = computed(() => {
   const r = result.value
   if (!r) return []
@@ -126,15 +128,15 @@ const rows = computed(() => {
   const [aMed, bMed, aMean, bMean] = km ? [A.medianKm2, B.medianKm2, A.meanKm2, B.meanKm2] : [A.median, B.median, A.mean, B.mean]
   const unit = ui.metric.spreadUnit(ui.densityUnit)
   const d = !ui.metric.usesDensityUnit ? 1 : ui.metric.fine ? (km ? 2 : 4) : km ? 1 : 3
-  if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmt(aMed, d), b: fmt(bMed, d) })
+  if (aMed != null || bMed != null) out.push({ label: `Median ${unit}`, a: fmtV(aMed, d), b: fmtV(bMed, d) })
   const sc = (n: number | null) => (n == null ? null : km ? n * ACRES_PER_KM2 : n)
   const ratio = (s: Stats) => (s.p10 != null && s.p90 != null && Number.isFinite(s.p10) && s.p10 > 0 && Number.isFinite(s.p90 / s.p10)
     ? (s.p90 / s.p10).toFixed(1) : null)
-  if (A.p10 != null || B.p10 != null) out.push({ label: `p10 ${unit}`, a: fmt(sc(A.p10), d), b: fmt(sc(B.p10), d) })
-  if (A.p90 != null || B.p90 != null) out.push({ label: `p90 ${unit}`, a: fmt(sc(A.p90), d), b: fmt(sc(B.p90), d) })
+  if (A.p10 != null || B.p10 != null) out.push({ label: `p10 ${unit}`, a: fmtV(sc(A.p10), d), b: fmtV(sc(B.p10), d) })
+  if (A.p90 != null || B.p90 != null) out.push({ label: `p90 ${unit}`, a: fmtV(sc(A.p90), d), b: fmtV(sc(B.p90), d) })
   const ra = ratio(A), rb = ratio(B)
   if (ra != null || rb != null) out.push({ label: 'p90÷p10', a: ra ? `≈ ${ra}` : '—', b: rb ? `≈ ${rb}` : '—' })
-  if (aMean != null || bMean != null) out.push({ label: `Mean ${unit}`, a: fmt(aMean, d), b: fmt(bMean, d) })
+  if (aMean != null || bMean != null) out.push({ label: `Mean ${unit}`, a: fmtV(aMean, d), b: fmtV(bMean, d) })
   if (A.bq != null || B.bq != null) out.push({ label: 'Bottom-quartile tracts', a: bq(A), b: bq(B) })
   if (A.parks != null || B.parks != null) out.push({ label: 'Parks', a: fmt(A.parks, 0), b: fmt(B.parks, 0) })
   if (A.roadKm != null || B.roadKm != null) out.push({ label: 'Road km', a: fmt(A.roadKm, 1), b: fmt(B.roadKm, 1) })

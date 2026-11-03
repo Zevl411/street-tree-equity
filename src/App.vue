@@ -29,7 +29,7 @@ import { isReady, type NearbyPark } from '@/types'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
-import { metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
+import { fmtUnitless, metricAvailable, metricMeta, METRICS, METRIC_IDS, type MetricId } from '@/utils/metrics'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, trees, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -188,6 +188,7 @@ const citationsText = computed(() => [
   'Street Tree Equity — data sources',
   `- Street trees & parks: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
+  ...(meta.value?.acs ? [`- Median household income (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acs.table} (${meta.value.acs.vintage}). Retrieved ${meta.value.acs.retrievedAt} from ${meta.value.acs.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
   '- Satellite: EOxCloudless 2025 by EOX IT Services GmbH — modified Copernicus Sentinel data 2025 — CC BY-NC-SA (non-commercial) — https://cloudless.eox.at',
@@ -322,7 +323,7 @@ const overviewDensity = computed(() => {
   if (!m) return ''
   const ov = m.overall[ui.metric.overallKey]
   const o = ov != null ? ov : m.overall.treesPerAcre
-  if (!ui.metric.usesDensityUnit) return o.toLocaleString(undefined, { maximumFractionDigits: 1 })
+  if (!ui.metric.usesDensityUnit) return fmtUnitless(ui.metric, o)
   if (ui.metric.fine) {
     return densityUnit.value === 'km2'
       ? `${(o * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 2 })} / km²`
@@ -342,7 +343,7 @@ const spread = computed(() => {
   if (med == null || p10 == null || p90 == null) return null
   const km2 = ui.effectiveUnit === 'km2'
   const k = km2 ? ACRES_PER_KM2 : 1
-  const f = (n: number) => (ui.metric.usesDensityUnit ? fmtDensity(n * k, km2) : n.toFixed(1))
+  const f = (n: number) => (ui.metric.usesDensityUnit ? fmtDensity(n * k, km2) : fmtUnitless(ui.metric, n))
   const unit = !ui.metric.usesDensityUnit ? '' : km2 ? '/km²' : '/acre'
   const r = p10 > 0 ? p90 / p10 : NaN
   const ratio = Number.isFinite(r) ? `×${r.toFixed(1)}` : ''
@@ -1067,6 +1068,7 @@ watch(drawerOpen, async (open) => {
           <ul class="about-sources text-body-2 mb-4">
             <li><strong>Street trees &amp; parks</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span></li>
             <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
+            <li v-if="meta?.acs"><strong>Median household income (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acs.table }} ({{ meta.acs.vintage }}). Retrieved {{ meta.acs.retrievedAt }} from <a :href="meta.acs.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acs.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>
             <li><strong>Satellite</strong> — <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless 2025<span class="sr-only"> (opens in new tab)</span></a> by EOX · modified Copernicus Sentinel data 2025 · <strong>CC BY-NC-SA (non-commercial)</strong></li>

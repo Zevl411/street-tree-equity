@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
-import { metricValue } from '@/utils/metrics'
+import { fmtUnitless, metricValue } from '@/utils/metrics'
 import { hotspotTracts } from '@/utils/hotspots'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
@@ -28,7 +28,7 @@ const val = (p: object) => metricValue(p, ui.metric.valueKey)
 const unitless = computed(() => !ui.metric.usesDensityUnit)
 const unitLabel = computed(() => (props.unit === 'km2' ? 'km²' : 'acre'))
 function density(tpa: number) {
-  if (unitless.value) return tpa.toFixed(1)
+  if (unitless.value) return fmtUnitless(ui.metric, tpa)
   return props.unit === 'km2'
     ? (tpa * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 1 })
     : tpa.toFixed(isParks.value ? 4 : 2)
