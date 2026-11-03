@@ -38,6 +38,11 @@ export interface TractProps {
   /** #103: ACS B19013 median household income (USD) + MOE */
   medianIncome?: number
   medianIncomeMoe?: number
+  /** #106 USDA ERS SRAM 2025 (Euclidean): ½-mi + 1-mi low-access population share 0–1; LILA ½/10 + low-income flags 0|1 */
+  foodAccessLowShare?: number
+  foodAccessLowShare1mi?: number
+  foodAccessLila?: number
+  foodAccessLowIncome?: number
   nriSoviScore?: number
   nriEalScore?: number
   nearestGroceryKm?: number
@@ -72,17 +77,19 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
+  /** #106 USDA ERS SRAM provenance */
+  fara?: { version: string; updated: string; retrievedAt: string; sourceUrl: string; columns?: Record<string, string> }
   /** #103 ACS provenance */
   acs?: { table: string; vintage: string; retrievedAt: string; sourceUrl: string }
   colors: string[]
   roadsBufferMeters: number | null
-  attribution: { osm: string; census: string; fema?: string; acs?: string }
+  attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string }
 }
 
 export type TractFeature = Feature<Geometry, TractProps>

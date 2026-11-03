@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare'
 
 export interface MetricDef {
   id: MetricId
@@ -34,6 +34,8 @@ export interface MetricDef {
   usesDensityUnit: boolean
   /** #103: USD currency display (no cents) */
   currency?: boolean
+  /** #106: 0–1 share displayed as percent */
+  percent?: boolean
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -100,11 +102,25 @@ export const METRICS: Record<MetricId, MetricDef> = {
     fine: false, overallKey: 'medianIncome', hotspotNoun: ['lowest-income tract', 'lowest-income tracts'], hotspotTitle: 'Lowest income', missingCaption: 'This pack has no income metric yet',
     higherIsBetter: true, usesDensityUnit: false, currency: true,
   },
+  // #106: USDA ERS SRAM 2025 — Euclidean ½-mile low-access population share (0–1); higher = worse.
+  foodAccess: {
+    id: 'foodAccess',
+    shortLabel: 'Food access',
+    valueKey: 'foodAccessLowShare',
+    legendTitle: () => 'Low food access %',
+    unitNoun: 'low-access share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median low-access share',
+    bmSwitchLabel: 'Above city median',
+    fine: true, overallKey: 'foodAccessLowShare', hotspotNoun: ['high low-access tract', 'high low-access tracts'], hotspotTitle: 'Highest low-access share', missingCaption: 'This pack has no food-access metric yet',
+    higherIsBetter: false, usesDensityUnit: false, percent: true,
+  },
 }
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 /** #103: unitless display — currency metrics → USD no cents, else 1 decimal. */
 export function fmtUnitless(def: MetricDef, n: number): string {
+  if (def.percent) return `${(n * 100).toFixed(1)}%`
   return def.currency ? USD.format(n) : n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
 

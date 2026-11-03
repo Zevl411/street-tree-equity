@@ -278,6 +278,7 @@ function copyLink() {
 
     <v-divider />
     <v-list density="compact" lines="two">
+      <v-list-subheader v-if="tract.foodAccessLowShare != null">Low food access (½ mi) · {{ (tract.foodAccessLowShare * 100).toFixed(1) }}%<template v-if="tract.foodAccessLowShare1mi != null"> · 1 mi {{ (tract.foodAccessLowShare1mi * 100).toFixed(1) }}%</template><template v-if="tract.foodAccessLila"> · low-income &amp; low-access</template><template v-else-if="tract.foodAccessLowIncome"> · low-income tract</template></v-list-subheader>
       <v-list-subheader v-if="tract.medianIncome != null">Median household income · {{ usd(tract.medianIncome) }}<template v-if="tract.medianIncomeMoe != null"> (±{{ usd(tract.medianIncomeMoe) }})</template></v-list-subheader>
       <v-list-subheader v-if="tract.nriRiskScore != null">NRI risk score · {{ tract.nriRiskScore.toFixed(1) }}<template v-if="tract.nriRiskRating"> ({{ tract.nriRiskRating }})</template><template v-if="tract.nriSoviScore != null"> · social vulnerability {{ tract.nriSoviScore.toFixed(1) }}</template></v-list-subheader>
       <v-list-subheader v-if="tract.groceriesInside != null">Groceries · {{ tract.groceriesInside }} inside this tract<template v-if="tract.nearestGroceryKm != null"> · nearest {{ tract.nearestGroceryKm }} km</template></v-list-subheader>

@@ -18,7 +18,8 @@
     "start": "npm run build && npm run serve",
     "typecheck": "vue-tsc --noEmit",
     "test:smoke": "node scripts/smoke-test.mjs",
-    "add:nri": "node scripts/add-fema-nri.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl"
+    "add:nri": "node scripts/add-fema-nri.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
+    "add:fara": "node scripts/add-usda-fara.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
