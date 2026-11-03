@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma'
 
 export interface MetricDef {
   id: MetricId
@@ -40,6 +40,8 @@ export interface MetricDef {
   percent?: boolean
   /** #107: value already 0–100 percent points */
   percentPoints?: boolean
+  /** #117 soft: neutral hover description on the metric switch */
+  tooltip?: string
 }
 
 export const DEFAULT_METRIC: MetricId = 'trees'
@@ -172,6 +174,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     hotspotSort: 'desc',
     higherIsBetter: true, usesDensityUnit: false, percentPoints: true,
   },
+  // #117: CDC PLACES 2025 — CASTHMA crude prevalence, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  asthma: {
+    id: 'asthma',
+    shortLabel: 'Asthma',
+    valueKey: 'pctAsthma',
+    legendTitle: () => 'Adults with current asthma',
+    unitNoun: 'asthma share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median asthma share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctAsthma', hotspotNoun: ['high-asthma tract', 'high-asthma tracts'], hotspotTitle: 'Highest asthma share', missingCaption: 'This pack has no asthma metric yet',
+    tooltip: 'Model-based share of adults with current asthma (CDC PLACES). Heat and low canopy can worsen respiratory conditions.',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -193,6 +209,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   ...Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id])),
   // #115 soft aliases
   under18plus: 'under18', children: 'under18',
+  // #117 soft alias
+  casthma: 'asthma',
 }
 
 export function isMetricId(v: unknown): v is MetricId {
