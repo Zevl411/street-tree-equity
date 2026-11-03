@@ -24,6 +24,7 @@
     "add:novehicle": "node scripts/add-acs-novehicle.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:rentburden": "node scripts/add-acs-rentburden.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:under18": "node scripts/add-acs-under18.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
+    "add:lep": "node scripts/add-acs-lep.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:places": "node scripts/add-cdc-places.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
   },

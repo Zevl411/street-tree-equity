@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep'
 
 export interface MetricDef {
   id: MetricId
@@ -202,6 +202,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults with diagnosed diabetes (CDC PLACES). Shown as community-need context alongside canopy.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #120: ACS 5-year B16004 — % residents 5+ speaking English less than "very well" (Σ36 cells / 001). Default polarity → Hotspots desc.
+  lep: {
+    id: 'lep',
+    shortLabel: 'Limited English',
+    valueKey: 'pctLep',
+    legendTitle: () => 'Residents 5+ with limited English',
+    unitNoun: 'limited-English share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median limited-English share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctLep', hotspotNoun: ['high limited-English tract', 'high limited-English tracts'], hotspotTitle: 'Highest limited-English share', missingCaption: 'This pack has no limited-English metric yet',
+    tooltip: 'Share of residents age 5+ who speak English less than ‘very well’',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -225,6 +239,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   under18plus: 'under18', children: 'under18',
   // #117 soft alias
   casthma: 'asthma',
+  // #120 soft aliases
+  limitedenglish: 'lep', english: 'lep',
 }
 
 export function isMetricId(v: unknown): v is MetricId {
