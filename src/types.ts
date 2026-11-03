@@ -64,6 +64,9 @@ export interface TractProps {
   nearestGroceryKm?: number
   /** #104 OSM bike network km in tract (segment-midpoint clip), per km²; transit stops inside; nearest stop km */
   bikeKm?: number
+  /** #110 OSM mapped sidewalk km in tract (length rule in scripts/lib/sidewalks.mjs), per ALAND km² */
+  sidewalkKm?: number
+  sidewalkKmPerKm2?: number
   bikeKmPerKm2?: number
   transitStopsInside?: number
   nearestTransitKm?: number
@@ -102,7 +105,7 @@ export interface Meta {
   generatedAt: string
   osmTimestamp: string | null
   censusVintage: string
-  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; lowTreeRoadSegments: number }
+  counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
   overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */

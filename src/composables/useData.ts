@@ -25,6 +25,8 @@ export function useData() {
   // #104: optional mobility overlays (null → switch hidden)
   const bike = shallowRef<FeatureCollection | null>(null)
   const transit = shallowRef<FeatureCollection | null>(null)
+  /** #110: OSM mapped sidewalks lines (optional; missing/empty → switch hidden). */
+  const sidewalks = shallowRef<FeatureCollection | null>(null)
   // #51: static pack tree points (optional). shallowRef — can be large; never deep-reactive / Pinia.
   const trees = shallowRef<FeatureCollection | null>(null)
   /** #102: OSM school points (optional; missing file → null, Schools switch hidden). */
@@ -43,6 +45,7 @@ export function useData() {
     parks.value = null
     bike.value = null
     transit.value = null
+    sidewalks.value = null
     roads.value = null
     trees.value = null
     schools.value = null
@@ -100,7 +103,7 @@ export function useData() {
     const kept: Response[] = []
     const get = <T>(f: string) => getJson<T>(dataUrl(f, dataPath), f, signal, kept)
     try {
-      const [m, t, p, r, tr, sc, bk, ts, lb] = await Promise.all([
+      const [m, t, p, r, tr, sc, bk, ts, lb, sw] = await Promise.all([
         get<Meta>('meta.json'),
         get<TractCollection>('tracts-equity.geojson'),
         get<ParkCollection>('parks.geojson'),
@@ -112,6 +115,7 @@ export function useData() {
         get<FeatureCollection>('bike.geojson').catch(() => null),
         get<FeatureCollection>('transit.geojson').catch(() => null),
         get<FeatureCollection>('libraries.geojson').catch(() => null),
+        get<FeatureCollection>('sidewalks.geojson').catch(() => null),
       ])
       if (controller !== ctl) return false
       meta.value = m
@@ -119,6 +123,7 @@ export function useData() {
       parks.value = p
       roads.value = r
       bike.value = bk && Array.isArray(bk.features) && bk.features.length > 0 ? bk : null
+      sidewalks.value = sw && Array.isArray(sw.features) && sw.features.length > 0 ? sw : null
       transit.value = ts && Array.isArray(ts.features) && ts.features.length > 0 ? ts : null
       trees.value = tr && Array.isArray(tr.features) && tr.features.length > 0 ? tr : null
       schools.value = sc && Array.isArray(sc.features) ? sc : null
@@ -140,5 +145,5 @@ export function useData() {
     }
   }
 
-  return { meta, schools, libraries, tracts, parks, roads, bike, transit, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
+  return { meta, schools, libraries, tracts, parks, roads, bike, transit, sidewalks, trees, loading, error, load, loadTrees, treesLoading, treesDeferred }
 }

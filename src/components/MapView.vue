@@ -54,6 +54,7 @@ const props = defineProps<{
   parks: ParkCollection
   roads: FeatureCollection | null
   bike?: FeatureCollection | null
+  sidewalks?: FeatureCollection | null
   transit?: FeatureCollection | null
   /** #51: pack tree points; null = pack has none (layer not added). */
   trees?: FeatureCollection | null
@@ -77,7 +78,7 @@ let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showSidewalks, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 /** #108 soft: community-centre ring width — heavier on dark/satellite for contrast. */
 function civicRingWidth() { return isDark.value || basemap.value === 'satellite' ? 2.75 : 2 }
 let scaleCtrl: maplibregl.ScaleControl | null = null
@@ -212,6 +213,7 @@ function addDataLayers(m: MlMap) {
   const empty = { type: 'FeatureCollection', features: [] } as FeatureCollection
   m.addSource('bike', { type: 'geojson', data: props.bike ?? empty })
   m.addSource('transit', { type: 'geojson', data: props.transit ?? empty })
+  m.addSource('sidewalks', { type: 'geojson', data: props.sidewalks ?? empty })
 
   m.addLayer({
     id: 'tracts-fill', type: 'fill', source: 'tracts',
@@ -240,6 +242,21 @@ function addDataLayers(m: MlMap) {
     filter: ['==', ['get', 'geoid'], '__none__'],
     layout: { 'line-cap': 'round', visibility: showRoads.value ? 'visible' : 'none' },
     paint: { 'line-color': '#ef6c00', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 4] },
+  }, before)
+  // #110: mapped sidewalks — amber, thinner than bike, below bike/transit; road-tagged soft dashed. Not a click target.
+  const swColor = isDark.value ? '#fbc02d' : '#f9a825'
+  const swWidth = ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 1.5] as any
+  m.addLayer({
+    id: 'sidewalks-lines', type: 'line', source: 'sidewalks',
+    filter: ['!=', ['get', 'src'], 'road'],
+    layout: { 'line-cap': 'round', 'line-join': 'round', visibility: showSidewalks.value ? 'visible' : 'none' },
+    paint: { 'line-color': swColor, 'line-width': swWidth, 'line-opacity': 0.9 },
+  }, before)
+  m.addLayer({
+    id: 'sidewalks-road', type: 'line', source: 'sidewalks',
+    filter: ['==', ['get', 'src'], 'road'],
+    layout: { 'line-join': 'round', visibility: showSidewalks.value ? 'visible' : 'none' },
+    paint: { 'line-color': swColor, 'line-width': swWidth, 'line-opacity': 0.7, 'line-dasharray': [2, 2] },
   }, before)
   // #104: bike lines above tract fill, beside low-tree roads; transit dots above. Not click targets (tract click passes through).
   m.addLayer({
@@ -588,6 +605,9 @@ watch(showLibraries, (v) => setVis('libraries', v))
 watch([isDark, basemap], () => { if (map?.getLayer('libraries')) map.setPaintProperty('libraries', 'circle-stroke-width', ['match', ['get', 'amenity'], 'community_centre', civicRingWidth(), 1.25]) })
 watch(showBike, (v) => setVis('bike-lines', v))
 watch(showTransit, (v) => setVis('transit-stops', v))
+watch(showSidewalks, (v) => { setVis('sidewalks-lines', v); setVis('sidewalks-road', v) })
+watch(isDark, (d) => ['sidewalks-lines', 'sidewalks-road'].forEach((id) => { if (map?.getLayer(id)) map.setPaintProperty(id, 'line-color', d ? '#fbc02d' : '#f9a825') }))
+watch(() => props.sidewalks, (s) => { ;(map?.getSource('sidewalks') as GeoJSONSource | undefined)?.setData(s ?? { type: 'FeatureCollection', features: [] } as FeatureCollection) })
 watch(isDark, (d) => { if (map?.getLayer('bike-lines')) map.setPaintProperty('bike-lines', 'line-color', d ? '#4fc3f7' : '#0277bd') })
 watch(() => [props.bike, props.transit], () => {
   const e = { type: 'FeatureCollection', features: [] } as FeatureCollection
