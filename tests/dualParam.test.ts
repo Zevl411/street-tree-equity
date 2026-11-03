@@ -58,3 +58,11 @@ test('#123 snap resolves with aliases and round-trips in ?dual=', () => {
   assert.equal(resolveMetric('SNAP'), 'snap')
   assert.equal(encodeDualParam('snap', 'trees'), 'snap,trees')
 })
+
+test('#124 plantNeed resolves with aliases and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,plantNeed'), { left: 'trees', right: 'plantNeed' })
+  assert.equal(resolveMetric('plantneed'), 'plantNeed')
+  assert.equal(resolveMetric('NEED'), 'plantNeed')
+  assert.equal(encodeDualParam('trees', 'plantNeed'), 'trees,plantneed')
+  assert.deepEqual(p(encodeDualParam('trees', 'plantNeed')), { left: 'trees', right: 'plantNeed' })
+})

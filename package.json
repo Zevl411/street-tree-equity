@@ -27,6 +27,7 @@
     "add:lep": "node scripts/add-acs-lep.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:snap": "node scripts/add-acs-snap.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:gardens": "for d in public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl; do node scripts/add-gardens.mjs $d; done",
+    "add:plantneed": "node scripts/add-plant-need.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "add:places": "node scripts/add-cdc-places.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
   },
