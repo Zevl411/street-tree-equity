@@ -74,3 +74,11 @@ test('#125 mentalHealth resolves with aliases and round-trips in ?dual=', () => 
   assert.equal(resolveMetric('MENTALHEALTH'), 'mentalHealth')
   assert.equal(encodeDualParam('mentalHealth', 'trees'), 'mentalhealth,trees')
 })
+
+test('#127 physicalHealth resolves with aliases and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,physicalHealth'), { left: 'trees', right: 'physicalHealth' })
+  assert.deepEqual(p('PHLTH,mentalHealth'), { left: 'physicalHealth', right: 'mentalHealth' })
+  assert.equal(resolveMetric('physical'), 'physicalHealth')
+  assert.equal(resolveMetric('PHYSICALHEALTH'), 'physicalHealth')
+  assert.equal(encodeDualParam('physicalHealth', 'trees'), 'physicalhealth,trees')
+})
