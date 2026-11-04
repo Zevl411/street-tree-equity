@@ -52,6 +52,19 @@
         25.85
       ],
       "status": "ready"
+    },
+    {
+      "id": "orlando-fl",
+      "cityName": "Orlando, FL",
+      "subtitle": "Central Orlando",
+      "dataPath": "data/orlando-fl",
+      "bbox": [
+        -81.43,
+        28.48,
+        -81.33,
+        28.59
+      ],
+      "status": "ready"
     }
   ]
 }
