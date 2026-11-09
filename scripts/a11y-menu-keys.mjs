@@ -274,6 +274,8 @@ async function dualFocusSuite(mobile) {
   await observeFocus(); await press('d')
   check(await waitFor(dualOn, 2000), 'Dual shortcut ON in focus mode: changes view')
   await focusCheck('Dual shortcut ON in focus mode', `document.activeElement === (${dualSwitch})`)
+  // Recover on an unfixed base so later cases still run and report their own failures.
+  await evaluate(`document.querySelector('button[aria-label="Exit focus"]')?.click()`)
   // The single/dual canvas is replaced too. d must not strand focus in the removed map.
   await toggleTo(false)
   await press('Escape'); await waitFor(`!${layersVisible}`); await settled()
