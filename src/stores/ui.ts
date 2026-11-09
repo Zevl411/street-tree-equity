@@ -195,6 +195,8 @@ export const useUiStore = defineStore('ui', () => {
   const showPostOffices = ref(false)
   /** #130: OSM playgrounds dots — session + share (`layers=playgrounds`) only; default off. */
   const showPlaygrounds = ref(false)
+  /** #132: OSM public toilets dots — session + share (`layers=toilets`) only; default off. */
+  const showToilets = ref(false)
   /** #112: OSM pharmacies + clinics dots — session + share (`layers=clinics`) only; default off. */
   const showClinics = ref(false)
   /** #116: OSM hospitals + fire stations dots — session + share (`layers=emergency`) only; default off. */
@@ -220,7 +222,7 @@ export const useUiStore = defineStore('ui', () => {
     fillOpacity, setFillOpacity,
     choroplethMode, setChoroplethMode, choroplethPalette, setChoroplethPalette,
     legendExpandedPref, setLegendExpanded,
-    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, aboutOpen,
+    showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showToilets, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, aboutOpen,
     densityBinIndex, setDensityBin,
   }
 })
