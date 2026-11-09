@@ -36,7 +36,7 @@ test('#147 every candidate gets polarity from the registry, and all 15 PLACES ca
     assert.equal(s.modelEstimate, id in PLACES_MEASURES)
     assert.equal(snapshotRow(s, 'Example', 'acre').line1.includes('model estimate'), id in PLACES_MEASURES)
   }
-  assert.equal(Object.keys(PLACES_MEASURES).length, 15)
+  assert.equal(Object.keys(PLACES_MEASURES).length, 16) // #151 source-only measure awaits UI lock
   assert.equal(PLACES_METRIC_IDS.length, 15)
   assert.match(snapshotRow(score('uninsured', [0,1,2,3,4,5,6,7,8,9], 9), 'Example', 'acre').ariaLabel, /No health insurance \(ages 18–64\)/)
 })

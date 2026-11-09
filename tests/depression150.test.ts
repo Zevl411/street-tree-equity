@@ -28,7 +28,7 @@ for(const dir of Object.keys(baseline.packs))test(`#150 ${dir}: complete value/C
   for(const k of fields)assert.ok(typeof t[k]==='number'&&Number.isFinite(t[k]),`${t.geoid} ${k}`)
   assert.ok(t.pctDepression!>=0&&t.pctDepression!<=100&&t.pctDepressionLo!<=t.pctDepression!&&t.pctDepressionHi!>=t.pctDepression!&&t.depressionAdultPop!>0)
  }
- const stripped=structuredClone(fc);for(const f of stripped.features)for(const k of fields)delete f.properties[k]
+ const stripped=structuredClone(fc);for(const f of stripped.features)for(const k of [...fields,'pctGeneralHealth','pctGeneralHealthLo','pctGeneralHealthHi','generalHealthAdultPop'] as const)delete f.properties[k]
  assert.equal(hash(JSON.stringify(stripped)),p.collectionSha256,'every original property and geometry, including precision and key order, matches main 6e0996d')
  assert.equal(hash(JSON.stringify(fc.features.map(f=>f.geometry))),p.geometrySha256)
  assert.equal(hash(JSON.stringify([m.canopy,m.canopyGap,m.plantNeed,m.metricBreaks!.canopy,m.metricBreaks!.canopyGap,m.metricBreaks!.plantNeed,m.overall.canopyPct,m.overall.canopyGapAcres,m.overall.plantNeed])),p.protectedMetaSha256)
@@ -56,15 +56,15 @@ test('#150 direct Socrata yjkw-uj5s check: 12086002404 = 14.1, 95% CI 11.8–16.
  assert.match(placesMetricCitation('depression',{DEPRESSION:2023})!,/2023/)
  assert.doesNotMatch(placesMetricCitation('depression',{})!,/BRFSS|2023|undefined/)
 })
-test('#150 full CSV is exactly 106 unique columns; legacy 103 headers unchanged, depression values and every row align in all 7 packs/both targets',()=>{
- assert.equal(CSV_HEADERS.length,106);assert.equal(new Set(CSV_HEADERS).size,106)
- assert.deepEqual(CSV_HEADERS.filter(h=>!h.startsWith('pct_depression')),baseline.legacyCsvHeaders)
+test('#150 full CSV is 109 unique columns after #151; legacy 103 headers unchanged, depression values and every row align in all 7 packs/both targets',()=>{
+ assert.equal(CSV_HEADERS.length,109);assert.equal(new Set(CSV_HEADERS).size,109)
+ assert.deepEqual(CSV_HEADERS.filter(h=>!h.startsWith('pct_depression')&&!h.startsWith('pct_general_health')),baseline.legacyCsvHeaders)
  assert.deepEqual(CSV_HEADERS.slice(84,87),['pct_depression','pct_depression_ci_lo','pct_depression_ci_hi'])
  let count=0
  for(const dir of Object.keys(baseline.packs)){const {fc,meta}=load(dir)
   for(const mode of ['p75','30']as const){const [h,...rows]=toCsv(fc.features.map(f=>f.properties),meta,mode).trimEnd().split('\r\n').map(splitCsv)
    assert.equal(rows.length,fc.features.length)
-   rows.forEach((row:string[],i:number)=>{assert.equal(row.length,106);for(const [header,key]of [['pct_depression','pctDepression'],['pct_depression_ci_lo','pctDepressionLo'],['pct_depression_ci_hi','pctDepressionHi']]as const)assert.equal(row[h.indexOf(header)],String(fc.features[i].properties[key]))})
+   rows.forEach((row:string[],i:number)=>{assert.equal(row.length,109);for(const [header,key]of [['pct_depression','pctDepression'],['pct_depression_ci_lo','pctDepressionLo'],['pct_depression_ci_hi','pctDepressionHi']]as const)assert.equal(row[h.indexOf(header)],String(fc.features[i].properties[key]))})
   }count+=fc.features.length
  }assert.equal(count,464)
 })

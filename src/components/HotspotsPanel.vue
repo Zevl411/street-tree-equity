@@ -163,7 +163,7 @@ function pick(geoid: string) {
 <template>
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" :max-width="mobile ? undefined : 380" scrollable>
     <v-card id="hotspots-panel" :density="mobile ? 'comfortable' : 'compact'">
-      <v-card-title class="d-flex align-center text-subtitle-1" :class="{ 'text-wrap': ui.metric.id === 'depression' }">
+      <v-card-title class="d-flex align-center text-subtitle-1 text-wrap">
         {{ ui.metric.hotspotTitle }}
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" class="hotspots-close" @click="open = false" />

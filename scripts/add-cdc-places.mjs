@@ -6,6 +6,7 @@
  *   #150 incremental join: PLACES_MEASURES=DEPRESSION preserves all existing tract fields.
  *   DEPRESSION is ever-diagnosed depression among adults (not MHLTH frequent mental distress).
  *   pctDepression / pctDepressionLo/Hi / depressionAdultPop use the same crude reader and weights.
+ *   #151: PLACES_MEASURES=GHLTH → pctGeneralHealth / Lo / Hi / generalHealthAdultPop.
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
  *     'https://data.cdc.gov/api/views/yjkw-uj5s/rows.csv?accessType=DOWNLOAD'
@@ -120,7 +121,7 @@ async function resolvePlacesMeasureYear(measure, fieldName, envKey) {
   console.log(`[places] ${measure} BRFSS year ${y} (from Socrata column metadata: ${desc})`)
   return y
 }
-// #150: DEPRESSION appends after ACCESS2; UI order is separate. metricId → meta.metricBreaks key; key → TractProps prefix.
+// #151: GHLTH appends after DEPRESSION; UI order is separate. metricId → meta.metricBreaks key; key → TractProps prefix.
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
   { measure: 'DIABETES', metricId: 'diabetes', key: 'pctDiabetes', popKey: 'diabetesAdultPop', value: 'diabetes_crudeprev', ci: 'diabetes_crude95ci' },
@@ -137,6 +138,7 @@ const MEASURES = [
   { measure: 'SLEEP', metricId: 'shortSleep', key: 'pctShortSleep', popKey: 'shortSleepAdultPop', value: 'sleep_crudeprev', ci: 'sleep_crude95ci' },
   { measure: 'ACCESS2', metricId: 'uninsured', key: 'pctUninsured', popKey: 'uninsuredAdultPop', value: 'access2_crudeprev', ci: 'access2_crude95ci' },
   { measure: 'DEPRESSION', metricId: 'depression', key: 'pctDepression', popKey: 'depressionAdultPop', value: 'depression_crudeprev', ci: 'depression_crude95ci' },
+  { measure: 'GHLTH', metricId: 'generalHealth', key: 'pctGeneralHealth', popKey: 'generalHealthAdultPop', value: 'ghlth_crudeprev', ci: 'ghlth_crude95ci' },
 ]
 // Selective backfills must not delete/reinsert unrelated fields or change their bytes/order.
 const requestedMeasures = process.env.PLACES_MEASURES ? new Set(process.env.PLACES_MEASURES.split(',').map((m) => m.trim())) : null
@@ -161,6 +163,11 @@ console.log(`[places] ${CSV}: ${total} rows; columns ${JSON.stringify(columns)}`
 if (selectedMeasures.some((M) => M.measure === 'DEPRESSION')) {
   const missing = [...want].filter((id) => { const v = placesNum(rows.get(id)?.depression_crudeprev); return v == null || v < 0 || v > 100 })
   if (missing.length) throw new Error(`STOP: DEPRESSION coverage ${want.size - missing.length}/${want.size}; missing ${missing.join(', ')}. GHLTH requires TL approval.`)
+}
+// #151: GHLTH must have complete coverage before any output is changed.
+if (selectedMeasures.some((M) => M.measure === 'GHLTH')) {
+  const missing = [...want].filter((id) => { const v = placesNum(rows.get(id)?.ghlth_crudeprev); return v == null || v < 0 || v > 100 })
+  if (missing.length) throw new Error(`STOP: GHLTH coverage ${want.size - missing.length}/${want.size}; missing ${missing.join(', ')}. No fallback.`)
 }
 const retrievedAt = process.env.PLACES_RETRIEVED || fs.statSync(CSV).mtime.toISOString().slice(0, 10)
 const r1 = (x) => Math.round(x * 10) / 10
@@ -207,6 +214,7 @@ for (const p of packs) {
     console.log(`[places] #141 check 12086002404 pctStroke=${f.properties.pctStroke} CI=(${f.properties.pctStrokeLo}, ${f.properties.pctStrokeHi}) pop=${f.properties.strokeAdultPop}`)
     console.log(`[places] #143 check 12086002404 pctDisability=${f.properties.pctDisability} CI=(${f.properties.pctDisabilityLo}, ${f.properties.pctDisabilityHi}) pop=${f.properties.disabilityAdultPop}`)
     console.log(`[places] #144 check 12086002404 pctShortSleep=${f.properties.pctShortSleep} CI=(${f.properties.pctShortSleepLo}, ${f.properties.pctShortSleepHi}) pop=${f.properties.shortSleepAdultPop}`)
+    console.log(`[places] #151 check 12086002404 pctGeneralHealth=${f.properties.pctGeneralHealth} CI=(${f.properties.pctGeneralHealthLo}, ${f.properties.pctGeneralHealthHi}) pop=${f.properties.generalHealthAdultPop}`)
     console.log(`[places] #150 check 12086002404 pctDepression=${f.properties.pctDepression} CI=(${f.properties.pctDepressionLo}, ${f.properties.pctDepressionHi}) pop=${f.properties.depressionAdultPop}`)
     console.log(`[places] #146 check 12086002404 pctUninsured=${f.properties.pctUninsured} CI=(${f.properties.pctUninsuredLo}, ${f.properties.pctUninsuredHi}) adults18plusWeight=${f.properties.uninsuredAdultPop}`)
   } else console.warn('[places] #136/#138/#141/#143/#144/#146 check tract 12086002404 not in pack', p.dir)

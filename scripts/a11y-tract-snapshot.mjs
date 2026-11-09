@@ -288,7 +288,7 @@ async function canopyDownloads() {
  const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8'))
  const meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
  const full=parseCsv(await download('All tracts in this city (CSV)'))
- check(JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta))),'Miami actual full CSV: all 152 rows / 103 columns match every source-driven cell')
+ check(JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta))),`Miami actual full CSV: all ${full.length - 1} rows / ${full[0].length} columns match every source-driven cell`)
  const text=await download('CSV – current view (Tree canopy)'), current=parseCsv(text.split(/\r?\n/).filter(l=>!l.startsWith('#')).join('\r\n'))
  const expected=parseCsv(toCurrentViewCsv({rows:fc.features.map(f=>({cityId:'central-miami-fl',meta,props:f.properties})),metrics:['canopy'],unit:'acre',comments:[]}))
  check(JSON.stringify(current)===JSON.stringify(expected),'Miami actual current-view CSV: all 152 rows match every cell; canopy and mapped-density context separate')
