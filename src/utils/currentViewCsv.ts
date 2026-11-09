@@ -3,6 +3,7 @@
 import type { Meta, TractProps } from '@/types'
 import { METRICS, type MetricDef, type MetricId, type MetricValueKey } from './metrics.ts'
 import { placesCitation } from './placesCitation.ts'
+import { PLACES_MEASURES } from './placesMeasures.ts'
 
 export const CRLF = '\r\n'
 /** Same constant as stores/ui (kept local so this module stays store-free). */
@@ -119,19 +120,8 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
   return lines.join(CRLF) + CRLF
 }
 
-/** CDC PLACES measure + citation copy per metric (same strings as App About / copy citations). */
-const PLACES: Partial<Record<MetricId, [measure: string, title: string, topic: string]>> = {
-  asthma: ['CASTHMA', 'Current asthma among adults', 'current asthma'],
-  diabetes: ['DIABETES', 'Diagnosed diabetes among adults', 'diagnosed diabetes'],
-  obesity: ['OBESITY', 'Obesity among adults', 'obesity'],
-  mentalHealth: ['MHLTH', 'Frequent mental distress among adults', 'frequent mental distress'],
-  physicalHealth: ['PHLTH', 'Frequent physical distress among adults', 'frequent physical distress'],
-  chd: ['CHD', 'Coronary heart disease among adults', 'coronary heart disease or angina'],
-  bphigh: ['BPHIGH', 'High blood pressure among adults', 'high blood pressure'],
-  inactivity: ['LPA', 'No leisure-time physical activity among adults', 'activity'],
-  copd: ['COPD', 'Chronic obstructive pulmonary disease (COPD) among adults', 'COPD'],
-  smoking: ['CSMOKING', 'Current cigarette smoking among adults', 'current cigarette smoking'],
-}
+/** #140: Designer-locked tooltip for all 3 current-view CSV entries (supplements each entry's aria-label). */
+export const CSV_VIEW_TOOLTIP = 'Download the tracts and metrics in this view as a CSV file'
 
 /** `sources:` text resolved from meta only (no hardcoded years). */
 export function sourcesLine(meta: Meta, metrics: MetricId[]): string {
@@ -155,7 +145,7 @@ export function citationLines(meta: Meta, metrics: MetricId[]): string[] {
   const cdc = meta.cdcPlaces
   if (!cdc) return []
   return metrics.flatMap((id) => {
-    const p = PLACES[id]
+    const p = PLACES_MEASURES[id]
     if (!p || (cdc.measures && !cdc.measures.includes(p[0]))) return []
     return [`citation: ${placesCitation(p[1], p[2], cdc.years?.[p[0]])}`]
   })

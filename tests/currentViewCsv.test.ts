@@ -8,7 +8,7 @@ const meta = (over: Partial<Meta> = {}): Meta => ({
   cityName: 'Portland, OR', subtitle: 'Central Portland', osmTimestamp: '2026-10-29T05:53:34Z',
   censusVintage: '2023 cartographic boundary (cb_2023_41_tract_500k)',
   acs: { table: 'B19013', vintage: '2020-2024', retrievedAt: '2026-11-03', sourceUrl: 'x' },
-  cdcPlaces: { release: '2025', measure: 'CASTHMA', measures: ['CASTHMA', 'COPD'], dataYear: 2023, valueType: 'crude', retrievedAt: '2026-11-09', sourceUrl: 'y', columns: {}, years: { CASTHMA: 2023, COPD: 2023 } },
+  cdcPlaces: { release: '2025', measure: 'CASTHMA', measures: ['CASTHMA', 'COPD'], valueType: 'crude', retrievedAt: '2026-11-09', sourceUrl: 'y', columns: {}, years: { CASTHMA: 2023, COPD: 2023 } },
   ...over,
 } as unknown as Meta)
 
