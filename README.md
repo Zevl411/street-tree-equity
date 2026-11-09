@@ -57,6 +57,7 @@ service (3 queries, cached, retries across mirrors).
 npm run build          # type-check + build to dist/ (base "/")
 npm run serve          # Express: http://localhost:3000/  (API at /api/meta, /api/tracts, /api/tracts/:geoid, /api/parks)
 npm run test:smoke     # starts the server and checks the main routes
+npm run test:a11y      # headless Chrome: keyboard checks for the Export…, Download… and compare CSV buttons
 ```
 
 To mimic GitHub Pages locally:

@@ -35,12 +35,21 @@ export function useOverlayFocus(
   /** Return false when another surface (e.g. the tract drawer) takes focus on close. */
   shouldRestore: () => boolean = () => true,
 ) {
+  watchOverlayFocus(open, () => focusSoon(initial), fallback, shouldRestore)
+}
+
+function watchOverlayFocus(
+  open: Ref<boolean>,
+  focusInitial: () => Promise<unknown>,
+  fallback?: () => string | null,
+  shouldRestore: () => boolean = () => true,
+) {
   let opener: HTMLElement | null = null
   watch(open, async (v) => {
     if (v) {
       const active = document.activeElement as HTMLElement | null
       opener = active && active !== document.body ? active : null
-      await focusSoon(initial)
+      await focusInitial()
     } else {
       const el = opener
       opener = null
@@ -51,6 +60,26 @@ export function useOverlayFocus(
         else { const f = fallback?.(); if (f) void focusSoon(f) }
       }, 0)
     }
+  })
+}
+
+const macrotask = () => new Promise((r) => setTimeout(r, 0))
+
+/**
+ * #142: WAI-ARIA menu button for a VMenu whose list has id `menuId`.
+ * Enter / Space open the menu through the activator's click, which VMenu doesn't focus into, so we
+ * move focus to the first item. ArrowDown / ArrowUp are VMenu's own: it opens, then focuses the
+ * first / last item two timer ticks later. Our watcher queues its ticks behind VMenu's, and leaves
+ * focus alone when VMenu already moved it into the menu, so ArrowDown can't skip to the 2nd item.
+ * Escape / close return focus to the activator, as in useOverlayFocus.
+ */
+export function useMenuButtonFocus(open: Ref<boolean>, menuId: string) {
+  const inMenu = () => !!document.getElementById(menuId)?.contains(document.activeElement)
+  watchOverlayFocus(open, async () => {
+    await macrotask()
+    await macrotask()
+    if (inMenu() || !open.value) return
+    await focusSoon(() => (inMenu() ? null : document.querySelector<HTMLElement>(`#${menuId} .v-list-item:not(.v-list-item--disabled)`)))
   })
 }
 
