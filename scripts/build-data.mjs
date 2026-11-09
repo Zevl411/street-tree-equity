@@ -41,6 +41,7 @@ import { fetchSidewalks, applySidewalks } from './lib/sidewalks.mjs'
 import { fetchClinics, applyClinics } from './lib/clinics.mjs'
 import { fetchEmergency, applyEmergency } from './lib/emergency.mjs'
 import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
+import { checkFile } from './lib/size-guard.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -58,9 +59,12 @@ const log = (...a) => console.log('[data]', ...a)
 
 async function writeJson(name, obj) {
   const text = JSON.stringify(obj)
-  await fs.writeFile(path.join(OUT_DIR, name), text)
-  log(`wrote public/data/${name} (${(text.length / 1024).toFixed(0)} KB)`)
-  return text.length
+  const outPath = path.join(OUT_DIR, name)
+  const bytes = Buffer.byteLength(text)
+  await fs.writeFile(outPath, text)
+  log(`wrote public/data/${name} (${(bytes / 1024).toFixed(0)} KB)`)
+  checkFile(`public/data/${name}`, bytes)
+  return bytes
 }
 
 // ---------------------------------------------------------------------------

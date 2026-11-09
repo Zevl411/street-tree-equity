@@ -11,6 +11,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { checkFile, packReport } from './lib/size-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = Object.fromEntries(
@@ -70,6 +71,19 @@ if (get('SKIP_BUILD') !== '1') {
   for (const f of ['meta.json', 'tracts-equity.geojson']) {
     await fs.access(path.join(packDir, f)).catch(() => fail(`required ${f} missing from pack`))
   }
+  // #135: per-file size guard on every FILES entry that landed in the pack
+  for (const f of FILES) {
+    const fp = path.join(packDir, f)
+    try {
+      const st = await fs.stat(fp)
+      checkFile(`public/data/${cityId}/${f}`, st.size)
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue
+      throw e
+    }
+  }
+  const report = await packReport(packDir)
+  console.log(`build-city-pack: ${cityId} pack total ${(report.totalBytes / 1048576).toFixed(3)} MB (${report.files.length} files)`)
 }
 
 const citiesPath = path.join(ROOT, 'public', 'cities.json')

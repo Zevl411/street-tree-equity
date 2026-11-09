@@ -3,17 +3,15 @@
  * #134: backfill OSM amenity=bench NODES into an existing pack.
  *   node scripts/add-benches.mjs public/data/<city-id> [--refresh]
  * Writes compact benches.geojson (5-dp coords, kind + soft backrest; ways skipped) +
- * tract benchesInside, meta.counts.benches. Logs size; soft warn >1 MB; hard fail >3 MB.
- * No metricBreaks / MetricId. No silent thinning.
+ * tract benchesInside, meta.counts.benches. Logs size; soft warn >1 MB; hard fail >3 MB
+ * via shared size-guard (#135). No metricBreaks / MetricId. No silent thinning.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as turf from '@turf/turf'
 import { setRawOptions } from './lib/sources.mjs'
 import { fetchBenches, applyBenches } from './lib/benches.mjs'
-
-const WARN_BYTES = 1 * 1024 * 1024
-const FAIL_BYTES = 3 * 1024 * 1024
+import { checkFile } from './lib/size-guard.mjs'
 
 const dir = process.argv[2]
 if (!dir) throw new Error('usage: add-benches.mjs <packDir>')
@@ -39,10 +37,8 @@ await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta))
 const mb = (bytes / 1048576).toFixed(3)
 const inside = tractsFc.features.reduce((a, f) => a + (f.properties.benchesInside || 0), 0)
 console.log(`[benches] ${dir}: ${r.benches} points, inside ${inside}, benches.geojson ${mb} MB (${bytes} bytes)`)
-if (bytes > FAIL_BYTES) {
-  console.error(`[benches] FAIL: ${dir} benches.geojson is ${mb} MB (> 3 MB). Likely bbox/query bug — not thinning.`)
+try {
+  checkFile(outPath, bytes)
+} catch (e) {
   process.exit(1)
-}
-if (bytes > WARN_BYTES) {
-  console.warn(`[benches] WARN: ${dir} benches.geojson is ${mb} MB (> 1 MB soft target). Do not thin silently — escalate to TL/UI Designer if legitimate.`)
 }

@@ -23,5 +23,7 @@ jobs:
       - name: Typecheck (vue-tsc, required)
         run: npm run typecheck
       - run: npm run build
+      - name: Pack sizes (warn-only)
+        run: npm run report:sizes
       - run: npm run test:smoke
       - run: npm run test:unit
