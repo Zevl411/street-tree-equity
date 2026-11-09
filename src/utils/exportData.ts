@@ -2,6 +2,9 @@ import { dataUrl } from '@/composables/useData'
 import { cityMedian } from '@/utils/densityBins'
 import { ACRES_PER_KM2 } from '@/stores/ui'
 import type { Meta, TractCollection, TractProps } from '@/types'
+// #139: `cell()` moved to the pure currentViewCsv module (unit-testable); same function, re-used here.
+import { cell, ymd } from '@/utils/currentViewCsv'
+export { cell, CRLF, toCurrentViewCsv, currentViewComments, viewScope, metricHasCi, metricHasMoe } from '@/utils/currentViewCsv'
 
 /** #23 client-side export. Blob download only — no server endpoint. */
 export const CSV_HEADERS = [
@@ -57,11 +60,6 @@ export const CSV_HEADERS = [
 export const ODBL_NOTICE =
   'Includes OpenStreetMap-derived values (ODbL). © OSM contributors. Tracts: U.S. Census Bureau.'
 
-const cell = (v: unknown): string => {
-  if (v === null || v === undefined) return ''
-  const s = String(v)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
 
 function row(t: TractProps, meta: Meta): string {
   return [
@@ -81,8 +79,7 @@ export const toCsv = (tracts: TractProps[], meta: Meta) =>
   [CSV_HEADERS.join(','), ...tracts.map((t) => row(t, meta))].join('\r\n') + '\r\n'
 
 export function exportFilename(cityId: string, scope: string, ext: 'csv' | 'geojson', d = new Date()): string {
-  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  return `street-tree-equity_${cityId}_${scope}_${ymd}.${ext}`
+  return `street-tree-equity_${cityId}_${scope}_${ymd(d)}.${ext}`
 }
 
 export function downloadBlob(content: string, filename: string, type: string): void {

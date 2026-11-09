@@ -7,7 +7,8 @@ import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { useOverlayFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
-import { ODBL_NOTICE, downloadBlob, exportFilename, fetchTracts, toCsv, toGeoJson } from '@/utils/exportData'
+import { ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
+import { METRICS, type MetricId } from '@/utils/metrics'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null }>()
 const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature] }>()
@@ -141,6 +142,34 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
       else downloadBlob(toGeoJson(fc, props.meta), exportFilename(cityId, 'all', 'geojson'), 'application/geo+json')
     }
     snackText.value = 'Download started'
+  } catch {
+    snackText.value = "Couldn't prepare the file. Try again."
+  }
+  snack.value = true
+}
+
+// #139 current-view CSV: all pack tracts + canopy + active metric (dual: both panes). Focus stays put after download.
+const viewMetrics = computed<MetricId[]>(() => (ui.dualView ? [ui.dualLeft, ui.dualRight] : [ui.metric.id]))
+const viewTitle = computed(() => `CSV – current view (${ui.metric.shortLabel})`)
+const viewAria = computed(() => {
+  const ids = viewMetrics.value
+  const labels = ids.length === 2 ? `${METRICS[ids[0]].shortLabel} and ${METRICS[ids[1]].shortLabel}` : ui.metric.shortLabel
+  return `Download current-view CSV, ${labels}, ${props.total} tracts`
+})
+async function exportView() {
+  try {
+    const cityId = cityStore.city?.id ?? cityStore.cityId ?? 'city'
+    const fc = await fetchTracts(cityStore.city?.dataPath ?? 'data')
+    const ids = viewMetrics.value
+    const csv = toCurrentViewCsv({
+      rows: fc.features.map((f) => ({ cityId, cityName: props.meta.cityName, props: f.properties })),
+      metrics: ids,
+      unit: ui.densityUnit === 'km2' ? 'km2' : 'acre',
+      comments: currentViewComments([{ id: cityId, meta: props.meta }], ids, window.location.href),
+    })
+    const name = exportFilename(cityId, viewScope(ids), 'csv')
+    downloadBlob(csv, name, 'text/csv;charset=utf-8')
+    snackText.value = `Downloaded ${name} (${fc.features.length} tracts)`
   } catch {
     snackText.value = "Couldn't prepare the file. Try again."
   }
@@ -364,6 +393,7 @@ function copyLink() {
         <v-list id="download-menu" density="compact">
           <v-list-item title="This tract (CSV)" :aria-label="`Download CSV for ${tract.name}`" @click="doExport('tract')" />
           <v-list-item title="All tracts in this city (CSV)" @click="doExport('all-csv')" />
+          <v-list-item :title="viewTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewAria" @click="exportView" />
           <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />
         </v-list>
       </v-menu>

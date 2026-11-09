@@ -7,6 +7,8 @@ import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
 import { cityMedian, densityPercentile, sortedDensities } from '@/utils/densityBins'
 import { fmtUnitless, metricValue } from '@/utils/metrics'
+import { currentViewComments, downloadBlob, exportFilename, toCurrentViewCsv, viewScope } from '@/utils/exportData'
+import type { TractProps } from '@/types'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
 const props = defineProps<{ mobile?: boolean; initial?: [string, string] | null }>()
@@ -32,7 +34,9 @@ interface Stats {
 }
 const loading = ref(false)
 const failed = ref(false)
-const result = ref<{ a: { name: string; s: Stats }; b: { name: string; s: Stats } } | null>(null)
+/** #139: each side also keeps its loaded meta + tract props for the compare-view CSV. */
+interface Side { id: string; name: string; s: Stats; meta: Meta; props: TractProps[] }
+const result = ref<{ a: Side; b: Side } | null>(null)
 
 function defaults() {
   result.value = null
@@ -58,7 +62,7 @@ function medMean(xs: number[]): { median: number | null; mean: number | null } {
   return { median: v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2, mean: v.reduce((s, n) => s + n, 0) / v.length }
 }
 
-async function stats(id: string): Promise<{ name: string; s: Stats }> {
+async function stats(id: string): Promise<Side> {
   const c = ready.value.find((x) => x.id === id)
   if (!c) throw new Error('unknown city')
   const [meta, tracts] = await Promise.all([
@@ -83,7 +87,10 @@ async function stats(id: string): Promise<{ name: string; s: Stats }> {
   const hasBq = props.some((p) => typeof p.bottomQuartile === 'boolean')
   const roads = props.map((p) => p.roadKm).filter((n): n is number => typeof n === 'number')
   return {
+    id: c.id,
     name: c.cityName,
+    meta,
+    props,
     s: {
       tracts: meta.counts?.tracts ?? props.length,
       median, mean, medianKm2, meanKm2, p10, p90,
@@ -143,6 +150,32 @@ const rows = computed(() => {
   return out
 })
 
+// #139 compare-view CSV: city A then city B tracts (city_id, geoid asc), app's active metric both sides.
+const csvTitle = computed(() => `CSV – compare view (${ui.metric.shortLabel})`)
+const csvCount = computed(() => (result.value ? result.value.a.props.length + result.value.b.props.length : 0))
+const csvAria = computed(() => `Download compare-view CSV, ${ui.metric.shortLabel}, ${csvCount.value} tracts across 2 cities`)
+function exportCompareCsv() {
+  const r = result.value
+  if (!canCompare.value || !r) return
+  try {
+    const ids = [ui.metric.id]
+    const url = new URL(window.location.href)
+    url.searchParams.set('compare', `${r.a.id},${r.b.id}`)
+    const csv = toCurrentViewCsv({
+      rows: [r.a, r.b].flatMap((side) => side.props.map((p) => ({ cityId: side.id, cityName: side.meta.cityName, props: p }))),
+      metrics: ids,
+      unit: ui.densityUnit === 'km2' ? 'km2' : 'acre',
+      comments: currentViewComments([{ id: r.a.id, meta: r.a.meta }, { id: r.b.id, meta: r.b.meta }], ids, url.href),
+      compare: true,
+    })
+    const name = exportFilename(r.a.id, viewScope(ids, true), 'csv')
+    downloadBlob(csv, name, 'text/csv;charset=utf-8')
+    emit('copied', `Downloaded ${name} (${csvCount.value} tracts, 2 cities)`)
+  } catch {
+    emit('copied', "Couldn't prepare the file. Try again.")
+  }
+}
+
 function openSide(side: 'a' | 'b') {
   const id = side === 'a' ? a.value : b.value
   if (!id) return
@@ -194,6 +227,8 @@ async function copyLink() {
       </v-card-text>
       <v-card-actions class="flex-wrap compare-actions">
         <v-btn variant="text" prepend-icon="mdi-link-variant" :disabled="!canCompare" @click="copyLink">Copy comparison link</v-btn>
+        <v-btn v-if="result" variant="text" size="small" prepend-icon="mdi-file-delimited-outline" :disabled="!canCompare || !result"
+          :aria-label="csvAria" @click="exportCompareCsv">{{ csvTitle }}</v-btn>
         <v-spacer />
         <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.a.name} on the map`" @click="openSide('a')">Open {{ result.a.name }}</v-btn>
         <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.b.name} on the map`" @click="openSide('b')">Open {{ result.b.name }}</v-btn>

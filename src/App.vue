@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toPlantHereCsv } from '@/utils/exportData'
+import { currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -684,6 +684,38 @@ function exportPlantHere() {
     linkSnack.value = "Couldn't prepare the file. Try again."
   }
 }
+/** #139: current-view CSV from the loaded pack (all tracts; active metric, or both dual panes). */
+const viewExportOpen = ref(false)
+useOverlayFocus(viewExportOpen, '#view-export-menu .v-list-item')
+const viewExportDisabled = computed(() => loading.value || !cityStore.cityId || !(tracts.value?.features.length))
+const viewMetricIds = computed<MetricId[]>(() => (ui.dualView ? [ui.dualLeft, ui.dualRight] : [ui.metric.id]))
+const viewCsvTitle = computed(() => `CSV – current view (${ui.metric.shortLabel})`)
+const viewCsvAria = computed(() => {
+  const ids = viewMetricIds.value
+  const labels = ids.length === 2 ? `${METRICS[ids[0]].shortLabel} and ${METRICS[ids[1]].shortLabel}` : ui.metric.shortLabel
+  return `Download current-view CSV, ${labels}, ${tracts.value?.features.length ?? 0} tracts`
+})
+function exportCurrentView() {
+  const id = cityStore.cityId
+  const feats = tracts.value?.features ?? []
+  const m = meta.value
+  if (!id || !feats.length || !m) return
+  try {
+    syncUrl()
+    const ids = viewMetricIds.value
+    const csv = toCurrentViewCsv({
+      rows: feats.map((f) => ({ cityId: id, cityName: m.cityName, props: f.properties })),
+      metrics: ids,
+      unit: densityUnit.value === 'km2' ? 'km2' : 'acre',
+      comments: currentViewComments([{ id, meta: m }], ids, window.location.href),
+    })
+    const name = exportFilename(id, viewScope(ids), 'csv')
+    downloadBlob(csv, name, 'text/csv;charset=utf-8')
+    linkSnack.value = `Downloaded ${name} (${feats.length} tracts)`
+  } catch {
+    linkSnack.value = "Couldn't prepare the file. Try again."
+  }
+}
 const allFavs = useFavorites()
 async function copyLink() {
   syncUrl()
@@ -1027,6 +1059,15 @@ watch(drawerOpen, async (open) => {
             <v-switch v-model="highlightBottomQuartile" label="Outline the 25% of tracts with the fewest trees" color="deep-orange" hide-details density="compact" />
             <v-switch v-model="belowMedian" :label="ui.metric.bmSwitchLabel" color="primary" hide-details density="compact" :disabled="!medianAvailable" />
             <div class="text-caption text-medium-emphasis ms-1 mb-1">{{ medianAvailable ? ui.metric.bmCaption : 'Needs at least 2 tracts with density data' }}</div>
+            <v-menu v-model="viewExportOpen" location="bottom start">
+              <template #activator="{ props: viewMenu }">
+                <v-btn v-bind="viewMenu" variant="text" size="small" prepend-icon="mdi-file-delimited-outline" class="align-self-start" :disabled="viewExportDisabled">Export…</v-btn>
+              </template>
+              <v-list id="view-export-menu" density="compact">
+                <v-list-item :title="viewCsvTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewCsvAria" @click="exportCurrentView" />
+              </v-list>
+            </v-menu>
+            <div v-if="viewExportDisabled" class="text-caption text-medium-emphasis ms-1 mb-1">Load a city to export</div>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(false)">Export below-median CSV</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-table-check" class="align-self-start" :disabled="!medianAvailable" @click="exportBelowMedian(true)">All tracts + below_median flag</v-btn>
             <v-btn variant="text" size="small" prepend-icon="mdi-download" class="align-self-start" aria-label="Export all tracts CSV" :disabled="loading || !cityStore.cityId || !(tracts?.features.length)" @click="exportAllTracts">Export all tracts CSV</v-btn>
