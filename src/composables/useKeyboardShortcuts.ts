@@ -37,7 +37,9 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
     if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return
     if (e.key === 'Escape') { h.escape(); return } // capture phase: runs before Vuetify closes an overlay, so open-state checks are accurate; never preventDefault
     if (e.key.toLowerCase() === 'd' && !e.shiftKey && h.toggleDual) {
-      if (h.toggleDual(document.activeElement as HTMLElement | null)) e.preventDefault()
+      // Vuetify's metric-group typeahead also handles d. Once consumed here it must not
+      // refocus a metric button that the dual transition is about to disable.
+      if (h.toggleDual(document.activeElement as HTMLElement | null)) { e.preventDefault(); e.stopPropagation() }
       return
     }
     if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return
