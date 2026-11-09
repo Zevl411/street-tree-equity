@@ -1,6 +1,9 @@
 /** #147 pure tract-snapshot preparation. No store, Vue, formatting, or UI copy.
  * Pack collections are immutable cache keys: replace the collection or explicitly reset its cache
  * after an in-place data change. Nothing is attached to, sorted in, or otherwise written to the pack.
+ * Later UI wiring (after Designer lock): read ui.dualView only. While dual is on, snapshot items
+ * are plain text, not buttons. Otherwise use ui.setActiveMetric(id) and keep focus on the item.
+ * No dual-component imports or dual-state writes belong here or in that click path.
  */
 import type { TractCollection, TractProps } from '@/types'
 import { METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, metricValue, type MetricId } from './metrics.ts'
@@ -8,17 +11,28 @@ import { METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, metricValue, type MetricId } 
 export const SNAPSHOT_MIN_VALID_TRACTS = 10
 export const SNAPSHOT_WORST_LIMIT = 3
 
+/** Registry audit (#147 TL decision): exclude composite/derived indices to avoid double-counting.
+ * risk = FEMA National Risk Index risk score (derived index).
+ * plantNeed = canopy + poverty + optional asthma (locally constructed composite).
+ * Other registry entries are individual densities, shares/prevalences or a median, not indices.
+ * Canopy remains separately available; it is excluded from worst by the dedicated trees branch.
+ */
+export const SNAPSHOT_EXCLUDED_METRICS: readonly MetricId[] = Object.freeze(['risk', 'plantNeed'] as const)
+const excludedMetrics = new Set(SNAPSHOT_EXCLUDED_METRICS)
+
 export interface SnapshotMetric {
   readonly metricId: MetricId
   readonly value: number
   readonly validCount: number
   /** Ascending-value percentile: average zero-based tied rank / (validCount - 1) × 100.
    * Unique extremes are 0 and 100; an all-equal distribution is 50. Never presentation-rounded.
-   * #147 roadmap does not specify the denominator; this explicit endpoint-normalized convention
-   * is isolated here for TL confirmation before the Designer-locked UI is wired.
+   * TL-confirmed normalization compares with the other n−1 tracts, splitting tied ranks evenly.
+   * Direction is applied separately in badness, interpreted as "worse than X% of other tracts".
    */
   readonly percentile: number
-  /** Higher means worse relative rank: 100 - percentile when higherIsBetter, percentile otherwise. */
+  /** Direction-adjusted mid-rank: "worse than X% of other tracts" (X = badness).
+   * Higher means worse: 100 - percentile when higherIsBetter, percentile otherwise; ties averaged.
+   */
   readonly badness: number
 }
 
@@ -66,6 +80,7 @@ function metricRanks(sorted: readonly number[], higherIsBetter: boolean): Readon
 function preparePack(pack: TractCollection): ReadonlyMap<string, TractSnapshot> {
   const rows: WorkingTract[] = pack.features.map(({ properties }) => ({ props: properties, canopy: null, metrics: [] }))
   for (const id of METRIC_IDS) {
+    if (excludedMetrics.has(id)) continue
     const def = METRICS[id]
     if (typeof def.higherIsBetter !== 'boolean') continue
     const sorted = rows.map(({ props }) => metricValue(props, def.valueKey)).filter(Number.isFinite).sort((a, b) => a - b)
@@ -94,7 +109,8 @@ function preparePack(pack: TractCollection): ReadonlyMap<string, TractSnapshot> 
 
 /** Build every tract's result once per collection, then select by geoid in O(1).
  * Preparation is O(M × N log N + N × M log M), not O(N²) per selection.
- * Eligible metrics come from the registry (defined boolean higherIsBetter), not layer/filter state
+ * Eligible metrics come from the registry (defined boolean higherIsBetter), minus the explicit
+ * SNAPSHOT_EXCLUDED_METRICS audit list, not layer/filter state
  * or metricBreaks. Missing pack/selection/tract returns null; a known tract may have no valid metrics.
  */
 export function tractSnapshot(pack: TractCollection | null | undefined, geoid: string | null | undefined): TractSnapshot | null {
