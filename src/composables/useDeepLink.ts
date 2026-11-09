@@ -28,6 +28,8 @@ export interface LayerFlags {
   playgrounds: boolean
   /** #132: OSM public toilets dots (default off). */
   toilets: boolean
+  /** #134: OSM amenity=bench dots (default off). */
+  benches: boolean
   /** #112: OSM pharmacies + clinics dots (default off). */
   clinics: boolean
   /** #116: OSM hospitals + fire stations dots (default off). */
@@ -36,14 +38,14 @@ export interface LayerFlags {
   sidewalks: boolean
 }
 
-export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false, bike: false, transit: false, libraries: false, sidewalks: false, gardens: false, fountains: false, postoffices: false, playgrounds: false, toilets: false, clinics: false, emergency: false }
-const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools', 'bike', 'transit', 'libraries', 'sidewalks', 'gardens', 'fountains', 'postoffices', 'playgrounds', 'toilets', 'clinics', 'emergency'] as const
+export const DEFAULT_LAYERS: LayerFlags = { trees: true, parks: true, roads: true, bq: false, bm: false, schools: false, bike: false, transit: false, libraries: false, sidewalks: false, gardens: false, fountains: false, postoffices: false, playgrounds: false, toilets: false, benches: false, clinics: false, emergency: false }
+const LAYER_TOKENS = ['trees', 'parks', 'roads', 'bq', 'bm', 'schools', 'bike', 'transit', 'libraries', 'sidewalks', 'gardens', 'fountains', 'postoffices', 'playgrounds', 'toilets', 'benches', 'clinics', 'emergency'] as const
 
 /** `layers=trees,parks,bq` → flags. Unknown tokens ignored; empty value = all off; absent = null. */
 export function parseLayers(raw: string | null): LayerFlags | null {
   if (raw === null) return null
   const set = new Set(raw.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))
-  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools'), bike: set.has('bike'), transit: set.has('transit'), libraries: set.has('libraries'), sidewalks: set.has('sidewalks'), gardens: set.has('gardens'), fountains: set.has('fountains'), postoffices: set.has('postoffices'), playgrounds: set.has('playgrounds'), toilets: set.has('toilets'), clinics: set.has('clinics'), emergency: set.has('emergency') }
+  return { trees: set.has('trees'), parks: set.has('parks'), roads: set.has('roads'), bq: set.has('bq'), bm: set.has('bm'), schools: set.has('schools'), bike: set.has('bike'), transit: set.has('transit'), libraries: set.has('libraries'), sidewalks: set.has('sidewalks'), gardens: set.has('gardens'), fountains: set.has('fountains'), postoffices: set.has('postoffices'), playgrounds: set.has('playgrounds'), toilets: set.has('toilets'), benches: set.has('benches'), clinics: set.has('clinics'), emergency: set.has('emergency') }
 }
 
 /** Flags → token string, or null when they equal the app default (keeps share links short). */

@@ -35,6 +35,7 @@ import { fetchFountains, applyFountains } from './lib/fountains.mjs'
 import { fetchPostOffices, applyPostOffices } from './lib/postoffices.mjs'
 import { fetchPlaygrounds, applyPlaygrounds } from './lib/playgrounds.mjs'
 import { fetchToilets, applyToilets } from './lib/toilets.mjs'
+import { fetchBenches, applyBenches } from './lib/benches.mjs'
 import { fetchBike, fetchTransit, applyMobility } from './lib/mobility.mjs'
 import { fetchSidewalks, applySidewalks } from './lib/sidewalks.mjs'
 import { fetchClinics, applyClinics } from './lib/clinics.mjs'
@@ -188,6 +189,9 @@ log(`playgrounds: ${playgrounds.length} points`)
 // #132: public toilets overlay
 const toilets = await fetchToilets(ob)
 log(`public toilets: ${toilets.length} points`)
+// #134: benches overlay (nodes only)
+const benches = await fetchBenches(ob)
+log(`benches: ${benches.length} points`)
 log(`bike: ${bike.length} ways; transit: ${transit.length} stops`)
 // #110: mapped sidewalks overlay
 const sidewalks = await fetchSidewalks(ob)
@@ -341,6 +345,7 @@ const ft = applyFountains(tractOut, fountains)
 const po = applyPostOffices(tractOut, postOffices)
 const pg = applyPlaygrounds(tractOut, playgrounds)
 const tl = applyToilets(tractOut, toilets)
+const bn = applyBenches(tractOut, benches)
 const mob = applyMobility(tractOut, bike, transit)
 const sw = applySidewalks(tractOut, sidewalks)
 const cl = applyClinics(tractOut, clinics)
@@ -357,6 +362,7 @@ sizes.fountains = await writeJson('fountains.geojson', turf.featureCollection(fo
 sizes.postoffices = await writeJson('postoffices.geojson', turf.featureCollection(postOffices))
 sizes.playgrounds = await writeJson('playgrounds.geojson', turf.featureCollection(playgrounds))
 sizes.toilets = await writeJson('toilets.geojson', turf.featureCollection(toilets))
+sizes.benches = await writeJson('benches.geojson', turf.featureCollection(benches))
 sizes.sidewalks = await writeJson('sidewalks.geojson', turf.featureCollection(sidewalks))
 sizes.clinics = await writeJson('clinics.geojson', turf.featureCollection(clinics))
 sizes.emergency = await writeJson('emergency.geojson', turf.featureCollection(emergency))
@@ -374,7 +380,7 @@ const meta = {
   generatedAt: new Date().toISOString(),
   osmTimestamp,
   censusVintage: `${year} cartographic boundary (cb_${year}_${stateFips}_tract_500k)`,
-  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, bikeKm: mob.bikeKm, transitStops: mob.transitStops, libraries: lib.libraries, communityCentres: lib.communityCentres, gardens: gd.gardens, allotments: gd.allotments, fountains: ft.fountains, postOffices: po.postOffices, playgrounds: pg.playgrounds, toilets: tl.toilets, pharmacies: cl.pharmacies, clinics: cl.clinics, hospitals: em.hospitals, fireStations: em.fireStations, sidewalkKm: sw.sidewalkKm, lowTreeRoadSegments: lowRoads.length },
+  counts: { tracts: tractOut.length, trees: totalTrees, parks: parks.length, groceries: gr.count, schools: sc.count, bikeKm: mob.bikeKm, transitStops: mob.transitStops, libraries: lib.libraries, communityCentres: lib.communityCentres, gardens: gd.gardens, allotments: gd.allotments, fountains: ft.fountains, postOffices: po.postOffices, playgrounds: pg.playgrounds, toilets: tl.toilets, benches: bn.benches, pharmacies: cl.pharmacies, clinics: cl.clinics, hospitals: em.hospitals, fireStations: em.fireStations, sidewalkKm: sw.sidewalkKm, lowTreeRoadSegments: lowRoads.length },
   overall: {
     treesPerAcre: +(totalTrees / totalAcres).toFixed(3),
     parksPerAcre: +(tractOut.reduce((s, f) => s + f.properties.parksInside, 0) / totalAcres).toFixed(5),
