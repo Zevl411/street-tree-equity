@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking'
 
 export interface MetricDef {
   id: MetricId
@@ -363,6 +363,21 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults ever told they have COPD (chronic obstructive pulmonary disease) (CDC PLACES). Community-need context — no causal/diagnostic claim.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #138: CDC PLACES 2025 — CSMOKING current cigarette smoking, adults ≥18 (model-based). Default polarity → Hotspots desc.
+  // Registry appended after copd; Layers switch sits after COPD (end of PLACES / health cluster).
+  smoking: {
+    id: 'smoking',
+    shortLabel: 'Smoking',
+    valueKey: 'pctSmoking',
+    legendTitle: () => 'Adults who currently smoke cigarettes',
+    unitNoun: 'adult smoking share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median adult smoking share',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctSmoking', hotspotNoun: ['high-smoking tract', 'high-smoking tracts'], hotspotTitle: 'Highest adult smoking share', missingCaption: 'This pack has no smoking metric yet',
+    tooltip: 'Model-based share of adults who currently smoke cigarettes (CDC PLACES). Community-need context — no causal/diagnostic claim.',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -379,10 +394,10 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
-/** #124: Layers switch order — Planting need directly after Trees; #125 Mental health right after Obesity; #127 Physical health right after Mental health; #129 Heart disease right after Physical health; #131 Blood pressure right after Heart disease; #133 Inactivity right after Blood pressure; rest in registry order. */
+/** #124 Planting need after Trees; #125 Mental health after Obesity; #127 Physical health after Mental health; #129 Heart disease after Physical health; #131 Blood pressure after Heart disease; #133 Inactivity after Blood pressure; #136 COPD after Inactivity; #138 Smoking after COPD; rest in registry order. */
 /** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
-const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'age65' && id !== 'under18')
-  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'physicalHealth', 'chd', 'bphigh', 'inactivity', 'copd'] : [id]))]
+const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'age65' && id !== 'under18')
+  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'physicalHealth', 'chd', 'bphigh', 'inactivity', 'copd', 'smoking'] : [id]))]
 const RB = BASE_SWITCH_ORDER.indexOf('rentBurden')
 export const METRIC_SWITCH_ORDER: MetricId[] = [...BASE_SWITCH_ORDER.slice(0, RB + 1), 'age65', 'under18', ...BASE_SWITCH_ORDER.slice(RB + 1)]
 
@@ -410,6 +425,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   lpa: 'inactivity', activity: 'inactivity',
   // #136 soft aliases (copd comes from the lowercase id)
   lung: 'copd',
+  // #138 soft aliases (smoking comes from the lowercase id)
+  tobacco: 'smoking', cigarettes: 'smoking',
   // #114 soft aliases
   age65plus: 'age65', seniors: 'age65',
 }
