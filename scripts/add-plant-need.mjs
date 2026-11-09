@@ -2,11 +2,11 @@
 /**
  * #124: build-time 0–100 "Planting need" composite from props already in each pack (no download, no fetch).
  *   node scripts/add-plant-need.mjs public/data[/<city-id>] ...
- * Run AFTER trees, poverty (#107) and asthma (#117) steps.
+ * Run AFTER canopy, poverty (#107) and asthma (#117) steps.
  * Per pack, over finite values: s(x)=100·(x−min)/(max−min) (max==min → 50)
- *   T = 100 − s(treesPerAcre); P = s(pctPoverty); A = s(pctAsthma) when finite for the tract.
+ *   T = 100 − s(canopyPct); P = s(pctPoverty); A = s(pctAsthma) when finite for the tract.
  *   plantNeed = mean of available {T,P,A} (equal weights), 1 dp, clamped 0–100.
- *   Absent (never 0) when treesPerAcre or pctPoverty is missing.
+ *   Absent (never 0) when canopyPct or pctPoverty is missing.
  * meta.metricBreaks.plantNeed = densityBreaks(values,5); meta.overall.plantNeed = median tract score.
  */
 import { densityBreaks } from './lib/geo-utils.mjs'
@@ -25,7 +25,7 @@ const scaler = (vals) => {
 
 for (const p of loadPacks(dirs)) {
   const feats = p.fc.features
-  const sT = scaler(feats.map((f) => f.properties.treesPerAcre))
+  const sT = scaler(feats.map((f) => f.properties.canopyPct))
   const sP = scaler(feats.map((f) => f.properties.pctPoverty))
   const sA = scaler(feats.map((f) => f.properties.pctAsthma))
   const vals = []
@@ -33,19 +33,20 @@ for (const p of loadPacks(dirs)) {
   for (const f of feats) {
     const t = f.properties
     delete t.plantNeed; delete t.plantNeedParts
-    if (!sT || !sP || !fin(t.treesPerAcre) || !fin(t.pctPoverty)) { nulled++; continue }
-    const T = 100 - sT(t.treesPerAcre), P = sP(t.pctPoverty)
+    if (!sT || !sP || !fin(t.canopyPct) || !fin(t.pctPoverty)) { nulled++; continue }
+    const T = 100 - sT(t.canopyPct), P = sP(t.pctPoverty)
     const A = sA && fin(t.pctAsthma) ? sA(t.pctAsthma) : null
     if (A == null) asthmaMissing++
     const parts = A == null ? [T, P] : [T, P, A]
     t.plantNeed = r1(Math.min(100, Math.max(0, parts.reduce((a, b) => a + b, 0) / parts.length)))
+    // Compatibility key T now means the relative canopy-gap component, not mapped trees.
     t.plantNeedParts = { T: r1(T), P: r1(P), ...(A == null ? {} : { A: r1(A) }) }
     vals.push(t.plantNeed)
   }
   const m = p.meta
   m.metricBreaks = { ...(m.metricBreaks ?? {}), plantNeed: densityBreaks(vals, 5) }
   m.overall.plantNeed = median(vals)
-  m.plantNeed = { inputs: ['treesPerAcre', 'pctPoverty', 'pctAsthma?'], weights: 'equal', scaling: 'pack min-max', asthmaIncluded: !!sA && asthmaMissing < vals.length }
+  m.plantNeed = { inputs: ['canopyPct', 'pctPoverty', 'pctAsthma?'], weights: 'equal', scaling: 'pack min-max', canopyVersion: m.canopy?.version, asthmaIncluded: !!sA && asthmaMissing < vals.length }
   writePack(p)
-  console.log(`[plant-need] ${p.dir}: ${vals.length}/${feats.length} scored, ${nulled} nulled (trees/poverty missing), ${asthmaMissing} asthma-missing, breaks ${JSON.stringify(m.metricBreaks.plantNeed)}, median ${m.overall.plantNeed}, meta ${JSON.stringify(m.plantNeed)}`)
+  console.log(`[plant-need] ${p.dir}: ${vals.length}/${feats.length} scored, ${nulled} nulled (canopy/poverty missing), ${asthmaMissing} asthma-missing, breaks ${JSON.stringify(m.metricBreaks.plantNeed)}, median ${m.overall.plantNeed}, meta ${JSON.stringify(m.plantNeed)}`)
 }

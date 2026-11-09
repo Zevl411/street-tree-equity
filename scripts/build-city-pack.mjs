@@ -81,6 +81,8 @@ if (get('SKIP_BUILD') !== '1') {
   for (const f of ['meta.json', 'tracts-equity.geojson']) {
     await fs.access(path.join(packDir, f)).catch(() => fail(`required ${f} missing from pack`))
   }
+  // #148: build-data already measured canopy before the copy. Re-score only AFTER that input exists.
+  execFileSync(process.execPath, ['scripts/add-plant-need.mjs', `public/data/${cityId}`], { cwd: ROOT, stdio: 'inherit' })
   // #135: per-file size guard on every FILES entry that landed in the pack
   for (const f of FILES) {
     const fp = path.join(packDir, f)

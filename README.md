@@ -2,8 +2,7 @@
 
 **[User guide](docs/user-guide.md)** — how to use the map.
 
-Choropleth of **OpenStreetMap-mapped trees per acre by U.S. Census tract**, with nearest parks and
-“plant here” streets (no mapped tree within 20 m). Demo city: **central Portland, OR**.
+Tree canopy is the default map: the estimated percentage of each tract's non-water land covered by trees, from USFS/NLCD Tree Canopy Cover 2025 (v2025.6, 30 m). Annual NLCD Land Cover 2025 (Collection 1.2) supplies the open-water mask. These satellite-based estimates can miss small or scattered urban canopy and are not exact sidewalk-shade measurements. Mapped street trees (OSM) is still available separately; a zero mapped count can mean missing mapping, not no trees. Planting need now uses canopy cover, so scores may change even where no new planting occurred.
 
 - **Frontend:** Vue 3 + Vite + TypeScript + Vuetify 3, MapLibre GL JS
 - **Basemap:** Streets = [OpenFreeMap](https://openfreemap.org) (free, no API key, no signup); Satellite = [EOxCloudless 2025](https://cloudless.eox.at) (free, no key, CC BY-NC-SA non-commercial). Toggle in the Layers menu.
@@ -19,7 +18,7 @@ Choropleth of **OpenStreetMap-mapped trees per acre by U.S. Census tract**, with
 | Piece | What we use | Why it stays free |
 |---|---|---|
 | Storage / “database” | Static GeoJSON committed to git (~1.7 MB for the demo) | No DB to pay for. Files are the database. |
-| Data sources | OSM via public Overpass API, Census cartographic boundary files | Open data, no keys. Fetched only at build time, cached in `data-raw/`. |
+| Data sources | USFS canopy, USGS NLCD water mask, OSM via public Overpass API, Census cartographic boundary files | Open data, no keys. Fetched only at build time, cached in `data-raw/`. |
 | Basemap tiles | OpenFreeMap vector tiles | Free public instance, no key. Swappable (see below). |
 | Hosting | GitHub Pages / GitLab Pages | Free static hosting for public repos. |
 | CI | GitHub Actions / GitLab CI | Free tiers; build takes < 1 min. |
@@ -44,6 +43,11 @@ Data is already committed, so the app works right after clone — no network fet
 ### Rebuild the data (optional)
 
 ```bash
+# Only data rebuilds need these Python tools; ordinary npm ci/build/test does not.
+python3 -m venv data-raw/venv
+data-raw/venv/bin/pip install rasterio rasterstats
+npm run add:canopy     # seven pinned 2025 regional windows, cached under data-raw/canopy148/
+npm run add:plantneed  # canopy must precede need
 npm run data           # rebuild public/data from cached raw downloads in data-raw/ (fetches if missing)
 npm run data:refresh   # force re-download from Overpass + Census
 ```
@@ -115,7 +119,7 @@ Density unit — in Layers, **Per acre** / **Per km²** switches displayed tree 
 
 City overview — with no tract selected, a card (desktop, top-left) or slim strip (mobile, top) summarizes the city: mapped trees, tracts, average density in your chosen unit, and plant-here share, with shortcuts to **Compare cities** and **About**.
 
-Low-canopy hotspots — **Hotspots** on the city overview (or **Low-canopy hotspots** in More) lists the 10 lowest-density tracts in the active city, in your chosen unit; tap one to open it. Share `?hotspots=1` to open the list on load (the flag is dropped after opening).
+Hotspots — lists the lowest tree-canopy estimates on the default view, or the active metric’s need-focused results. Mapped-tree-density ranks remain OSM-only; canopy nulls are excluded. Share `?hotspots=1` to open the list on load (the flag is dropped after opening).
 
 Cities — the place control lists packaged demos from cities.json only (no map search). Ready packs load immediately; Coming soon rows stay visible but disabled until a data pack is published under data/<city-id>/.
 
@@ -171,7 +175,9 @@ Dark mode — header toggle; preference saved in the browser; streets basemap us
 
 ## How the numbers are computed
 
-- **Trees:** OSM nodes tagged `natural=tree`, point-in-polygon joined to tracts (turf.js).
+- **Tree canopy:** USFS/NLCD TCC 2025 v2025.6; build-time regional ImageServer raw TIFFs, 30 m equal-area EPSG:5070. Polygons are projected with proj4js; use pixel centers inside each polygon, exclude TCC 254/255 and Annual NLCD C1.2 LC 2025 class 11. Fewer than 10 valid land centers uses exact pixel-overlap weighting. At least 99% overlap water → null/mostly-water; unknown coverage → missing, never zero. Pack overall is weighted by valid non-water overlap area. Class breaks use the existing positive-value densityBreaks convention. No tract confidence interval is inferred.
+- **Planting need:** unchanged pack min-max/equal-weight formula with `T=100-s(canopyPct)`, poverty and optional asthma; `T` is now the canopy-gap component, not raw `100-canopyPct`. Null canopy or missing poverty → no score, never OSM fallback.
+- **Mapped street trees (OSM):** OSM nodes tagged `natural=tree`, point-in-polygon joined to tracts (turf.js).
 - **Area:** Census `ALAND` (land area, excludes water) → acres and km².
 - **Trees/acre:** `treeCount / landAcres`; map classes are quantile breaks (5 classes) stored in `meta.json`.
 - **Bottom quartile:** tracts at or below the 25th percentile of trees/acre (toggle the outline in Layers).
@@ -200,6 +206,7 @@ src/                      # Vue 3 + Vuetify app (App.vue, components/MapView.vue
 
 ## Attribution & licenses
 
+- USFS canopy and USGS Annual NLCD water mask: both [CC0](https://creativecommons.org/public-domain/cc0/). USDA Forest Service. 2026. USFS NLCD Percent Tree Canopy CONUS v2025-6. Salt Lake City, UT. [Official gateway](https://data.fs.usda.gov/geodata/rastergateway/treecanopycover/). U.S. Geological Survey (USGS), 2024, Annual NLCD Collection 1 Science Products: U.S. Geological Survey data release, https://doi.org/10.5066/P94UXNTS. Used map year 2025, Collection 1.2; [land-cover DOI](https://doi.org/10.5066/P143HE8T). These input licenses do not replace OSM or basemap licenses.
 - Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the
   Open Database License (ODbL). Derived files in `public/data/` (trees, parks, roads, counts) are ODbL.
 - Census tract boundaries: U.S. Census Bureau cartographic boundary files (public domain).
@@ -210,3 +217,7 @@ src/                      # Vue 3 + Vuetify app (App.vue, components/MapView.vue
 ## TypeScript only
 
 App code under `src/` is TypeScript only (`.ts` / `.vue` with `<script setup lang="ts">`); no `.js` files. `tsconfig.json` runs in `strict` mode and CI fails on any JavaScript under `src/` and on `npm run typecheck` (`vue-tsc`) errors. Node tooling in `scripts/` and `server/` may stay `.mjs`.
+
+### November 2026 export schema migration
+
+Full CSV has 98 columns, appending numeric `canopy_pct` after `sidewalk_km`; GeoJSON also includes `canopy_pct`. The OSM `tree_count`, `trees_per_acre`, and `trees_per_km2` values are retained. `plant_need_canopy` replaces `plant_need_trees` because the component now uses canopy. Current-view exports rename the old misleading OSM `canopy,canopy_unit` pair to `mapped_street_trees,mapped_street_trees_unit`, then add `canopy_pct`. Canopy percentages are independent of density unit. Missing/mostly-water cells are blank (GeoJSON null), while numeric zero stays zero. Both CC0 sources are cited even when canopy is not the active metric.

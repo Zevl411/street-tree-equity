@@ -3,6 +3,7 @@
 import type { Meta, TractProps } from '@/types'
 import { METRICS, type MetricDef, type MetricId, type MetricValueKey } from './metrics.ts'
 import { placesCitation } from './placesCitation.ts'
+import { canopyCitation } from './canopySource.ts'
 import { PLACES_MEASURES } from './placesMeasures.ts'
 
 export const CRLF = '\r\n'
@@ -41,15 +42,15 @@ export const metricHasCi = (id: MetricId) => CI_KEYS.has(METRICS[id].valueKey)
 export const metricHasMoe = (id: MetricId) => MOE_KEYS.has(METRICS[id].valueKey)
 
 /** Street-tree density in the UI unit (acre 4 dp; km² 2 dp, treesPerKm2 when present). */
-export function canopyCell(t: TractProps, unit: DensUnit): string {
+export function mappedStreetTreesCell(t: TractProps, unit: DensUnit): string {
   const acre = num(t.treesPerAcre)
   if (unit === 'km2') return fixed(num(t.treesPerKm2) ?? (acre === null ? null : acre * ACRES_PER_KM2), 2)
   return fixed(acre, 4)
 }
-export const canopyUnit = (unit: DensUnit) => (unit === 'km2' ? 'trees_per_km2' : 'trees_per_acre')
+export const mappedStreetTreesUnit = (unit: DensUnit) => (unit === 'km2' ? 'trees_per_km2' : 'trees_per_acre')
 
 export function metricUnitToken(def: MetricDef, unit: DensUnit): string {
-  if (def.usesDensityUnit) return def.id === 'trees' ? canopyUnit(unit) : `${def.id}_per_${unit}`
+  if (def.usesDensityUnit) return def.id === 'trees' ? mappedStreetTreesUnit(unit) : `${def.id}_per_${unit}`
   if (def.percent || def.percentPoints) return '%'
   if (def.currency) return 'USD'
   if (def.id === 'risk') return 'score'
@@ -59,7 +60,7 @@ export function metricUnitToken(def: MetricDef, unit: DensUnit): string {
 
 /** Locked number formatting; never locale-grouped. Null / non-finite → empty. */
 export function metricValueCell(def: MetricDef, t: TractProps, unit: DensUnit): string {
-  if (def.id === 'trees') return canopyCell(t, unit)
+  if (def.id === 'trees') return mappedStreetTreesCell(t, unit)
   const v = num((t as unknown as Record<string, unknown>)[def.valueKey])
   if (v === null) return ''
   if (def.usesDensityUnit) return unit === 'km2' ? (v * ACRES_PER_KM2).toFixed(2) : v.toFixed(4)
@@ -95,7 +96,7 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
   const metricCols = (p: string) => [`${p}_id`, `${p}_label`, `${p}_value`, `${p}_unit`, ...(ci ? [`${p}_ci_lo`, `${p}_ci_hi`] : []), ...(moe ? [`${p}_moe`] : [])]
   const header = [
     ...(o.compare ? ['city_id', 'city_name'] : []),
-    'geoid', 'tract_name', 'canopy', 'canopy_unit',
+    'geoid', 'tract_name', 'mapped_street_trees', 'mapped_street_trees_unit', 'canopy_pct',
     ...(dual ? [...metricCols('metric_a'), ...metricCols('metric_b')] : metricCols('metric')),
   ]
   const metricCells = (def: MetricDef, t: TractProps) => [
@@ -113,7 +114,7 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
     header.join(','),
     ...rows.map(({ cityId, cityName, props: t }) => [
       ...(o.compare ? [cell(cityId), textCell(cityName ?? '')] : []),
-      cell(t.geoid), textCell(t.name ?? ''), canopyCell(t, o.unit), cell(canopyUnit(o.unit)),
+      cell(t.geoid), textCell(t.name ?? ''), mappedStreetTreesCell(t, o.unit), cell(mappedStreetTreesUnit(o.unit)), cell(num(t.canopyPct)),
       ...defs.flatMap((d) => metricCells(d, t)),
     ].join(',')),
   ]
@@ -143,12 +144,13 @@ export function sourcesLine(meta: Meta, metrics: MetricId[]): string {
 /** Per-metric PLACES citation lines (placesCitation, year from meta.cdcPlaces.years). */
 export function citationLines(meta: Meta, metrics: MetricId[]): string[] {
   const cdc = meta.cdcPlaces
-  if (!cdc) return []
-  return metrics.flatMap((id) => {
+  const canopyLines = meta.canopy ? [`citation: ${canopyCitation(meta)}`] : []
+  if (!cdc) return canopyLines
+  return [...metrics.flatMap((id) => {
     const p = PLACES_MEASURES[id]
     if (!p || (cdc.measures && !cdc.measures.includes(p[0]))) return []
     return [`citation: ${placesCitation(p[1], p[2], cdc.years?.[p[0]])}`]
-  })
+  }), ...canopyLines]
 }
 
 export interface PackRef { id: string; meta: Meta }
@@ -164,7 +166,9 @@ export function currentViewComments(packs: PackRef[], metrics: MetricId[], url: 
     `metric: ${metricText(metrics)}`,
     `generated: ${ymd(d)}`,
     ...packs.map((p) => `sources${multi ? ` (${p.id})` : ''}: ${sourcesLine(p.meta, metrics)}`),
-    ...citationLines(packs[0].meta, metrics),
+    ...packs.flatMap(p => citationLines(p.meta, metrics).map(line => multi ? `${line} (pack ${p.id})` : line)),
+    'canopy_pct: % of non-water land; mostly-water and missing estimates are blank, not zero.',
+    'schema: canopy_pct is USFS estimated percent canopy over non-water land; mapped_street_trees and mapped_street_trees_unit retain the former canopy/canopy_unit OSM-density values; plant_need_canopy replaces plant_need_trees in full exports.',
     `url: ${url}`,
   ]
 }

@@ -39,11 +39,11 @@ export const CSV_HEADERS = [
   // #120 soft: ACS B16004
   'pct_lep', 'pct_lep_moe', 'pop_lep',
   // #123 soft: ACS B22001
-  'pct_snap', 'pct_snap_moe', 'hh_snap', 'plant_need', 'plant_need_trees', 'plant_need_poverty', 'plant_need_asthma',
+  'pct_snap', 'pct_snap_moe', 'hh_snap', 'plant_need', 'plant_need_canopy', 'plant_need_poverty', 'plant_need_asthma',
   // #104 soft: mobility overlays
   'bike_km', 'transit_stops',
   // #110 soft
-  'sidewalk_km',
+  'sidewalk_km', 'canopy_pct',
 ]
 
 
@@ -58,7 +58,7 @@ export function csvRow(t: TractProps, meta: Meta): string {
     ...placesCells(t),
     t.pctLep, t.pctLepMoe, t.popLep, t.pctSnap, t.pctSnapMoe, t.hhSnap, t.plantNeed, t.plantNeedParts?.T, t.plantNeedParts?.P, t.plantNeedParts?.A,
     t.bikeKm, t.transitStopsInside,
-    t.sidewalkKm,
+    t.sidewalkKm, t.canopyPct,
   ].map(cell).join(',')
 }
 

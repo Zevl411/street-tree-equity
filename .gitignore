@@ -1,5 +1,6 @@
 node_modules/
 dist/
+# Build-only canopy rasters and validation venv (never ship)
 data-raw/
 .DS_Store
 *.log

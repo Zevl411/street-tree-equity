@@ -1,4 +1,5 @@
 import { applyShareFlags, encodeLayers, type LayerFlags, type ShareFlags } from '@/composables/useDeepLink'
+import { DEFAULT_METRIC, type MetricId } from '@/utils/metrics'
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
 
 /** #47: copy text; Clipboard API first, then legacy execCommand. Never throws. */
@@ -27,11 +28,15 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 /** Absolute share URL for a tract, mirroring writeDeepLink rules. */
-export function tractShareUrl(v: { city: string | null; geoid: string; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit } & ShareFlags): string {
-  const url = new URL(window.location.origin + window.location.pathname)
+export function tractShareUrl(v: { city: string | null; geoid: string; basemap: Basemap; theme: ThemeName; layers: LayerFlags; unit: DensityUnit; metric?: MetricId } & ShareFlags): string {
+  // Preserve unrelated share flags (including an already-canonical explicit dual pair).
+  // This helper owns only the tract/single-metric fields; dual encoding rules remain untouched.
+  const url = new URL(window.location.href)
   const q = url.searchParams
+  for (const k of ['city', 'geoid', 'tract', 'basemap', 'theme', 'layers', 'unit', 'metric']) q.delete(k)
   if (v.city) q.set('city', v.city)
   q.set('geoid', v.geoid)
+  if (v.metric && v.metric !== DEFAULT_METRIC) q.set('metric', v.metric)
   q.set('basemap', v.basemap)
   q.set('theme', v.theme)
   const layers = encodeLayers(v.layers)

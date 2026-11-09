@@ -5,7 +5,7 @@
 // in headless mode and drives it over the DevTools protocol with Node's built-in WebSocket.
 // Set CHROME_PATH to override the browser binary.
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -135,7 +135,7 @@ window.__installActions = () => {
 window.__stableCamera = () => {
  const now=localStorage.getItem('ste-view')
  if(now!==window.__lastCamera) {window.__lastCamera=now;window.__cameraSince=Date.now();return false}
- return Date.now()-(window.__cameraSince||Date.now())>650
+ return Date.now()-(window.__cameraSince||Date.now())>1600
 }
 `
 const section = '.tract-snapshot'
@@ -169,7 +169,7 @@ async function activate(id, key, label) {
   check(await evaluate(`window.__activated.isConnected && window.__activated===window.__button(${JSON.stringify(id)}) && window.__canvas===document.querySelector('.maplibregl-canvas')`),`${key} ${id}: button and map canvas not remounted`)
   check(await evaluate(`window.__actions===${actions+1} && window.__messages.length===${messages+1}`),`${key} ${id}: one native activation, one success announcement`)
   check(await evaluate(`document.querySelectorAll('${section} [aria-current="true"]').length===1 && window.__button(${JSON.stringify(id)}).getAttribute('aria-current')==='true' && window.__button(${JSON.stringify(id)}).textContent.includes('On map')`),`${key} ${id}: unique aria-current + check/On map marker`)
-  check(await evaluate(`window.__stores().ui.metric.id===${JSON.stringify(id)} && ( ${id==='trees'?'true':"JSON.stringify(window.__component('MapView').props.meta.breaks)===JSON.stringify(window.__component('MapView').props.meta.metricBreaks["+JSON.stringify(id)+"])"} ) && new URL(location.href).searchParams.get('metric')===${id==='trees'?'null':JSON.stringify(id)}`),`${key} ${id}: canonical metric URL${id==='trees'?' clears default':''}`)
+  check(await evaluate(`window.__stores().ui.metric.id===${JSON.stringify(id)} && ( ${id==='canopy'?'true':"JSON.stringify(window.__component('MapView').props.meta.breaks)===JSON.stringify(window.__component('MapView').props.meta.metricBreaks["+JSON.stringify(id)+"])"} ) && new URL(location.href).searchParams.get('metric')===${id==='canopy'?'null':JSON.stringify(id)}`),`${key} ${id}: canonical metric URL${id==='canopy'?' clears default':''}`)
 }
 async function semantics(name) {
   const info=await evaluate(`(()=>{
@@ -189,7 +189,7 @@ async function semantics(name) {
       wrong:s.querySelectorAll('[role="menu"],[role="listbox"],[role="option"],[aria-selected],[aria-pressed]').length,
       overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth || s.scrollWidth>s.clientWidth,
       sizes:[...s.querySelectorAll('button')].every(b=>b.getBoundingClientRect().height>=64),
-      summary:s.querySelector('summary').getBoundingClientRect().height>=44}
+      summary:s.querySelector('summary').getBoundingClientRect().height>=44, helpGap:getComputedStyle(s.querySelector('details')).marginBottom}
   })()`)
   check(info.heading && info.native && JSON.stringify(info.ids)===JSON.stringify(miamiIds),`${name}: labelled section + ordered direct li/native buttons + rank order`)
   check(JSON.stringify(info.lines)===JSON.stringify([
@@ -198,9 +198,10 @@ async function semantics(name) {
     ['Physical health · 24.9% · model estimate','Higher than all 151 other tracts in Miami'],
   ]),`${name}: exact Miami value/model/directional strings`)
   check(info.names[0]==='Switch map to Income, lower than all 151 other tracts in Miami, $19,394' && info.names[1]==='Switch map to Diabetes, higher than all 151 other tracts in Miami, 28.9%, model estimate',`${name}: meaningful action names convey values and models`)
-  check(info.trees && info.zero==='No street trees mapped' && info.tie==='Tied with 99 other tracts in Miami that have no street trees mapped.',`${name}: separate rev3 zero-tree context, never numbered fourth`)
-  check(info.mapping==='Street trees come from OpenStreetMap; some areas are under-mapped, so low counts may reflect mapping gaps.',`${name}: mapping-gap helper always visible`)
+  check(info.trees && info.zero==='Tree canopy · 10.5% of land' && info.tie==='More tree canopy than 69% of other tracts in Miami',`${name}: separate measured-canopy context, never numbered fourth`)
+  check(info.mapping==='USFS satellite-based canopy estimate for 2025; open water excluded. Ties count halfway. Small or scattered urban canopy can be underestimated.',`${name}: measured-canopy helper always visible`)
   check(info.status && !info.help && info.current===0 && info.wrong===0,`${name}: empty persistent polite status, collapsed help, outside-shortlist metric has no current item`)
+  check(info.helpGap==='8px',`${name}: Designer-locked collapsed help gap is 8px`)
   check(!info.overflow && info.sizes && info.summary,`${name}: no horizontal overflow; >=64px multiline buttons and >=44px summary`)
 }
 async function dualSuite() {
@@ -210,20 +211,20 @@ async function dualSuite() {
   check(await evaluate(`(()=>{const s=document.querySelector('${section}');return s.querySelectorAll('ol > li').length===3 && s.querySelector('.snapshot-dual-note').textContent==='Turn off dual view to switch the map from here.' && !s.querySelector('[role="button"],a,[aria-current],[aria-label^="Switch map"],.snapshot-marker,[tabindex]:not(h3)') && [...s.querySelectorAll('[data-snapshot-metric]')].every(r=>!r.onclick && !r.hasAttribute('tabindex'))})()`),'dual: same ol/li text + note; no action roles, click handlers, tabindex, aria-current or On map')
   await waitFor(`window.__stableCamera()`)
   const before=await evaluate(`({invariants:window.__invariants(),active:window.__stores().ui.activeMetric,dual:[window.__stores().ui.dualView,window.__stores().ui.dualLeft,window.__stores().ui.dualRight,window.__stores().ui.dualPrimary]})`)
-  await evaluate(`window.__row('income').click();window.__row('trees').click()`)
+  await evaluate(`window.__row('income').click();window.__row('canopy').click()`)
   const after=await evaluate(`({invariants:window.__invariants(),active:window.__stores().ui.activeMetric,dual:[window.__stores().ui.dualView,window.__stores().ui.dualLeft,window.__stores().ui.dualRight,window.__stores().ui.dualPrimary]})`)
   check(JSON.stringify(before)===JSON.stringify(after),'dual plain text activation leaves URL, metric, both panes, selection and all four dual fields untouched')
   await evaluate(`document.querySelector('#map-stage').focus();window.__stores().ui.setDualView(false)`)
-  check(await waitFor(`!!window.__button('trees') && document.activeElement===document.querySelector('#map-stage')`),'dual-off restores actual single-map current state without stealing focus')
+  check(await waitFor(`!!window.__button('canopy') && document.activeElement===document.querySelector('#map-stage')`),'dual-off restores actual single-map current state without stealing focus')
   await evaluate(`document.querySelector('#map-stage').focus();window.__outside=document.activeElement;window.__oldStatus=window.__status();window.__stores().ui.setDualView(true)`)
   check(await waitFor(`!document.querySelector('${section} button') && document.activeElement===window.__outside && window.__status()===window.__oldStatus`),'ordinary dual-on with focus elsewhere neither steals focus nor duplicates local announcement')
   // Exit through the existing Layers control; no app menu/dual source changes.
   await evaluate(`document.querySelector('button[aria-label="Layers"]').click()`)
   if(!await waitFor(`!!document.querySelector('#layers-panel .v-switch input')`)) throw new Error('Existing dual control did not render')
   await evaluate(`window.__dualControl=[...document.querySelectorAll('#layers-panel .v-switch')].find(s=>s.textContent.includes('Dual view')).querySelector('input');window.__dualControl.click()`)
-  check(await waitFor(`!window.__stores().ui.dualView && !!window.__button('trees')`),'existing Dual view control returns to single buttons')
+  check(await waitFor(`!window.__stores().ui.dualView && !!window.__button('canopy')`),'existing Dual view control returns to single buttons')
   await press('Escape')
-  check(await evaluate(`window.__button('trees').getAttribute('aria-current')==='true'`),'single return preserves the actual activeMetric, not a hidden snapshot selection')
+  check(await evaluate(`window.__button('canopy').getAttribute('aria-current')==='true'`),'single return preserves the actual activeMetric, not a hidden snapshot selection')
 }
 async function controlledStates() {
   if(!await evaluate(`!!window.__component('TractDetails')`)) throw new Error('Vue test fixture seam not found')
@@ -231,12 +232,13 @@ async function controlledStates() {
   const cases=[
     [2,23,'insufficient','Only 2 measures here are higher-need than most other tracts in Miami.'],
     [0,23,'missing','No measures here stand out as higher-need than most other tracts in Miami.'],
+    [0,23,'mostly-water','No measures here stand out as higher-need than most other tracts in Miami.'],
     [0,0,'insufficient',"There isn't enough data to compare this tract. Each measure needs data for at least 10 tracts."],
   ]
   for(const [count,eligible,reason,message] of cases) {
     await evaluate(`window.__details.props.snapshotIndex={...window.__originalIndex,select:()=>({...window.__baseResult,worst:window.__baseResult.worst.slice(0,${count}),eligibleCount:${eligible},canopy:null,canopyUnavailable:${JSON.stringify(reason)}})}`)
     check(await waitFor(`document.querySelector('.snapshot-few')?.textContent===${JSON.stringify(message)} && document.querySelectorAll('${section} ol > li').length===${count}`),`controlled ${count}/${eligible}: exact few/empty/insufficient copy, no fabricated ranks`)
-    check(await evaluate(`!document.querySelector('.snapshot-trees button') && document.querySelector('.snapshot-trees-unavailable')?.textContent===${JSON.stringify(reason==='missing'?'Street-tree comparison unavailable for this tract.':'Not enough street-tree data to compare this tract (10 tracts needed).')} && !!document.querySelector('.snapshot-mapping-note')`),`controlled ${reason}: trees fallback is plain text, helper remains visible`)
+    check(await evaluate(`!document.querySelector('.snapshot-trees button') && document.querySelector('.snapshot-trees-unavailable')?.textContent===${JSON.stringify(reason==='missing'?'Tree-canopy comparison unavailable for this tract.':reason==='mostly-water'?'Mostly water — no canopy estimate':'Not enough tree-canopy data to compare this tract (10 tracts needed).')} && !!document.querySelector('.snapshot-mapping-note')`),`controlled ${reason}: trees fallback is plain text, helper remains visible`)
   }
   await evaluate('window.__details.props.snapshotIndex=window.__originalIndex')
   check(await waitFor(`document.querySelectorAll('${section} ol > li').length===3`),'controlled fixtures restore the real selected pack')
@@ -250,12 +252,58 @@ async function contrast(name) {
     function lum(c){const a=c.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*a[0]+.7152*a[1]+.0722*a[2]}
     function ratio(a,b){return (Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05)}
     const bg=blend(rgb(css.backgroundColor),rgb(surface)),text=rgb(css.color),border=blend(rgb(css.borderTopColor),bg),outline=rgb(css.outlineColor)
-    const current=getComputedStyle(window.__button('trees')),currentBg=blend(rgb(current.backgroundColor),rgb(surface))
+    const current=getComputedStyle(window.__button('canopy')),currentBg=blend(rgb(current.backgroundColor),rgb(surface))
     const currentBorder=blend(rgb(current.borderTopColor),currentBg)
     return {text:ratio(text,bg),border:ratio(border,bg),focus:ratio(outline,bg),currentText:ratio(rgb(current.color),currentBg),currentBorder:ratio(currentBorder,currentBg),currentFocus:ratio(outline,currentBg),width:css.outlineWidth,offset:css.outlineOffset,style:css.outlineStyle,whiteSpace:getComputedStyle(b.querySelector('.v-btn__content')).whiteSpace}
   })()`)
   check(values.text>=4.5 && values.border>=3 && values.focus>=3 && values.currentText>=4.5 && values.currentBorder>=3 && values.currentFocus>=3,`${name}: computed text/border/focus contrast meets thresholds`,JSON.stringify(values))
   check(values.width==='2px' && values.offset==='2px' && values.style==='solid' && values.whiteSpace==='normal',`${name}: keyboard focus ring 2px/2px and wrapping content`,JSON.stringify(values))
+}
+
+
+// #148 real, native browser downloads; compare EVERY parsed cell with source-driven pure exports.
+function parseCsv(csv) {
+ const rows=[];let row=[],field='',quoted=false
+ for(let i=0;i<csv.length;i++){const c=csv[i];if(c==='"'){if(quoted&&csv[i+1]==='"'){field+='"';i++}else quoted=!quoted}
+ else if(c===','&&!quoted){row.push(field);field=''}else if((c==='\r'||c==='\n')&&!quoted){if(c==='\r'&&csv[i+1]==='\n')i++;row.push(field);rows.push(row);row=[];field=''}else field+=c}
+ if(field||row.length){row.push(field);rows.push(row)}return rows
+}
+async function canopyDownloads() {
+ await ready(miami.replace('metric=copd','metric=canopy'))
+ const dir=mkdtempSync(path.join(tmpdir(),'ste-canopy148-downloads-'))
+ await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:dir})
+ await evaluate(`window.__originalClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download)window.__lastDownload=this.download;return window.__originalClick.call(this)}`)
+ async function download(label) {
+  await evaluate(`window.__lastDownload=null;[...document.querySelectorAll('#tract-details-panel button')].find(b=>b.textContent.includes('Download…')).click()`)
+  if(!await waitFor(`window.__vis(document.querySelector('#download-menu'))`))throw Error('Download menu did not open')
+  await evaluate(`[...document.querySelectorAll('#download-menu .v-list-item')].find(x=>x.textContent.trim()===${JSON.stringify(label)}).click()`)
+  if(!await waitFor(`!!window.__lastDownload`))throw Error('No native download started')
+  const file=path.join(dir,await evaluate('window.__lastDownload'));let done=false
+  for(let i=0;i<100;i++){if(existsSync(file)){done=true;break}await sleep(100)}
+  if(!done)throw Error('Native download missing: '+file)
+  return readFileSync(file,'utf8')
+ }
+ const {toCsv}=await import('../src/utils/fullCsv.ts')
+ const {toCurrentViewCsv}=await import('../src/utils/currentViewCsv.ts')
+ const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8'))
+ const meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
+ const full=parseCsv(await download('All tracts in this city (CSV)'))
+ check(JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta))),'Miami actual full CSV: all 152 rows / 98 columns match every source-driven cell')
+ const text=await download('CSV – current view (Tree canopy)'), current=parseCsv(text.split(/\r?\n/).filter(l=>!l.startsWith('#')).join('\r\n'))
+ const expected=parseCsv(toCurrentViewCsv({rows:fc.features.map(f=>({props:f.properties})),metrics:['canopy'],unit:'acre',comments:[]}))
+ check(JSON.stringify(current)===JSON.stringify(expected),'Miami actual current-view CSV: all 152 rows match every cell; canopy and mapped-density context separate')
+ check(text.includes('2025 map year')&&text.includes('Collection 1.2')&&text.includes('USDA Forest Service. 2026')&&text.includes('U.S. Geological Survey (USGS), 2024'),'Actual current-view download includes both pinned source citations')
+ const geo=JSON.parse(await download('All tracts (GeoJSON)'))
+ check(geo.features.length===152&&geo.features.every((f,i)=>JSON.stringify(f.geometry)===JSON.stringify(fc.features[i].geometry)&&f.properties.canopy_pct===fc.features[i].properties.canopyPct&&f.properties.plant_need_canopy===fc.features[i].properties.plantNeedParts.T&&!('plant_need_trees'in f.properties)),'Miami actual GeoJSON: all geometry and new canopy/component values match, retired key absent')
+ for(const [raw,metric]of [['trees','trees'],['shade','canopy'],['unknown','canopy'],['canopy','canopy']]){
+  await ready(miami.replace('metric=copd','metric='+raw))
+  check(await evaluate(`window.__stores().ui.activeMetric===${JSON.stringify(metric)} && window.__stores().city.selectedGeoid==='12086002404'`),'URL '+raw+': correct metric, same tract')
+  await evaluate(`navigator.clipboard.writeText=async text=>{window.__copied=text};document.querySelector('[aria-label="Copy link to this tract"]').click()`)
+  check(await waitFor(`window.__copied && new URL(window.__copied).searchParams.get('metric')===${metric==='canopy'?'null':"'trees'"} && new URL(window.__copied).searchParams.get('audit')==='keep' && new URL(window.__copied).searchParams.get('geoid')==='12086002404'`),'Copied '+metric+' link: correct canonical metric and unrelated flags retained')
+ }
+ await ready(miami+'&dual=trees,risk')
+ await evaluate(`navigator.clipboard.writeText=async text=>{window.__copied=text};document.querySelector('[aria-label="Copy link to this tract"]').click()`)
+ check(await waitFor(`window.__copied && new URL(window.__copied).searchParams.get('dual')==='trees,risk'`),'Copied tract link preserves explicit dual trees/risk without changing dual encoding or defaults')
 }
 
 if(!existsSync(path.resolve('dist/index.html'))) throw new Error('Build first')
@@ -290,7 +338,7 @@ try {
     await activate('diabetes','Enter','Diabetes')
     await activate('physicalHealth','Space','Physical health')
     await activate('physicalHealth','Space','Physical health') // idempotent current item
-    await activate('trees','Enter','Street trees')
+    await activate('canopy','Enter','Tree canopy')
     await contrast(name)
     if(process.env.A11Y_SNAPSHOT_SCREENSHOTS) {
       await evaluate(`document.querySelector('${section}').scrollIntoView({block:'start'})`)
@@ -300,7 +348,7 @@ try {
     }
     const link=await evaluate('location.href')
     await ready(link)
-    check(await evaluate(`window.__stores().city.selectedGeoid==='12086002404' && window.__stores().ui.activeMetric==='trees' && window.__button('trees').getAttribute('aria-current')==='true'`),`${name}: reload canonical link restores tract/metric`)
+    check(await evaluate(`window.__stores().city.selectedGeoid==='12086002404' && window.__stores().ui.activeMetric==='canopy' && window.__button('canopy').getAttribute('aria-current')==='true'`),`${name}: reload canonical link restores tract/metric`)
     if(theme==='light') await dualSuite()
     if(width===1400 && theme==='dark') await controlledStates()
     // 200% zoom-equivalent CSS viewport, same single-column layout; no horizontal overflow.
@@ -312,7 +360,7 @@ try {
   }
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false})
   await ready(`${BASE}?city=orlando-fl&geoid=12095010201&metric=copd`)
-  check(await evaluate(`document.querySelectorAll('${section} ol>li').length===1 && document.querySelector('.snapshot-few').textContent==='Only 1 measure here is higher-need than most other tracts in Orlando.' && window.__row('groceries').querySelector('.snapshot-line1').textContent==='No grocery stores mapped' && window.__row('trees').querySelector('.snapshot-line1').textContent==='Street trees · 0.10 trees/acre' && !document.querySelector('${section} [aria-current]')`),'real Orlando: one honest floor-passing grocery item + zero mapping copy + positive trees; outside current has no arbitrary marker')
+  check(await evaluate(`document.querySelectorAll('${section} ol>li').length===1 && document.querySelector('.snapshot-few').textContent==='Only 1 measure here is higher-need than most other tracts in Orlando.' && window.__row('groceries').querySelector('.snapshot-line1').textContent==='No grocery stores mapped' && window.__row('canopy').querySelector('.snapshot-line1').textContent==='Tree canopy · 14.6% of land' && !document.querySelector('${section} [aria-current]')`),'real Orlando: one honest floor-passing grocery item + canopy context; outside current has no arbitrary marker')
   await ready(`${miami}&compare=central-miami-fl,orlando-fl`)
   check(await waitFor(`window.__vis(document.querySelector('#compare-panel'))`),'Compare modal opens over existing selected-city drawer')
   await evaluate(`document.querySelector('#compare-panel .compare-close').focus()`)
@@ -321,6 +369,7 @@ try {
   check(await waitFor(`!window.__vis(document.querySelector('#compare-panel')) && window.__stores().city.selectedGeoid==='12086002404' && window.__row('income')?.textContent.includes('$19,394')`),'Compare close leaves snapshot using Miami pack only, not pooled comparison data')
   await evaluate('window.__installActions()')
   await activate('income','Enter','Income')
+  await canopyDownloads()
 } catch(e) {failed++;console.error('ERROR',e.stack||e.message)} finally {
   try{cdp?.close()}catch{}
   chrome.kill();srv.kill()

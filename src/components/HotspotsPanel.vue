@@ -3,12 +3,13 @@ import { computed } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import type { TractFeature } from '@/types'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
+import { canopyValue } from '@/utils/canopySource'
 import { fmtUnitless, metricValue } from '@/utils/metrics'
 import { hotspotTracts } from '@/utils/hotspots'
 import { hotspotAscending } from '@/utils/metrics'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
-/** #43 Low-canopy hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
+/** #43 Hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
 const props = defineProps<{
   mobile: boolean
   tracts: TractFeature[] | null
@@ -143,7 +144,7 @@ const transitCaption = computed(() => {
   return n ? `${n} ${n === 1 ? 'transit stop' : 'transit stops'} in these hotspots` : 'No transit stops in these hotspots'
 })
 const noTracts = computed(() => !props.loading && total.value === 0)
-const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${ui.metric.hotspotNoun ? ui.metric.hotspotNoun[1] : 'low-canopy tracts'}`))
+const status = computed(() => (props.loading || !items.value.length ? '' : `${items.value.length} ${ui.metric.hotspotNoun ? ui.metric.hotspotNoun[1] : 'tracts'}`))
 
 const canExport = computed(() => !props.loading && items.value.length > 0 && !!props.cityId)
 function exportCsv() {
@@ -195,11 +196,11 @@ function pick(geoid: string) {
         <p v-else-if="!loading && !items.length" class="text-body-2 mt-2">No hotspots to show.</p>
         <v-list v-else :density="mobile ? 'comfortable' : 'compact'" :disabled="loading" class="mt-1"
           style="max-height: 60vh; overflow-y: auto">
-          <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="f.properties.name"
-            :subtitle="`${density(val(f.properties))}${unitless ? '' : ` /${unitLabel}`} · #${f.properties.rank} of ${total}`"
-            :aria-label="`Open ${f.properties.name}, ${density(val(f.properties))} ${unitless ? ui.metric.unitNoun : `per ${unitLabel}`}, rank ${f.properties.rank} of ${total}`"
+          <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="ui.metric.id === 'canopy' ? `${f.properties.name} · ${canopyValue(val(f.properties))}% of land` : f.properties.name"
+            :subtitle="ui.metric.id === 'canopy' ? undefined : `${density(val(f.properties))}${unitless ? '' : ` /${unitLabel}`} · #${f.properties.rank} of ${total}`"
+            :aria-label="ui.metric.id === 'canopy' ? `Open ${f.properties.name}, tree canopy ${canopyValue(val(f.properties))}% of land` : `Open ${f.properties.name}, ${density(val(f.properties))} ${unitless ? ui.metric.unitNoun : `per ${unitLabel}`}, rank ${f.properties.rank} of ${total}`"
             @click="pick(f.properties.geoid)">
-            <template v-if="f.properties.bottomQuartile" #append>
+            <template v-if="ui.metric.id !== 'canopy' && f.properties.bottomQuartile" #append>
               <v-chip size="x-small" variant="tonal" color="warning">Bottom 25%</v-chip>
             </template>
           </v-list-item>

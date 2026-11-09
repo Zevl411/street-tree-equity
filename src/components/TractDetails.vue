@@ -8,8 +8,10 @@ import { useMenuButtonFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { CSV_VIEW_TOOLTIP, ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
+import { canopyHelper, canopyMissing, canopyMissingExplanation, canopyTooltip, canopyValue, validCanopy, OSM_COVERAGE_NOTE } from '@/utils/canopySource'
+import { cityMedian as metricMedian } from '@/utils/densityBins'
 import { METRICS, type MetricId } from '@/utils/metrics'
-import { SNAPSHOT_DUAL_NOTE, SNAPSHOT_MAPPING_NOTE, snapshotCityName, snapshotRow, snapshotMessage, snapshotCanopyUnavailable, type TractSnapshotIndex, type SnapshotRow } from '@/utils/tractSnapshot'
+import { SNAPSHOT_DUAL_NOTE, snapshotCityName, snapshotRow, snapshotMessage, snapshotCanopyUnavailable, type TractSnapshotIndex, type SnapshotRow } from '@/utils/tractSnapshot'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null; snapshotIndex?: TractSnapshotIndex | null }>()
 const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature]; selectMetric: [id: MetricId] }>()
@@ -25,7 +27,7 @@ const isKm2 = computed(() => ui.densityUnit === 'km2')
 const MINUS = '\u2212'
 const signed = (n: number, s: string) => (n > 0 ? '+' : n < 0 ? MINUS : '') + s
 const vsMedian = computed(() => {
-  const m = props.cityMedianAcre
+  const m = props.snapshotIndex ? metricMedian(props.snapshotIndex.collection, 'treesPerAcre') : props.cityMedianAcre
   const t = props.tract.treesPerAcre
   if (m == null || !Number.isFinite(m) || !Number.isFinite(t)) return null
   const deltaAcre = t - m
@@ -211,7 +213,7 @@ async function exportView() {
 const summaryLine = computed(() => {
   const t = props.tract
   const density = isKm2.value ? `${fmtKm2(tractKm2.value)}/km²` : `${t.treesPerAcre.toFixed(2)}/acre`
-  const parts = [t.name, areaLabel.value, `GEOID ${t.geoid}`, density]
+  const parts = [t.name, areaLabel.value, `GEOID ${t.geoid}`, `Mapped-tree density ${density}`]
   if (t.rank && props.total) parts.push(`#${t.rank} of ${props.total}`)
   return parts.filter(Boolean).join(' · ')
 })
@@ -238,7 +240,7 @@ function copyLink() {
   try {
     url = tractShareUrl({
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
-      basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
+      metric: ui.activeMetric, basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
       choroplethMode: ui.choroplethMode, legend: ui.legendExpandedPref, bin: ui.densityBinIndex,
       layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit, libraries: ui.showLibraries, gardens: ui.showGardens, fountains: ui.showFountains, postoffices: ui.showPostOffices, playgrounds: ui.showPlaygrounds, toilets: ui.showToilets, benches: ui.showBenches, clinics: ui.showClinics, emergency: ui.showEmergency, sidewalks: ui.showSidewalks },
     })
@@ -273,7 +275,7 @@ function copyLink() {
 
       <div class="d-flex flex-wrap ga-2 mb-1">
         <v-chip v-if="tract.rank && total" color="primary" variant="tonal" size="small"
-          :aria-label="`Density rank ${tract.rank} of ${total}, 1 is most trees per ${isKm2 ? 'km²' : 'acre'}`">
+          :aria-label="`Mapped-tree density rank ${tract.rank} of ${total}, 1 is most trees per ${isKm2 ? 'km²' : 'acre'}`">
           #{{ tract.rank }} of {{ total }}
         </v-chip>
         <v-chip v-if="relative" :color="relative.color" variant="tonal" size="small">
@@ -294,20 +296,26 @@ function copyLink() {
         <div class="text-caption text-medium-emphasis mb-3" aria-hidden="true">{{ vsMedian.caption }}</div>
       </template>
 
+      <div class="mb-3 canopy-detail">
+        <div class="text-subtitle-2">Tree canopy</div>
+        <div v-if="validCanopy(tract)" class="text-h5 font-weight-bold">{{ canopyValue(tract.canopyPct) }}% of land</div>
+        <template v-else><p class="text-body-2">{{ canopyMissing(tract) }}</p><p class="text-caption mt-1">{{ canopyMissingExplanation(tract) }}</p></template>
+        <p class="text-caption mt-2">{{ canopyTooltip(meta) }}</p>
+      </div>
       <v-row dense>
         <v-col cols="6">
           <div class="text-h5 font-weight-bold">{{ tract.treeCount.toLocaleString() }}</div>
-          <div class="text-caption text-medium-emphasis">Mapped trees</div>
+          <div class="text-caption text-medium-emphasis">Mapped street trees (OSM)</div>
         </v-col>
         <v-col cols="6">
           <template v-if="isKm2">
             <div class="text-h5 font-weight-bold">{{ fmtKm2(tractKm2) }}</div>
-            <div class="text-caption text-medium-emphasis">Trees per km²</div>
+            <div class="text-caption text-medium-emphasis">Mapped street trees / km²</div>
             <div class="text-caption text-medium-emphasis">Also {{ tract.treesPerAcre.toFixed(2) }} per acre</div>
           </template>
           <template v-else>
             <div class="text-h5 font-weight-bold">{{ tract.treesPerAcre.toFixed(2) }}</div>
-            <div class="text-caption text-medium-emphasis">Trees per acre</div>
+            <div class="text-caption text-medium-emphasis">Mapped street trees / acre</div>
             <div class="text-caption text-medium-emphasis">Also {{ fmtKm2(tractKm2) }} per km²</div>
           </template>
         </v-col>
@@ -317,9 +325,12 @@ function copyLink() {
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">#{{ tract.rank }} of {{ total }}</div>
-          <div class="text-caption text-medium-emphasis">Density rank</div>
+          <div class="text-caption text-medium-emphasis">Mapped-tree density rank</div>
         </v-col>
       </v-row>
+      <p v-if="tract.treeCount === 0" class="text-body-2 mt-2">No street trees mapped</p>
+      <p v-if="ui.activeMetric === 'trees' && !meta.canopy" class="text-caption mt-2">Tree canopy unavailable in this pack. Showing mapped street trees (OSM).</p>
+      <p class="text-caption mt-2 osm-coverage-note">{{ OSM_COVERAGE_NOTE }}</p>
 
       <section v-if="snapshot" ref="snapshotSection" class="tract-snapshot mt-4" aria-labelledby="tract-snapshot-heading">
         <h3 id="tract-snapshot-heading" ref="snapshotHeading" tabindex="-1" class="text-subtitle-2">Community-need snapshot</h3>
@@ -328,9 +339,9 @@ function copyLink() {
         <details class="snapshot-help">
           <summary>How to read these comparisons</summary>
           <p>Only other tracts in the loaded {{ snapshotCity }} pack are compared; the pack may cover part of the city. Higher or lower describes a measure, not people.</p>
-          <p>Percentages are mid-ranks against other tracts, not changes in a measure. Half of equal-value tracts count on each side. Need-comparison percentages round down; street-tree percentages round to the nearest whole percent. Missing values are excluded. Each measure needs at least 10 tracts with data. Only measures higher-need than most other tracts appear.</p>
+          <p>Percentages are mid-ranks against other tracts, not changes in a measure. Half of equal-value tracts count on each side. Comparison percentages round down. Missing values are excluded. Each measure needs at least 10 tracts with data. Only measures higher-need than most other tracts appear in the shortlist.</p>
           <p>Health values are CDC PLACES model estimates, not diagnoses. Ranks do not account for uncertainty and do not establish meaningful differences between tracts. These comparisons do not show what trees cause.</p>
-          <p>Street-tree density uses mapped OpenStreetMap trees, not tree-canopy cover. Missing map records are not proof that no trees or amenities exist.</p>
+          <p>Tree-canopy cover is estimated from USFS satellite data over non-water land, not counted from mapped street-tree points. OpenStreetMap counts remain separate; missing map records are not proof that no trees or amenities exist.</p>
         </details>
         <p v-if="ui.dualView" class="text-body-2 mb-2 snapshot-dual-note">{{ SNAPSHOT_DUAL_NOTE }}</p>
         <ol aria-label="Community-need comparisons" class="snapshot-list">
@@ -366,7 +377,7 @@ function copyLink() {
           </div>
         </template>
         <p v-else class="text-body-2 snapshot-trees-unavailable">{{ snapshotCanopyUnavailable(snapshot) }}</p>
-        <p class="text-caption mt-2 snapshot-mapping-note">{{ SNAPSHOT_MAPPING_NOTE }}</p>
+        <p class="text-caption mt-2 snapshot-mapping-note">{{ canopyHelper(meta) }}</p>
         <span role="status" aria-live="polite" aria-atomic="true" class="d-sr-only snapshot-status">{{ snapshotStatus }}</span>
       </section>
 
@@ -405,7 +416,8 @@ function copyLink() {
       <v-list-subheader v-if="tract.pctShortSleep != null">Adults sleeping under 7 hours · {{ tract.pctShortSleep.toFixed(1) }}%<template v-if="tract.pctShortSleepLo != null && tract.pctShortSleepHi != null"> (95% CI {{ tract.pctShortSleepLo.toFixed(1) }}–{{ tract.pctShortSleepHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctUninsured != null">Adults 18–64 with no health insurance · {{ tract.pctUninsured.toFixed(1) }}%<template v-if="tract.pctUninsuredLo != null && tract.pctUninsuredHi != null"> (95% CI {{ tract.pctUninsuredLo.toFixed(1) }}–{{ tract.pctUninsuredHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctLep != null">Residents 5+ with limited English · {{ tract.pctLep.toFixed(1) }}%<template v-if="tract.pctLepMoe != null"> (±{{ tract.pctLepMoe.toFixed(1) }})</template><template v-if="tract.popLep != null"> · {{ tract.popLep.toLocaleString() }} residents</template></v-list-subheader>
-      <v-list-subheader v-if="tract.plantNeed != null">Planting need · {{ tract.plantNeed.toFixed(1) }} / 100<template v-if="tract.plantNeedParts"> (trees {{ tract.plantNeedParts.T.toFixed(1) }} · poverty {{ tract.plantNeedParts.P.toFixed(1) }}<template v-if="tract.plantNeedParts.A != null"> · asthma {{ tract.plantNeedParts.A.toFixed(1) }}</template>)</template> · relative within this city</v-list-subheader>
+      <v-list-subheader v-if="tract.plantNeed != null">Planting need · {{ tract.plantNeed.toFixed(1) }} / 100<template v-if="tract.plantNeedParts"> (canopy gap {{ tract.plantNeedParts.T.toFixed(1) }} · poverty {{ tract.plantNeedParts.P.toFixed(1) }}<template v-if="tract.plantNeedParts.A != null"> · asthma {{ tract.plantNeedParts.A.toFixed(1) }}</template>)</template> · relative within this city</v-list-subheader>
+      <p v-if="tract.plantNeed != null" class="text-caption px-4 pb-2">Canopy gap is a relative score within this city, not the percentage of land without trees.</p>
       <v-list-subheader v-if="tract.pctSnap != null">Households receiving SNAP · {{ tract.pctSnap.toFixed(1) }}%<template v-if="tract.pctSnapMoe != null"> (±{{ tract.pctSnapMoe.toFixed(1) }})</template><template v-if="tract.hhSnap != null"> · {{ tract.hhSnap.toLocaleString() }} households</template></v-list-subheader>
       <v-list-subheader v-if="tract.pctRentBurden != null">Renters paying ≥30% of income · {{ tract.pctRentBurden.toFixed(1) }}%<template v-if="tract.pctRentBurdenMoe != null"> (±{{ tract.pctRentBurdenMoe.toFixed(1) }})</template><template v-if="tract.pctSevereRentBurden != null"> · ≥50% {{ tract.pctSevereRentBurden.toFixed(1) }}%</template><template v-if="tract.rentBurdenBase != null"> · n={{ tract.rentBurdenBase.toLocaleString() }} renters</template></v-list-subheader>
       <v-list-subheader v-if="tract.pctNoVehicle != null">Households with no vehicle · {{ tract.pctNoVehicle.toFixed(1) }}%<template v-if="tract.pctNoVehicleMoe != null"> (±{{ tract.pctNoVehicleMoe.toFixed(1) }})</template></v-list-subheader>

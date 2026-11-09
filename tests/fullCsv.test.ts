@@ -23,7 +23,7 @@ const at = (row: string[], h: string) => row[(CSV_HEADERS as readonly string[]).
 
 test('#143 full CSV row cell count === CSV_HEADERS.length', () => {
   assert.equal(cells(csvRow(tract, meta)).length, CSV_HEADERS.length)
-  assert.equal(CSV_HEADERS.length, 97)
+  assert.equal(CSV_HEADERS.length, 98)
   assert.equal(new Set(CSV_HEADERS).size, CSV_HEADERS.length)
 })
 

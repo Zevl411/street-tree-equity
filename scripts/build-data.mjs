@@ -18,6 +18,7 @@
  *   public/data/roads-lowtree.geojson   (stretch feature; optional)
  *   public/data/meta.json
  */
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -414,3 +415,7 @@ const meta = {
 }
 await writeJson('meta.json', meta)
 log(`done: ${tractOut.length} tracts, ${totalTrees} trees, ${parks.length} parks; overall ${meta.overall.treesPerAcre} trees/acre`)
+
+// #148: canopy must precede planting need on every data refresh; no OSM fallback.
+execFileSync(process.execPath, ['scripts/add-canopy.mjs', 'public/data'], { cwd: ROOT, stdio: 'inherit' })
+execFileSync(process.execPath, ['scripts/add-plant-need.mjs', 'public/data'], { cwd: ROOT, stdio: 'inherit' })

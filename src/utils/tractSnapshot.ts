@@ -3,13 +3,14 @@
  */
 import type { Meta, TractCollection, TractProps } from '@/types'
 import { METRICS, METRIC_SWITCH_ORDER, fmtMetric, metricAvailable, metricValue, type MetricId, type MetricUnit } from './metrics.ts'
+import { canopyValue } from './canopySource.ts'
 import { PLACES_MEASURES } from './placesMeasures.ts'
 
 export const SNAPSHOT_MIN_VALID_TRACTS = 10
 export const SNAPSHOT_WORST_LIMIT = 3
 /** Registry id, not a field name. #148 can replace the context metric in this one place. */
-export const SNAPSHOT_CANOPY_METRIC: MetricId = 'trees'
-export const SNAPSHOT_EXCLUDED_METRICS: readonly MetricId[] = Object.freeze(['trees', 'plantNeed', 'risk', 'age65', 'under18'])
+export const SNAPSHOT_CANOPY_METRIC: MetricId = 'canopy'
+export const SNAPSHOT_EXCLUDED_METRICS: readonly MetricId[] = Object.freeze(['canopy', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
 const allowlist: readonly MetricId[] = ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured']
 /** Future registry entries are not automatically eligible. */
 export const SNAPSHOT_CANDIDATE_METRICS: readonly MetricId[] = Object.freeze(METRIC_SWITCH_ORDER.filter(id => allowlist.includes(id)))
@@ -36,7 +37,7 @@ export interface SnapshotMetric {
 export interface TractSnapshot {
   readonly geoid: string
   readonly canopy: SnapshotMetric | null
-  readonly canopyUnavailable: 'missing' | 'insufficient' | null
+  readonly canopyUnavailable: 'missing' | 'mostly-water' | 'insufficient' | null
   readonly worst: readonly SnapshotMetric[]
   readonly eligibleCount: number
   readonly aboveFloorCount: number
@@ -121,7 +122,7 @@ export function getTractSnapshotIndex(collection: TractCollection, meta: Meta): 
       const canopy = canopyAvailable
         ? snapshotMetric(SNAPSHOT_CANOPY_METRIC, canopyValue, canopyValues) : null
       const result: TractSnapshot = Object.freeze({ geoid, canopy,
-        canopyUnavailable: canopy ? null : !Number.isFinite(canopyValue) ? 'missing' : 'insufficient',
+        canopyUnavailable: canopy ? null : props.canopyStatus === 'mostly-water' ? 'mostly-water' : !Number.isFinite(canopyValue) ? 'missing' : 'insufficient',
         worst: Object.freeze(qualified.slice(0, SNAPSHOT_WORST_LIMIT)), eligibleCount: eligible.length, aboveFloorCount: qualified.length })
       selected.set(geoid, result)
       return result
@@ -145,6 +146,7 @@ export function snapshotCityName(metaName?: string, fallbackName?: string): stri
   return (metaName || fallbackName || '').trim().replace(/,\s*[A-Z]{2}$/, '').trim() || 'this city'
 }
 export function snapshotLabel(id: MetricId): string {
+  if (id === 'trees') return 'Street trees' // historical OSM snapshot fixtures; never the measured-canopy context
   return id === 'uninsured' ? 'No health insurance (ages 18–64)' : METRICS[id].shortLabel
 }
 export function snapshotPercent(x: number): number { return Math.max(1, Math.min(99, Math.floor(x))) }
@@ -157,6 +159,14 @@ export function snapshotComparison(item: SnapshotMetric, city: string): string {
   return `${adverse} than ${snapshotPercent(item.badness)}% of other tracts in ${city}`
 }
 export function snapshotCanopyComparison(item: SnapshotMetric, city: string, unit: MetricUnit): string {
+  if (item.metricId === 'canopy') {
+    const n = item.validCount - 1
+    if (item.tied === n) return `Same estimated tree canopy as all ${n} other tracts in ${city}`
+    if (item.tied === 0 && item.higher === 0) return `More tree canopy than all ${n} other tracts in ${city}`
+    if (item.tied === 0 && item.lower === 0) return `Less tree canopy than all ${n} other tracts in ${city}`
+    if (item.value === 0 && item.tied > 0) return `Tied with ${item.tied} other tracts in ${city} at 0% estimated tree canopy`
+    return `More tree canopy than ${snapshotPercent(item.percentile)}% of other tracts in ${city}`
+  }
   // Rev 3: zero is honest mapped-data context, never a "more trees" percentile claim.
   if (item.value === 0) return item.tied ? `Tied with ${item.tied} other tracts in ${city} that have no street trees mapped.` : ''
   const area = unit === 'km2' ? 'km²' : 'acre'
@@ -166,15 +176,16 @@ export function snapshotCanopyComparison(item: SnapshotMetric, city: string, uni
   return `More street trees per ${area} than ${Math.max(1, Math.min(99, Math.round(item.percentile)))}% of other tracts in ${city}`
 }
 function zeroSentence(id: MetricId): string | null {
-  return id === SNAPSHOT_CANOPY_METRIC ? 'No street trees mapped' : id === 'groceries' ? 'No grocery stores mapped' : id === 'parks' ? 'No parks mapped' : null
+  return id === 'trees' ? 'No street trees mapped' : id === 'groceries' ? 'No grocery stores mapped' : id === 'parks' ? 'No parks mapped' : null
 }
 export function snapshotValue(item: SnapshotMetric, unit: MetricUnit): string {
   const def = METRICS[item.metricId]
+  if (item.metricId === 'canopy') return `${canopyValue(item.value)}% of land`
   if (!def.usesDensityUnit) return fmtMetric(def, item.value, unit === 'km2', ACRES_PER_KM2)
   if (item.value === 0 && zeroSentence(item.metricId)) return zeroSentence(item.metricId)!
   const v = item.value * (unit === 'km2' ? ACRES_PER_KM2 : 1)
   const compact = () => v.toLocaleString('en-US', { maximumSignificantDigits: 2, useGrouping: false })
-  const density = item.metricId === SNAPSHOT_CANOPY_METRIC
+  const density = item.metricId === 'trees'
     ? (unit === 'km2' ? (Math.round(v * 10) === 0 && v > 0 ? compact() : v.toLocaleString(undefined, { maximumFractionDigits: 1 }))
       : (Number(v.toFixed(2)) === 0 && v > 0 ? compact() : v.toFixed(2)))
     : compact()
@@ -196,11 +207,11 @@ export interface SnapshotRow {
 }
 export function snapshotRow(item: SnapshotMetric, city: string, unit: MetricUnit): SnapshotRow {
   const label = snapshotLabel(item.metricId), value = snapshotValue(item, unit)
-  const line2 = item.metricId === SNAPSHOT_CANOPY_METRIC ? snapshotCanopyComparison(item, city, unit) : snapshotComparison(item, city)
+  const line2 = (item.metricId === SNAPSHOT_CANOPY_METRIC || item.metricId === 'trees') ? snapshotCanopyComparison(item, city, unit) : snapshotComparison(item, city)
   const line1 = item.value === 0 && zeroSentence(item.metricId) ? value : `${label} · ${value}${item.modelEstimate ? ' · model estimate' : ''}`
   return Object.freeze({ metricId: item.metricId, label, value, line1, line2,
     ariaLabel: [`Switch map to ${label}`, line2 ? line2[0].toLowerCase() + line2.slice(1) : '', value].filter(Boolean).join(', ') + (item.modelEstimate ? ', model estimate' : '') })
 }
 export function snapshotCanopyUnavailable(result: TractSnapshot): string {
-  return result.canopyUnavailable === 'missing' ? 'Street-tree comparison unavailable for this tract.' : 'Not enough street-tree data to compare this tract (10 tracts needed).'
+  return result.canopyUnavailable === 'mostly-water' ? 'Mostly water — no canopy estimate' : result.canopyUnavailable === 'missing' ? 'Tree-canopy comparison unavailable for this tract.' : 'Not enough tree-canopy data to compare this tract (10 tracts needed).'
 }
