@@ -127,6 +127,7 @@ const MEASURES = [
   { measure: 'STROKE', metricId: 'stroke', key: 'pctStroke', popKey: 'strokeAdultPop', value: 'stroke_crudeprev', ci: 'stroke_crude95ci' },
   { measure: 'DISABILITY', metricId: 'disability', key: 'pctDisability', popKey: 'disabilityAdultPop', value: 'disability_crudeprev', ci: 'disability_crude95ci' },
   { measure: 'SLEEP', metricId: 'shortSleep', key: 'pctShortSleep', popKey: 'shortSleepAdultPop', value: 'sleep_crudeprev', ci: 'sleep_crude95ci' },
+  { measure: 'ACCESS2', metricId: 'uninsured', key: 'pctUninsured', popKey: 'uninsuredAdultPop', value: 'access2_crudeprev', ci: 'access2_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
