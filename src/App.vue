@@ -1144,7 +1144,7 @@ watch(drawerOpen, async (open) => {
         </template>
         <v-list density="comfortable">
           <v-list-item prepend-icon="mdi-magnify" title="Find tract" @click="finderOpen = true" />
-          <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Low-canopy hotspots" @click="hotspotsOpen = true" />
+          <v-list-item v-if="meta && tracts?.features.length" prepend-icon="mdi-tree-outline" title="Hotspots" @click="hotspotsOpen = true" />
           <v-list-item v-if="meta" prepend-icon="mdi-star-outline" title="Starred tracts" @click="favoritesOpen = true" />
           <v-list-item prepend-icon="mdi-fit-to-screen-outline" :title="resetLabel" @click="mapRef?.fitData()" />
           <v-list-item v-if="geoSupported" prepend-icon="mdi-crosshairs-gps" :title="locateLabel" :disabled="locating || !meta" @click="locateMe" />
