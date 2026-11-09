@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) and LPA (no leisure-time physical activity / inactivity, #133) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133) and COPD (chronic obstructive pulmonary disease, #136) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -31,8 +31,11 @@
  *   pctInactivity ← LPA_CrudePrev  (#133; crude, 0–100 %)
  *   pctInactivityLo/Hi ← LPA_Crude95CI
  *   inactivityAdultPop ← TotalPop18plus
+ *   pctCopd ← COPD_CrudePrev  (#136; crude, 0–100 %)
+ *   pctCopdLo/Hi ← COPD_Crude95CI
+ *   copdAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
- *   #133: BRFSS year for LPA is read from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.LPA
+ *   #133/#136: BRFSS years for LPA/COPD from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.{LPA,COPD}
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
  * falls back to median tract % if no pop, logged); meta.overall.pct*Median = median tract %.
@@ -49,38 +52,56 @@ const CSV = process.env.PLACES_CSV || path.join(DIR, 'places-tract-2025-gis.csv'
 const DOWNLOAD_URL = 'https://data.cdc.gov/api/views/yjkw-uj5s/rows.csv?accessType=DOWNLOAD'
 const SOURCE_URL = 'https://data.cdc.gov/500-Cities-Places/PLACES-Census-Tract-Data-GIS-Friendly-Format-2025-/yjkw-uj5s'
 const POP = 'totalpop18plus', JOIN = 'tractfips'
-/** #133: BRFSS data year for LPA from PLACES Socrata column metadata (never hardcode). */
+/** #133/#136: BRFSS data year from PLACES Socrata column metadata (never hardcode). Prefer year adjacent to "BRFSS". */
 const COLUMNS_META_URL = 'https://data.cdc.gov/api/views/yjkw-uj5s/columns.json'
 const COLUMNS_CACHE = path.join(DIR, 'yjkw-uj5s-columns.json')
-async function resolveLpaYear() {
-  if (process.env.PLACES_LPA_YEAR) {
-    const y = Number(process.env.PLACES_LPA_YEAR)
-    if (!Number.isFinite(y)) throw new Error(`PLACES_LPA_YEAR must be a year, got ${process.env.PLACES_LPA_YEAR}`)
-    console.log(`[places] LPA BRFSS year ${y} (from PLACES_LPA_YEAR)`)
+let _placesColumnsMeta = null
+async function loadPlacesColumnsMeta() {
+  if (_placesColumnsMeta) return _placesColumnsMeta
+  try {
+    const res = await fetch(COLUMNS_META_URL)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    _placesColumnsMeta = await res.json()
+    try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(COLUMNS_CACHE, JSON.stringify(_placesColumnsMeta)) } catch { /* cache best-effort */ }
+  } catch (e) {
+    if (fs.existsSync(COLUMNS_CACHE)) {
+      _placesColumnsMeta = JSON.parse(fs.readFileSync(COLUMNS_CACHE, 'utf8'))
+      console.warn(`[places] column metadata: live fetch failed (${e.message}); using cache ${COLUMNS_CACHE}`)
+    } else {
+      throw e
+    }
+  }
+  return _placesColumnsMeta
+}
+/** Prefer 4-digit year next to "BRFSS"; else first year in the description (TL soft nit #136). */
+function yearFromPlacesDesc(desc) {
+  const brfss = desc.match(/BRFSS[^0-9]{0,24}((?:19|20)\d{2})/i) || desc.match(/((?:19|20)\d{2})[^0-9]{0,24}BRFSS/i)
+  if (brfss) return Number(brfss[1])
+  const m = desc.match(/\b((?:19|20)\d{2})\b/)
+  return m ? Number(m[1]) : null
+}
+async function resolvePlacesMeasureYear(measure, fieldName, envKey) {
+  if (process.env[envKey]) {
+    const y = Number(process.env[envKey])
+    if (!Number.isFinite(y)) throw new Error(`${envKey} must be a year, got ${process.env[envKey]}`)
+    console.log(`[places] ${measure} BRFSS year ${y} (from ${envKey})`)
     return y
   }
   let cols
   try {
-    const res = await fetch(COLUMNS_META_URL)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    cols = await res.json()
-    try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(COLUMNS_CACHE, JSON.stringify(cols)) } catch { /* cache best-effort */ }
+    cols = await loadPlacesColumnsMeta()
   } catch (e) {
-    if (fs.existsSync(COLUMNS_CACHE)) {
-      cols = JSON.parse(fs.readFileSync(COLUMNS_CACHE, 'utf8'))
-      console.warn(`[places] LPA year: live metadata failed (${e.message}); using cache ${COLUMNS_CACHE}`)
-    } else {
-      throw new Error(`#133: could not read PLACES column metadata for LPA BRFSS year (${e.message}). Set PLACES_LPA_YEAR or cache ${COLUMNS_CACHE}.`)
-    }
+    throw new Error(`#133/#136: could not read PLACES column metadata for ${measure} BRFSS year (${e.message}). Set ${envKey} or cache ${COLUMNS_CACHE}.`)
   }
-  const col = (cols || []).find((c) => String(c.fieldName || '').toLowerCase() === 'lpa_crudeprev')
+  const col = (cols || []).find((c) => String(c.fieldName || '').toLowerCase() === fieldName.toLowerCase())
   const desc = col?.description || ''
-  const m = desc.match(/\b(19|20)\d{2}\b/)
-  if (!m) throw new Error(`#133: no BRFSS year in LPA_CrudePrev description: ${JSON.stringify(desc)}`)
-  const y = Number(m[0])
-  console.log(`[places] LPA BRFSS year ${y} (from Socrata column metadata: ${desc})`)
+  const y = yearFromPlacesDesc(desc)
+  if (y == null) throw new Error(`#133/#136: no BRFSS year in ${fieldName} description: ${JSON.stringify(desc)}`)
+  console.log(`[places] ${measure} BRFSS year ${y} (from Socrata column metadata: ${desc})`)
   return y
 }
+async function resolveLpaYear() { return resolvePlacesMeasureYear('LPA', 'lpa_crudeprev', 'PLACES_LPA_YEAR') }
+async function resolveCopdYear() { return resolvePlacesMeasureYear('COPD', 'copd_crudeprev', 'PLACES_COPD_YEAR') }
 // #119: measures in one pass (append-only). metricId → meta.metricBreaks key; key → TractProps prefix.
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
@@ -91,6 +112,7 @@ const MEASURES = [
   { measure: 'CHD', metricId: 'chd', key: 'pctChd', popKey: 'chdAdultPop', value: 'chd_crudeprev', ci: 'chd_crude95ci' },
   { measure: 'BPHIGH', metricId: 'bphigh', key: 'pctBpHigh', popKey: 'bpHighAdultPop', value: 'bphigh_crudeprev', ci: 'bphigh_crude95ci' },
   { measure: 'LPA', metricId: 'inactivity', key: 'pctInactivity', popKey: 'inactivityAdultPop', value: 'lpa_crudeprev', ci: 'lpa_crude95ci' },
+  { measure: 'COPD', metricId: 'copd', key: 'pctCopd', popKey: 'copdAdultPop', value: 'copd_crudeprev', ci: 'copd_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
@@ -98,6 +120,7 @@ if (!fs.existsSync(CSV)) throw new Error(`missing ${CSV} — curl -L -o ${CSV} '
 
 const packs = loadPacks(dirs)
 const lpaYear = await resolveLpaYear()
+const copdYear = await resolveCopdYear()
 const want = new Set(packs.flatMap((p) => p.fc.features.map(tractGeoid)))
 const { columns: cols, rows, total } = await readPlaces(CSV, [...MEASURES.flatMap((M) => [M.value, M.ci]), POP], want, JOIN)
 const columns = { join: cols[JOIN], adultPop: cols[POP] }
@@ -134,7 +157,14 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), LPA: lpaYear } }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), LPA: lpaYear, COPD: copdYear } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
+}
+// #136 locked check row (central-miami-fl pack)
+for (const p of packs) {
+  if (!p.dir.includes('central-miami')) continue
+  const f = p.fc.features.find((x) => tractGeoid(x) === '12086002404')
+  if (f) console.log(`[places] #136 check 12086002404 pctCopd=${f.properties.pctCopd} CI=(${f.properties.pctCopdLo}, ${f.properties.pctCopdHi}) pop=${f.properties.copdAdultPop}`)
+  else console.warn('[places] #136 check tract 12086002404 not in pack', p.dir)
 }

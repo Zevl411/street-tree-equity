@@ -106,4 +106,10 @@ test('#133 inactivity resolves with aliases lpa/activity and round-trips in ?dua
   assert.equal(encodeDualParam('inactivity', 'trees'), 'inactivity,trees')
 })
 
-
+test('#136 copd resolves with aliases lung and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,copd'), { left: 'trees', right: 'copd' })
+  assert.deepEqual(p('LUNG,inactivity'), { left: 'copd', right: 'inactivity' })
+  assert.equal(resolveMetric('lung'), 'copd')
+  assert.equal(resolveMetric('COPD'), 'copd')
+  assert.equal(encodeDualParam('copd', 'trees'), 'copd,trees')
+})
