@@ -22,10 +22,14 @@ export const PLACES_MEASURES: Partial<Record<MetricId, PlacesEntry>> = {
   disability: ['DISABILITY', 'Any disability among adults', 'any disability'],
   shortSleep: ['SLEEP', 'Short sleep duration among adults', 'short sleep duration'],
   uninsured: ['ACCESS2', 'Current lack of health insurance among adults aged 18-64 years', 'current lack of health insurance among adults aged 18–64'],
+  depression: ['DEPRESSION', 'Depression among adults', 'depression history (ever told of a depressive disorder)'],
 }
 
-/** PLACES metric ids in map (registry) order. */
+/** PLACES metric ids in registry/invent append order. */
 export const PLACES_METRIC_IDS = Object.keys(PLACES_MEASURES) as MetricId[]
+
+/** #150 Designer-locked methods note, shared by About and Copy citations. */
+export const DEPRESSION_METHODS = 'Depression history is the estimated share of adults aged 18+ who report ever being told by a doctor, nurse, or other health professional that they had a depressive disorder. It is a lifetime measure, not necessarily current depression, and does not describe severity or duration. Mental health (MHLTH) measures 14+ days of poor mental health in the past 30 days. These measures describe communities, not individuals.'
 
 /** Citation for one PLACES metric; year from meta.cdcPlaces.years[measure] (clause omitted if missing). */
 export function placesMetricCitation(id: MetricId, years: Record<string, number | undefined> | null | undefined): string | null {

@@ -3,6 +3,9 @@
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
  *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136), CSMOKING (current cigarette smoking, #138), STROKE (stroke, #141), DISABILITY (any disability, #143), SLEEP (short sleep duration, #144; BRFSS 2022 even-year core) and ACCESS2 (lack of health insurance, ages 18–64, #146) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
+ *   #150 incremental join: PLACES_MEASURES=DEPRESSION preserves all existing tract fields.
+ *   DEPRESSION is ever-diagnosed depression among adults (not MHLTH frequent mental distress).
+ *   pctDepression / pctDepressionLo/Hi / depressionAdultPop use the same crude reader and weights.
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
  *     'https://data.cdc.gov/api/views/yjkw-uj5s/rows.csv?accessType=DOWNLOAD'
@@ -117,7 +120,7 @@ async function resolvePlacesMeasureYear(measure, fieldName, envKey) {
   console.log(`[places] ${measure} BRFSS year ${y} (from Socrata column metadata: ${desc})`)
   return y
 }
-// #119: measures in one pass (append-only). metricId → meta.metricBreaks key; key → TractProps prefix.
+// #150: DEPRESSION appends after ACCESS2; UI order is separate. metricId → meta.metricBreaks key; key → TractProps prefix.
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
   { measure: 'DIABETES', metricId: 'diabetes', key: 'pctDiabetes', popKey: 'diabetesAdultPop', value: 'diabetes_crudeprev', ci: 'diabetes_crude95ci' },
@@ -133,22 +136,32 @@ const MEASURES = [
   { measure: 'DISABILITY', metricId: 'disability', key: 'pctDisability', popKey: 'disabilityAdultPop', value: 'disability_crudeprev', ci: 'disability_crude95ci' },
   { measure: 'SLEEP', metricId: 'shortSleep', key: 'pctShortSleep', popKey: 'shortSleepAdultPop', value: 'sleep_crudeprev', ci: 'sleep_crude95ci' },
   { measure: 'ACCESS2', metricId: 'uninsured', key: 'pctUninsured', popKey: 'uninsuredAdultPop', value: 'access2_crudeprev', ci: 'access2_crude95ci' },
+  { measure: 'DEPRESSION', metricId: 'depression', key: 'pctDepression', popKey: 'depressionAdultPop', value: 'depression_crudeprev', ci: 'depression_crude95ci' },
 ]
+// Selective backfills must not delete/reinsert unrelated fields or change their bytes/order.
+const requestedMeasures = process.env.PLACES_MEASURES ? new Set(process.env.PLACES_MEASURES.split(',').map((m) => m.trim())) : null
+const selectedMeasures = requestedMeasures ? MEASURES.filter((M) => requestedMeasures.has(M.measure)) : MEASURES
+if (requestedMeasures && requestedMeasures.size !== selectedMeasures.length) throw new Error(`Unknown PLACES_MEASURES: ${[...requestedMeasures].filter((m) => !MEASURES.some((M) => M.measure === m)).join(', ')}`)
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
 if (!fs.existsSync(CSV)) throw new Error(`missing ${CSV} — curl -L -o ${CSV} '${DOWNLOAD_URL}'`)
 
 const packs = loadPacks(dirs)
 const placesYears = {}
-for (const M of MEASURES) {
+for (const M of selectedMeasures) {
   placesYears[M.measure] = await resolvePlacesMeasureYear(M.measure, M.value, `PLACES_${M.measure}_YEAR`)
 }
 console.log(`[places] BRFSS years ${JSON.stringify(placesYears)}`)
 const want = new Set(packs.flatMap((p) => p.fc.features.map(tractGeoid)))
-const { columns: cols, rows, total } = await readPlaces(CSV, [...MEASURES.flatMap((M) => [M.value, M.ci]), POP], want, JOIN)
+const { columns: cols, rows, total } = await readPlaces(CSV, [...selectedMeasures.flatMap((M) => [M.value, M.ci]), POP], want, JOIN)
 const columns = { join: cols[JOIN], adultPop: cols[POP] }
-for (const M of MEASURES) { columns[M.key] = cols[M.value]; columns[`${M.key}Ci`] = cols[M.ci] }
+for (const M of selectedMeasures) { columns[M.key] = cols[M.value]; columns[`${M.key}Ci`] = cols[M.ci] }
 console.log(`[places] ${CSV}: ${total} rows; columns ${JSON.stringify(columns)}`)
+// #150 gate: validate every requested tract before mutating/writing any pack. No fallback.
+if (selectedMeasures.some((M) => M.measure === 'DEPRESSION')) {
+  const missing = [...want].filter((id) => { const v = placesNum(rows.get(id)?.depression_crudeprev); return v == null || v < 0 || v > 100 })
+  if (missing.length) throw new Error(`STOP: DEPRESSION coverage ${want.size - missing.length}/${want.size}; missing ${missing.join(', ')}. GHLTH requires TL approval.`)
+}
 const retrievedAt = process.env.PLACES_RETRIEVED || fs.statSync(CSV).mtime.toISOString().slice(0, 10)
 const r1 = (x) => Math.round(x * 10) / 10
 const median = (a) => { const s = [...a].sort((x, y) => x - y); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : r1((s[n / 2 - 1] + s[n / 2]) / 2)) : null }
@@ -156,7 +169,7 @@ const median = (a) => { const s = [...a].sort((x, y) => x - y); const n = s.leng
 for (const p of packs) {
   const m = p.meta
   m.metricBreaks = { ...(m.metricBreaks ?? {}) }
-  for (const M of MEASURES) {
+  for (const M of selectedMeasures) {
     const { key, popKey } = M
     const vals = []; let sw = 0, sp = 0, noPop = 0, sample = null
     for (const f of p.fc.features) {
@@ -180,7 +193,7 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, weightsNote: 'Pack aggregates weight by adults 18+; ACCESS2 covers 18–64', years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.filter((M) => selectedMeasures.includes(M) || (m.cdcPlaces?.measures ?? []).includes(M.measure)).map((M) => M.measure), valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns: { ...(m.cdcPlaces?.columns ?? {}), ...columns }, weightsNote: 'Pack aggregates weight by adults 18+; ACCESS2 covers 18–64', years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }
@@ -194,6 +207,7 @@ for (const p of packs) {
     console.log(`[places] #141 check 12086002404 pctStroke=${f.properties.pctStroke} CI=(${f.properties.pctStrokeLo}, ${f.properties.pctStrokeHi}) pop=${f.properties.strokeAdultPop}`)
     console.log(`[places] #143 check 12086002404 pctDisability=${f.properties.pctDisability} CI=(${f.properties.pctDisabilityLo}, ${f.properties.pctDisabilityHi}) pop=${f.properties.disabilityAdultPop}`)
     console.log(`[places] #144 check 12086002404 pctShortSleep=${f.properties.pctShortSleep} CI=(${f.properties.pctShortSleepLo}, ${f.properties.pctShortSleepHi}) pop=${f.properties.shortSleepAdultPop}`)
+    console.log(`[places] #150 check 12086002404 pctDepression=${f.properties.pctDepression} CI=(${f.properties.pctDepressionLo}, ${f.properties.pctDepressionHi}) pop=${f.properties.depressionAdultPop}`)
     console.log(`[places] #146 check 12086002404 pctUninsured=${f.properties.pctUninsured} CI=(${f.properties.pctUninsuredLo}, ${f.properties.pctUninsuredHi}) adults18plusWeight=${f.properties.uninsuredAdultPop}`)
   } else console.warn('[places] #136/#138/#141/#143/#144/#146 check tract 12086002404 not in pack', p.dir)
 }

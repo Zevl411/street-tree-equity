@@ -11,7 +11,8 @@ export const SNAPSHOT_WORST_LIMIT = 3
 /** Registry id, not a field name. #148 can replace the context metric in this one place. */
 export const SNAPSHOT_CANOPY_METRIC: MetricId = 'canopy'
 export const SNAPSHOT_EXCLUDED_METRICS: readonly MetricId[] = Object.freeze(['canopy', 'canopyGap', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
-const allowlist: readonly MetricId[] = ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured']
+// #150: ordinary PLACES depression history is rankable; exclusions and ranking math stay unchanged.
+const allowlist: readonly MetricId[] = ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'depression', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured']
 /** Future registry entries are not automatically eligible. */
 export const SNAPSHOT_CANDIDATE_METRICS: readonly MetricId[] = Object.freeze(METRIC_SWITCH_ORDER.filter(id => allowlist.includes(id)))
 const order = new Map(METRIC_SWITCH_ORDER.map((id, i) => [id, i]))
@@ -85,7 +86,7 @@ function compare(a: SnapshotMetric, b: SnapshotMetric): number {
 }
 /** O(M*N log N) arrays once per raw collection identity, reused across metadata wrappers.
  * A load-ready metadata wrapper applies metricAvailable exactly once, not on each selection.
- * Each selected lookup uses O(M log N) binary bounds and sorts at most 23 small results.
+ * Each selected lookup uses O(M log N) binary bounds and sorts at most 24 small results.
  */
 export function getTractSnapshotIndex(collection: TractCollection, meta: Meta): TractSnapshotIndex {
   let base = packCache.get(collection)

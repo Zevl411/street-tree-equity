@@ -8,6 +8,8 @@ Tree canopy is the default map: the estimated percentage of each tract's non-wat
 
 Choose Canopy gap (acres) in Layers to compare each tract with your city's leafier neighborhoods — the 75th-percentile tract canopy estimate in the loaded pack. Turn on Use a fixed 30% target to choose that comparison instead. The map shows additional canopy acres, so larger tracts can have larger gaps; details also show the percentage-point gap. At or above target means zero additional acres for this comparison, not proof that every street is shaded. Missing canopy or its matching land area stays unavailable. The target is shared in the link, not saved as a browser preference, and changing it does not change Planting need.
 
+Depression history shows the CDC PLACES 2025 model estimate of adults aged 18+ who report ever being told by a doctor, nurse, or other health professional that they had a depressive disorder (BRFSS 2023). It describes lifetime history, not necessarily current depression or its severity or duration. Mental health is a separate measure: 14+ days of poor mental health in the past 30 days. Both are community estimates, not individual diagnoses or evidence that tree canopy causes a health outcome. Depression history can appear among the snapshot's three comparisons, where it is marked as a model estimate.
+
 Use it as a conversation starter about where shade and greenery are missing, not as an official tree inventory. The app only covers cities that have been packaged ahead of time. It does not search the whole country live.
 
 ## Pick a city

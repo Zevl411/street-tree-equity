@@ -204,7 +204,7 @@ async function allDownloads(){
  for(const mode of ['p75','30']){
  await ready(URL_MIAMI+(mode==='30'?'&gapTarget=30':''));await installDownloads()
  const full=parseCsv(await tractDownload('All tracts in this city (CSV)'))
- check(full[0].length===103&&full.every(r=>r.length===103)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all152 rows/103 columns preserve every source and scenario cell`)
+ check(full[0].length===106&&full.every(r=>r.length===106)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all152 rows/106 columns preserve every source and scenario cell`)
  const text=await tractDownload('CSV – current view (Canopy gap (acres))'),current=csvBody(text),expected=csvBody(toCurrentViewCsv({rows:fc.features.map(f=>({cityId:'central-miami-fl',meta,props:f.properties})),metrics:['canopyGap'],unit:'acre',gapTarget:mode,comments:[]}))
  check(current[0].length===14&&current.every(r=>r.length===14)&&JSON.stringify(current)===JSON.stringify(expected),`${mode}: native current CSV all152 rows/14 columns, raw context vs1dp metric, acres units`)
  check(text.includes('Collection 1.2')&&text.includes('v2025-6')&&text.includes('plant_need_canopy: relative low-canopy score (0–100)')&&(mode!=='30'||text.includes('gapTarget=30')),`${mode}: native current preamble retains both sources, target/share URL and independent component meaning`)
@@ -280,6 +280,73 @@ async function pendingTarget(){
  check(await waitFor(`document.getElementById('canopy-gap-target-description')?.textContent==='City target unavailable. Use a fixed 30% target to choose a comparison.'&&!document.getElementById('canopy-gap-target-description').textContent.includes('Loading canopy-gap estimate')`),'completed-empty target retains exact unavailable copy, never loading copy')
  await evaluate(`window.__pendingTarget.props.target=window.__loadedTarget`)
 }
+// #150: exercise the locked depression row/copy, shared source, registry control and snapshot action.
+async function depressionUI(){
+ const {getTractSnapshotIndex}=await import('../src/utils/tractSnapshot.ts')
+ const {DEPRESSION_METHODS,placesMetricCitation}=await import('../src/utils/placesMeasures.ts')
+ const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8')),meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
+ const caption='Lifetime history, not necessarily current depression. Mental health (MHLTH) measures 14+ days of poor mental health in the past 30 days.'
+ const url=URL_MIAMI.replace('metric=canopyGap','metric=depression')
+ for(const width of [1400,390])for(const mode of ['light','dark','contrast']){
+  const name=`depression ${width}px ${mode}`
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false})
+  await ready(url+'&theme='+(mode==='dark'?'dark':'light')+(mode==='contrast'?'&hc=1':''))
+  check(await evaluate(`document.querySelector('.depression-detail')?.textContent==='Adults ever told they had a depressive disorder · 14.1% (95% CI 11.8–16.4) · model estimate'&&document.querySelector('.depression-caption')?.textContent===${JSON.stringify(caption)}`),`${name}: exact lifetime row, 95% CI/model marker and readable MHLTH distinction`)
+  check(await evaluate(`(!document.querySelector('.legend')||document.querySelector('.legend').textContent.includes('Adults ever told they had a depressive disorder'))&&document.documentElement.scrollWidth<=innerWidth+1&&[document.querySelector('.depression-detail'),document.querySelector('.depression-detail .v-list-subheader__text'),document.querySelector('.depression-caption'),document.querySelector('.legend')].filter(Boolean).every(e=>e.scrollWidth<=e.clientWidth+1)`),`${name}: exact legend and long text wrap without horizontal overflow`)
+  const contrast=await evaluate(`(()=>{const e=document.querySelector('.depression-detail'),bg=getComputedStyle(e).getPropertyValue('--v-theme-surface').split(',').map(Number),fg=(getComputedStyle(e).color.match(/[0-9.]+/g)||[]).map(Number),alpha=fg[3]??1;const rgb=fg.slice(0,3).map((v,i)=>v*alpha+bg[i]*(1-alpha));function lum(c){const a=c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return.2126*a[0]+.7152*a[1]+.0722*a[2]}return(Math.max(lum(rgb),lum(bg))+.05)/(Math.min(lum(rgb),lum(bg))+.05)})()`)
+  check(contrast>=4.5,`${name}: measured normal-text contrast >=4.5`,String(contrast))
+  if(process.env.A11Y_SCREENSHOT_DIR){
+   await evaluate(`document.querySelector('.depression-caption').scrollIntoView({block:'center'})`)
+   const dir=path.resolve(process.env.A11Y_SCREENSHOT_DIR);mkdirSync(dir,{recursive:true});const shot=await cdp.send('Page.captureScreenshot',{format:'png'});writeFileSync(path.join(dir,`depression-${width}-${mode}.png`),Buffer.from(shot.data,'base64'))
+  }
+  await evaluate(`document.querySelector('button[aria-label="Layers"]').click()`)
+  if(!await waitFor(`window.__vis(document.querySelector('#layers-panel'))`))throw Error('Layers did not open')
+  check(await evaluate(`(()=>{const b=[...document.querySelectorAll('#layers-panel button')].find(b=>b.textContent.trim()==='Depression history'),labels=[...b.parentElement.children].filter(e=>e.tagName==='BUTTON').map(e=>e.textContent.trim()),i=labels.indexOf('Depression history');window.__depressionControl=b;return labels.length===31&&labels[i-1]==='Mental health'&&labels[i+1]==='Physical health'&&!b.disabled})()`),`${name}: one enabled native option immediately after MHLTH, 31 locked options`)
+  await evaluate(`window.__stores().ui.setActiveMetric('mentalHealth');window.__depressionControl.focus()`)
+  await press('Space')
+  check(await waitFor(`window.__stores().ui.activeMetric==='depression'&&document.activeElement===window.__depressionControl&&window.__depressionControl.isConnected`),`${name}: native Space selects depression and retains same connected focus`)
+  await press('Escape')
+  if(width===390){
+   // Existing mobile design hides the legend while details are open: close the drawer first.
+   await evaluate(`document.querySelector('#tract-details-panel .tract-close').click()`)
+   if(!await waitFor(`window.__vis(document.querySelector('.map-legend-box'))`))throw Error('Mobile legend box did not return')
+   if(!await evaluate(`!!document.querySelector('.legend')`))await evaluate(`document.querySelector('.map-legend-box .legend-toggle').click()`)
+   check(await waitFor(`document.querySelector('.legend')?.textContent.includes('Adults ever told they had a depressive disorder')&&document.querySelector('.legend').scrollWidth<=document.querySelector('.legend').clientWidth+1&&document.documentElement.scrollWidth<=innerWidth+1`),`${name}: mobile legend opens in its existing no-drawer context with exact wrapped title`)
+  }
+  await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'h',code:'KeyH',windowsVirtualKeyCode:72})
+  await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'h',code:'KeyH',windowsVirtualKeyCode:72})
+  check(await waitFor(`window.__vis(document.querySelector('#hotspots-panel'))&&document.querySelector('#hotspots-panel .v-card-title').textContent.includes('Highest share reporting a depression history')&&document.querySelector('#hotspots-panel .v-card-title').scrollWidth<=document.querySelector('#hotspots-panel .v-card-title').clientWidth+1`),`${name}: existing Hotspots action shows the exact untruncated wrapped title`)
+  await press('Escape')
+ }
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await ready(url);await installDownloads()
+ const current=csvBody(await tractDownload('CSV – current view (Depression history)')),h=current[0],r=current.find(r=>r[h.indexOf('geoid')]==='12086002404')
+ check(h.length===16&&current.every(r=>r.length===16)&&r[h.indexOf('metric_value')]==='14.1'&&r[h.indexOf('metric_ci_lo')]==='11.8'&&r[h.indexOf('metric_ci_hi')]==='16.4', 'depression: actual current-view native download has 16 aligned columns and exact check CI')
+ const geo=JSON.parse(await tractDownload('All tracts (GeoJSON)'))
+ check(geo.features.length===152&&geo.features.every((f,i)=>['pct_depression','pct_depression_ci_lo','pct_depression_ci_hi'].every((k,j)=>f.properties[k]===fc.features[i].properties[['pctDepression','pctDepressionLo','pctDepressionHi'][j]])),'depression: native GeoJSON includes all152 numeric source triples')
+ await evaluate(`navigator.clipboard.writeText=async text=>window.__depressionCitations=text;document.querySelector('button[aria-label="About"]').click()`)
+ check(await waitFor(`window.__vis(document.querySelector('.about-sources'))&&document.querySelector('.about-sources').textContent.includes(${JSON.stringify(placesMetricCitation('depression',meta.cdcPlaces.years))})&&document.querySelector('.about-sources').textContent.includes(${JSON.stringify(DEPRESSION_METHODS)})`),'depression: About renders the shared 2023 source and exact methods distinction')
+ await evaluate(`[...document.querySelectorAll('.v-overlay--active button')].find(b=>b.textContent.trim()==='Copy citations').click()`)
+ check(await waitFor(`window.__depressionCitations?.includes(${JSON.stringify(DEPRESSION_METHODS)})&&window.__depressionCitations.includes(${JSON.stringify(placesMetricCitation('depression',meta.cdcPlaces.years))})`),'depression: actual Copy citations reuses the exact source year and methods text')
+ await press('Escape')
+ await evaluate(`window.__depressionDetails=window.__component('TractDetails');window.__depressionOriginal=window.__depressionDetails.props.tract`)
+ for(const [props,expected]of [[{pctDepression:0,pctDepressionLo:0,pctDepressionHi:0},'Adults ever told they had a depressive disorder · 0.0% (95% CI 0.0–0.0) · model estimate'],[{pctDepression:14.1,pctDepressionLo:null,pctDepressionHi:null},'Adults ever told they had a depressive disorder · 14.1% · model estimate']]){
+  await evaluate(`window.__depressionDetails.props.tract={...window.__depressionOriginal,...${JSON.stringify(props)}}`)
+  check(await waitFor(`document.querySelector('.depression-detail')?.textContent===${JSON.stringify(expected)}`),'depression controlled zero/missing-CI exact copy: '+expected)
+ }
+ await evaluate(`window.__depressionDetails.props.tract={...window.__depressionOriginal,pctDepression:null}`)
+ check(await waitFor(`!document.querySelector('.depression-detail')&&!document.querySelector('.depression-caption')&&document.querySelector('#tract-details-panel').textContent.includes('No depression-history estimate for this tract')`),'depression null omits routine row/caption, never zero-fills; exact active no-data text')
+ await evaluate(`window.__depressionDetails.props.tract=window.__depressionOriginal`)
+ const index=getTractSnapshotIndex(fc,meta),winner=fc.features.find(f=>index.select(f.properties.geoid)?.worst.some(s=>s.metricId==='depression'))
+ if(!winner)throw Error('No real depression snapshot winner found')
+ await evaluate(`window.__stores().ui.setActiveMetric('copd');window.__stores().city.select(${JSON.stringify(winner.properties.geoid)})`)
+ if(!await waitFor(`!!document.querySelector('button[data-snapshot-metric="depression"]')`))throw Error('Depression snapshot winner did not render')
+ await evaluate(`window.__depSnapshot=document.querySelector('button[data-snapshot-metric="depression"]');window.__depSnapshot.scrollIntoView({block:'center'});window.__depSnapshot.focus();window.__depCanvas=document.querySelector('canvas.maplibregl-canvas')`)
+ await press('Space')
+ check(await waitFor(`window.__stores().ui.activeMetric==='depression'&&window.__status()==='Map now showing Depression history'&&document.activeElement===window.__depSnapshot&&window.__depSnapshot.isConnected`),'depression real snapshot winner: native Space, exact polite status and same connected focus')
+ check(await evaluate(`window.__depSnapshot.textContent.includes('model estimate')&&document.querySelector('canvas.maplibregl-canvas')===window.__depCanvas&&window.__depSnapshot.getAttribute('aria-current')==='true'`),'depression snapshot model/current marker retained without map remount')
+ await evaluate(`window.__stores().ui.setDualView(true)`)
+ check(await waitFor(`!document.querySelector('button[data-snapshot-metric="depression"]')&&document.querySelector('[data-snapshot-metric="depression"]')?.tagName==='DIV'`),'depression snapshot remains noninteractive plain text in dual mode')
+}
 if(!existsSync(path.resolve('dist/index.html')))throw Error('Build first')
 const srv=spawn(process.execPath,['server/index.mjs'],{env:{...process.env,PORT:String(PORT),BASE_PATH:'/'},stdio:['ignore','ignore','inherit']})
 const profile=mkdtempSync(path.join(tmpdir(),'ste-gap-a11y-'))
@@ -289,6 +356,6 @@ try{
  cdp=await Cdp.connect(ws);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:HELPERS+GAP_HELPERS})
  for(const width of [1400,390])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();await semantics(`${width}px ${theme}`)}
  for(const width of [700,195])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:450,deviceScaleFactor:2,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();check(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('.canopy-gap-target').scrollWidth<=document.querySelector('.canopy-gap-target').clientWidth+1`),`${width}px ${theme}: 200%-equivalent target/helper reflow without overflow`)}
- await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts();await pendingTarget()
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts();await pendingTarget();await depressionUI()
 }catch(e){failed++;console.error('ERROR',e.stack||e.message)}finally{try{cdp?.close()}catch{}chrome.kill();srv.kill();await new Promise(r=>chrome.exitCode!==null?r():chrome.once('exit',r));for(const dir of [profile,downloads])try{rmSync(dir,{recursive:true,force:true})}catch{}}
 console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0)

@@ -83,7 +83,7 @@ for(const [dir,n,p75,aboveP75,above30,fingerprint] of packs)test(`#149 ${dir}: e
  assert.equal(v.collection.features.filter(f=>f.properties.canopyGapAcres===0).length,aboveP75)
  assert.equal(fixed.collection.features.filter(f=>f.properties.canopyGapAcres===0).length,above30)
  for(const view of [v,fixed]){const vals=view.collection.features.map(f=>f.properties.canopyGapAcres!);assert.deepEqual(view.meta.metricBreaks!.canopyGap,densityBreaks(vals,5));assert.equal(metricMeta(view.meta,'canopyGap').colors.length,view.meta.metricBreaks!.canopyGap!.length+1)}
- const stripped=structuredClone(fc);for(const f of stripped.features)delete f.properties.landAcres
+ const stripped=structuredClone(fc);for(const f of stripped.features){delete f.properties.landAcres;for(const k of ['pctDepression','pctDepressionLo','pctDepressionHi','depressionAdultPop'])delete (f.properties as unknown as Record<string,unknown>)[k]}
  assert.equal(hash(JSON.stringify(stripped)),fingerprint,'all pre-existing properties AND geometry match main, not only rounded values')
  assert.equal(JSON.stringify(fc),before);assert.equal(JSON.stringify(meta),mBefore)
  for(let i=0;i<n;i++)for(const view of [v,fixed]){assert.equal(view.collection.features[i].geometry,fc.features[i].geometry);assert.equal(view.collection.features[i].properties.plantNeed,fc.features[i].properties.plantNeed);assert.equal(view.collection.features[i].properties.plantNeedParts,fc.features[i].properties.plantNeedParts)}
@@ -112,8 +112,8 @@ test('#149 WeakMap caches two immutable paired views; source identity invalidati
  for(const x of [v,v.collection,v.collection.features,v.collection.features[0].properties,v.meta,v.meta.overall])assert.ok(Object.isFrozen(x))
  for(const values of [[],[0,0],[1],[1,1,1],[0,1,2,3,4,5],[.00001,.00002,999999,Infinity,NaN],Array.from({length:464},(_,i)=>((i*19)%77)/13)])assert.deepEqual(gapBreaks(values),densityBreaks(values,5))
 })
-test('#149 registry 30-order/default/aliases, honest acres, all-zero availability and no 100-acre cap',()=>{
- assert.equal(DEFAULT_METRIC,'canopy');assert.equal(METRIC_SWITCH_ORDER.length,30);assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
+test('#149 registry 31-order/default/aliases, honest acres, all-zero availability and no 100-acre cap',()=>{
+ assert.equal(DEFAULT_METRIC,'canopy');assert.equal(METRIC_SWITCH_ORDER.length,31);assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
  for(const s of ['canopyGap','canopygap',' CANOPY GAP ','canopy deficit','tree canopy gap'])assert.equal(resolveMetric(s),'canopyGap')
  for(const s of ['gap','deficit'])assert.equal(resolveMetric(s),null)
  for(const s of ['canopy','tree canopy','tcc','shade'])assert.equal(resolveMetric(s),'canopy')
@@ -130,8 +130,8 @@ test('#149 actual MapLibre gap expression: neutral invalid/null, distinct zero a
  for(const x of [null,undefined,-1,'0',NaN,Infinity])assert.equal(val(x),neutral)
  assert.notEqual(val(0),neutral);assert.notEqual(val(99999),neutral);assert.notEqual(val(0),val(99999))}
 })
-test('#149 snapshot: seven exclusions, exact23 candidates and original cached ranking independent of mode; sentence null/zero/sub-acre/singular',()=>{
- assert.equal(SNAPSHOT_EXCLUDED_METRICS.length,7);assert.ok(SNAPSHOT_EXCLUDED_METRICS.includes('canopyGap'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,23)
+test('#149 snapshot: seven exclusions, exact24 candidates and original cached ranking independent of mode; sentence null/zero/sub-acre/singular',()=>{
+ assert.equal(SNAPSHOT_EXCLUDED_METRICS.length,7);assert.ok(SNAPSHOT_EXCLUDED_METRICS.includes('canopyGap'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,24)
  const {fc,meta}=load('public/data/central-miami-fl'),index=getTractSnapshotIndex(fc,meta),before=index.select('12086002404')
  canopyGapView(fc,meta);canopyGapView(fc,meta,'30');assert.equal(getTractSnapshotIndex(fc,meta),index);assert.deepEqual(index.select('12086002404'),before)
  assert.equal(gapSnapshotSentence(0,'p75'),null);assert.equal(gapSnapshotSentence(null,'30'),null);assert.equal(gapSnapshotSentence(.1,'p75'),"Less than 1 acre of canopy short of the city's leafier neighborhoods");assert.equal(gapSnapshotSentence(.5,'30'),'About 1 acre of canopy short of the 30% canopy target')
@@ -149,10 +149,10 @@ test('#149 actual gapTarget URL round-trip grammar, canonical omission, unrelate
  writeDeepLink({...view,gapTarget:'p75'} as any);q=win.location.searchParams;assert.equal(q.has('gapTarget'),false);assert.equal(q.get('dual'),'trees,canopygap')
  }finally{(globalThis as any).window=original}
 })
-test('#149 full103/current14/dual/compare headers and every cell in both scenarios; independent pack p75, unit invariant, raw precision/null vs0',()=>{
+test('#149 full106/current14/dual/compare headers and every cell in both scenarios; independent pack p75, unit invariant, raw precision/null vs0',()=>{
  const a=load('public/data/central-miami-fl'),b=load('public/data'),props=a.fc.features.map(f=>f.properties)
- assert.equal(CSV_HEADERS.length,103);assert.equal(new Set(CSV_HEADERS).size,103);assert.deepEqual(CSV_HEADERS.slice(-5),GAP_COLUMNS)
- for(const mode of ['p75','30']as const){const [h,...rows]=parse(toCsv(props,a.meta,mode));for(let i=0;i<rows.length;i++){assert.equal(rows[i].length,103);const p=props[i],v=canopyGapView(a.fc,a.meta,mode).collection.features[i].properties;for(const [k,val]of Object.entries({land_acres:p.landAcres,canopy_target_mode:mode,canopy_target_pct:v.canopyTargetPct,canopy_gap_pct:v.canopyGapPct,canopy_gap_acres:v.canopyGapAcres,plant_need_canopy:p.plantNeedParts!.T,area_acres:p.areaAcres}))assert.equal(rows[i][h.indexOf(k)],String(val))}
+ assert.equal(CSV_HEADERS.length,106);assert.equal(new Set(CSV_HEADERS).size,106);assert.deepEqual(CSV_HEADERS.slice(-5),GAP_COLUMNS)
+ for(const mode of ['p75','30']as const){const [h,...rows]=parse(toCsv(props,a.meta,mode));for(let i=0;i<rows.length;i++){assert.equal(rows[i].length,106);const p=props[i],v=canopyGapView(a.fc,a.meta,mode).collection.features[i].properties;for(const [k,val]of Object.entries({land_acres:p.landAcres,canopy_target_mode:mode,canopy_target_pct:v.canopyTargetPct,canopy_gap_pct:v.canopyGapPct,canopy_gap_acres:v.canopyGapAcres,plant_need_canopy:p.plantNeedParts!.T,area_acres:p.areaAcres}))assert.equal(rows[i][h.indexOf(k)],String(val))}
  for(const unit of ['acre','km2']as const)for(const metrics of [['canopyGap'],['trees','canopyGap'],['canopyGap','copd']]as const)for(const compare of [false,true]){const rr=[a,...compare?[b]:[]].flatMap((pack,i)=>pack.fc.features.map(f=>({cityId:String(i),meta:pack.meta,props:f.properties}))),[header,...data]=plain(toCurrentViewCsv({rows:rr,metrics:[...metrics],unit,compare,gapTarget:mode,comments:[]}));assert.equal(data.length,rr.length);assert.equal(new Set(header).size,header.length);if(metrics.length===1&&!compare)assert.equal(header.length,14)
  for(const row of data){assert.equal(row.length,header.length);const source=rr.find(r=>r.props.geoid===row[header.indexOf('geoid')])!,target=mode==='30'?30:source.meta.canopyGap!.p75!,g=gapValues(source.props,target);assert.equal(row[header.indexOf('canopy_target_pct')],String(target));assert.equal(row[header.indexOf('canopy_gap_acres')],String(g.canopyGapAcres));assert.equal(row[header.indexOf(metrics.length===1?'metric_unit':'metric_b_unit')],metrics.length===1||metrics[1]==='canopyGap'?'acres':'%')}
  }}
