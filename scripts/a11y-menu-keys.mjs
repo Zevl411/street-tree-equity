@@ -264,7 +264,11 @@ async function dualFocusSuite(mobile) {
   // Focus mode hides Layers. Expose the fallback before replacing its focused canvas.
   await toggleTo(false)
   await press('Escape'); await waitFor(`!${layersVisible}`); await settled()
-  await evaluate(`document.querySelector('button[aria-label="Focus map"]').click()`)
+  if (mobile) {
+    await evaluate(`document.querySelector('#more-actions-btn').click()`)
+    await waitFor(`!![...document.querySelectorAll('.v-list-item')].find((el) => window.__vis(el) && el.textContent.trim() === 'Focus map')`)
+    await evaluate(`[...document.querySelectorAll('.v-list-item')].find((el) => window.__vis(el) && el.textContent.trim() === 'Focus map').click()`)
+  } else await evaluate(`document.querySelector('button[aria-label="Focus map"]').click()`)
   await waitFor(`!document.querySelector('button[aria-label="Layers"]')`)
   await focusElement(`document.querySelector('.maplibregl-canvas')`)
   await observeFocus(); await press('d')
