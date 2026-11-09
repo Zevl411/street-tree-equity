@@ -162,7 +162,7 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }

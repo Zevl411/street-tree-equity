@@ -225,7 +225,7 @@ export interface Meta {
   /** #124 planting-need composite provenance */
   plantNeed?: { inputs: string[]; weights: 'equal'; scaling: 'pack min-max'; asthmaIncluded: boolean }
   /** #117 CDC PLACES provenance */
-  cdcPlaces?: { release: string; measure: string; measures?: string[]; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string>; years?: { LPA?: number; [measure: string]: number | undefined } }
+  cdcPlaces?: { release: string; measure: string; measures?: string[]; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string>; years?: { LPA?: number; [measure: string]: number | undefined } }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; acsAge?: string; acsLep?: string; acsSnap?: string; cdcPlaces?: string }

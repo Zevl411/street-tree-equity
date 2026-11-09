@@ -7,7 +7,7 @@ import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { useOverlayFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
-import { ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
+import { CSV_VIEW_TOOLTIP, ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
 import { METRICS, type MetricId } from '@/utils/metrics'
 
 const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null }>()
@@ -393,7 +393,9 @@ function copyLink() {
         <v-list id="download-menu" density="compact">
           <v-list-item title="This tract (CSV)" :aria-label="`Download CSV for ${tract.name}`" @click="doExport('tract')" />
           <v-list-item title="All tracts in this city (CSV)" @click="doExport('all-csv')" />
-          <v-list-item :title="viewTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewAria" @click="exportView" />
+          <v-list-item :title="viewTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewAria" @click="exportView">
+            <v-tooltip activator="parent" location="end" open-on-hover open-on-focus>{{ CSV_VIEW_TOOLTIP }}</v-tooltip>
+          </v-list-item>
           <v-list-item title="All tracts (GeoJSON)" @click="doExport('all-geojson')" />
         </v-list>
       </v-menu>

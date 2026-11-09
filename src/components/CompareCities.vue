@@ -7,7 +7,7 @@ import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { dataUrl } from '@/composables/useData'
 import { cityMedian, densityPercentile, sortedDensities } from '@/utils/densityBins'
 import { fmtUnitless, metricValue } from '@/utils/metrics'
-import { currentViewComments, downloadBlob, exportFilename, toCurrentViewCsv, viewScope } from '@/utils/exportData'
+import { CSV_VIEW_TOOLTIP, currentViewComments, downloadBlob, exportFilename, toCurrentViewCsv, viewScope } from '@/utils/exportData'
 import type { TractProps } from '@/types'
 import { isReady, type Meta, type TractCollection } from '@/types'
 
@@ -228,7 +228,9 @@ async function copyLink() {
       <v-card-actions class="flex-wrap compare-actions">
         <v-btn variant="text" prepend-icon="mdi-link-variant" :disabled="!canCompare" @click="copyLink">Copy comparison link</v-btn>
         <v-btn v-if="result" variant="text" size="small" prepend-icon="mdi-file-delimited-outline" :disabled="!canCompare || !result"
-          :aria-label="csvAria" @click="exportCompareCsv">{{ csvTitle }}</v-btn>
+          :aria-label="csvAria" @click="exportCompareCsv">{{ csvTitle }}
+          <v-tooltip activator="parent" location="top" open-on-hover open-on-focus>{{ CSV_VIEW_TOOLTIP }}</v-tooltip>
+        </v-btn>
         <v-spacer />
         <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.a.name} on the map`" @click="openSide('a')">Open {{ result.a.name }}</v-btn>
         <v-btn v-if="result" variant="tonal" :aria-label="`Open ${result.b.name} on the map`" @click="openSide('b')">Open {{ result.b.name }}</v-btn>

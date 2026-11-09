@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
+import { CSV_VIEW_TOOLTIP, currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -32,7 +32,7 @@ import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '@/utils/metrics'
-import { placesCitation } from '@/utils/placesCitation'
+import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation } from '@/utils/placesMeasures'
 import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, gardens, fountains, postOffices, playgrounds, toilets, benches, clinics, emergency, sidewalks, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -218,27 +218,17 @@ function flyToPark(p: NearbyPark) {
 // #100: FEMA NRI terms — citation + no-endorsement disclaimer (no FEMA/DHS seals).
 const NRI_DISCLAIMER = 'This product uses FEMA’s National Risk Index downloadable datasets but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for data or analyses derived after download.'
 // #117–#138: CDC PLACES citations — shared template; year from meta.cdcPlaces.years.<MEASURE> (omit clause if missing).
-const placesYear = (measure: string) => meta.value?.cdcPlaces?.years?.[measure]
-const hasPlacesAsthma = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('CASTHMA'))
-const PLACES_CITATION = computed(() => placesCitation('Current asthma among adults', 'current asthma', placesYear('CASTHMA')))
-const hasPlacesDiabetes = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('DIABETES'))
-const PLACES_DIABETES_CITATION = computed(() => placesCitation('Diagnosed diabetes among adults', 'diagnosed diabetes', placesYear('DIABETES')))
-const hasPlacesObesity = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('OBESITY'))
-const PLACES_OBESITY_CITATION = computed(() => placesCitation('Obesity among adults', 'obesity', placesYear('OBESITY')))
-const hasPlacesMentalHealth = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('MHLTH'))
-const PLACES_MHLTH_CITATION = computed(() => placesCitation('Frequent mental distress among adults', 'frequent mental distress', placesYear('MHLTH')))
-const hasPlacesPhysicalHealth = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('PHLTH'))
-const PLACES_PHLTH_CITATION = computed(() => placesCitation('Frequent physical distress among adults', 'frequent physical distress', placesYear('PHLTH')))
-const hasPlacesChd = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('CHD'))
-const PLACES_CHD_CITATION = computed(() => placesCitation('Coronary heart disease among adults', 'coronary heart disease or angina', placesYear('CHD')))
-const hasPlacesBpHigh = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('BPHIGH'))
-const PLACES_BPHIGH_CITATION = computed(() => placesCitation('High blood pressure among adults', 'high blood pressure', placesYear('BPHIGH')))
-const hasPlacesInactivity = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('LPA'))
-const PLACES_LPA_CITATION = computed(() => placesCitation('No leisure-time physical activity among adults', 'activity', placesYear('LPA')))
-const hasPlacesCopd = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('COPD'))
-const PLACES_COPD_CITATION = computed(() => placesCitation('Chronic obstructive pulmonary disease (COPD) among adults', 'COPD', placesYear('COPD')))
-const hasPlacesSmoking = computed(() => !!meta.value?.cdcPlaces?.measures?.includes('CSMOKING'))
-const PLACES_CSMOKING_CITATION = computed(() => placesCitation('Current cigarette smoking among adults', 'current cigarette smoking', placesYear('CSMOKING')))
+// #140: titles/topics come from the shared PLACES_MEASURES map (also used by the CSV export).
+const placesCitations = computed(() => {
+  const cdc = meta.value?.cdcPlaces
+  if (!cdc) return [] as string[]
+  return PLACES_METRIC_IDS.flatMap((id) => {
+    const p = PLACES_MEASURES[id]
+    if (!p || !cdc.measures?.includes(p[0])) return []
+    const text = placesMetricCitation(id, cdc.years)
+    return text ? [text] : []
+  })
+})
 const FARA_CITATION = 'Food Access Research Atlas (tract) — USDA ERS SNAP-authorized Retailer Access Map (SRAM) 2025. This product uses USDA Economic Research Service Food Access Research Atlas data but is not endorsed by USDA or ERS.'
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
@@ -252,16 +242,7 @@ const citationsText = computed(() => [
   ...(meta.value?.acsRentBurden ? [`- Rent-burdened renter households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsRentBurden.table}, Gross Rent as a Percentage of Household Income in the Past 12 Months (${meta.value.acsRentBurden.vintage}). Retrieved ${meta.value.acsRentBurden.retrievedAt} from ${meta.value.acsRentBurden.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.acsAge ? [`- Residents age 65 and over (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsAge.table}, Sex by Age (${meta.value.acsAge.vintage}). Retrieved ${meta.value.acsAge.retrievedAt} from ${meta.value.acsAge.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.acsUnder18 ? [`- Residents under 18 (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsUnder18.table}, Sex by Age (${meta.value.acsUnder18.vintage}). Retrieved ${meta.value.acsUnder18.retrievedAt} from ${meta.value.acsUnder18.sourceUrl}. Public domain.`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesAsthma.value ? [`- ${PLACES_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesDiabetes.value ? [`- ${PLACES_DIABETES_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesObesity.value ? [`- ${PLACES_OBESITY_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesMentalHealth.value ? [`- ${PLACES_MHLTH_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesPhysicalHealth.value ? [`- ${PLACES_PHLTH_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesChd.value ? [`- ${PLACES_CHD_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesBpHigh.value ? [`- ${PLACES_BPHIGH_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesInactivity.value ? [`- ${PLACES_LPA_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesCopd.value ? [`- ${PLACES_COPD_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
-  ...(meta.value?.cdcPlaces && hasPlacesSmoking.value ? [`- ${PLACES_CSMOKING_CITATION.value} Retrieved ${meta.value.cdcPlaces.retrievedAt} from ${meta.value.cdcPlaces.sourceUrl}`] : []),
+  ...(meta.value?.cdcPlaces ? placesCitations.value.map((c) => `- ${c} Retrieved ${meta.value!.cdcPlaces!.retrievedAt} from ${meta.value!.cdcPlaces!.sourceUrl}`) : []),
   ...(meta.value?.acsLep ? [`- Limited English proficiency (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsLep.table}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over (${meta.value.acsLep.vintage}). Retrieved ${meta.value.acsLep.retrievedAt} from ${meta.value.acsLep.sourceUrl}. Public domain. “Limited English” = speaks English less than “very well.”`] : []),
   ...(meta.value?.acsSnap ? [`- SNAP households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsSnap.table}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households (${meta.value.acsSnap.vintage}). Retrieved ${meta.value.acsSnap.retrievedAt} from ${meta.value.acsSnap.sourceUrl}. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.`] : []),
   ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree density (fewer trees per acre = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), tree density is flipped so the sparsest tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.`] : []),
@@ -1064,7 +1045,9 @@ watch(drawerOpen, async (open) => {
                 <v-btn v-bind="viewMenu" variant="text" size="small" prepend-icon="mdi-file-delimited-outline" class="align-self-start" :disabled="viewExportDisabled">Export…</v-btn>
               </template>
               <v-list id="view-export-menu" density="compact">
-                <v-list-item :title="viewCsvTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewCsvAria" @click="exportCurrentView" />
+                <v-list-item :title="viewCsvTitle" prepend-icon="mdi-file-delimited-outline" :aria-label="viewCsvAria" @click="exportCurrentView">
+                  <v-tooltip activator="parent" location="end" open-on-hover open-on-focus>{{ CSV_VIEW_TOOLTIP }}</v-tooltip>
+                </v-list-item>
               </v-list>
             </v-menu>
             <div v-if="viewExportDisabled" class="text-caption text-medium-emphasis ms-1 mb-1">Load a city to export</div>
@@ -1299,16 +1282,7 @@ watch(drawerOpen, async (open) => {
             <li v-if="meta?.acsRentBurden"><strong>Rent-burdened renter households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsRentBurden.table }}, Gross Rent as a Percentage of Household Income in the Past 12 Months ({{ meta.acsRentBurden.vintage }}). Retrieved {{ meta.acsRentBurden.retrievedAt }} from <a :href="meta.acsRentBurden.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsRentBurden.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.acsAge"><strong>Residents age 65 and over (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsAge.table }}, Sex by Age ({{ meta.acsAge.vintage }}). Retrieved {{ meta.acsAge.retrievedAt }} from <a :href="meta.acsAge.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsAge.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <li v-if="meta?.acsUnder18"><strong>Residents under 18 (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsUnder18.table }}, Sex by Age ({{ meta.acsUnder18.vintage }}). Retrieved {{ meta.acsUnder18.retrievedAt }} from <a :href="meta.acsUnder18.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsUnder18.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
-            <li v-if="meta?.cdcPlaces && hasPlacesAsthma">{{ PLACES_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesDiabetes">{{ PLACES_DIABETES_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesObesity">{{ PLACES_OBESITY_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesMentalHealth">{{ PLACES_MHLTH_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesPhysicalHealth">{{ PLACES_PHLTH_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesChd">{{ PLACES_CHD_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesBpHigh">{{ PLACES_BPHIGH_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesInactivity">{{ PLACES_LPA_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesCopd">{{ PLACES_COPD_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
-            <li v-if="meta?.cdcPlaces && hasPlacesSmoking">{{ PLACES_CSMOKING_CITATION }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
+            <template v-if="meta?.cdcPlaces"><li v-for="c in placesCitations" :key="c">{{ c }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li></template>
             <li v-if="meta?.acsLep"><strong>Limited English proficiency (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsLep.table }}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over ({{ meta.acsLep.vintage }}). Retrieved {{ meta.acsLep.retrievedAt }} from <a :href="meta.acsLep.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsLep.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. “Limited English” = speaks English less than “very well.”</li>
             <li v-if="meta?.acsSnap"><strong>SNAP households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsSnap.table }}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households ({{ meta.acsSnap.vintage }}). Retrieved {{ meta.acsSnap.retrievedAt }} from <a :href="meta.acsSnap.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsSnap.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.</li>
             <li v-if="meta?.plantNeed"><strong>Planting need (tract)</strong> — a 0–100 score computed by this app from data already shown: tree density (fewer trees per acre = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), tree density is flipped so the sparsest tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.</li>

@@ -4,7 +4,7 @@ import { ACRES_PER_KM2 } from '@/stores/ui'
 import type { Meta, TractCollection, TractProps } from '@/types'
 // #139: `cell()` moved to the pure currentViewCsv module (unit-testable); same function, re-used here.
 import { cell, ymd } from '@/utils/currentViewCsv'
-export { cell, CRLF, toCurrentViewCsv, currentViewComments, viewScope, metricHasCi, metricHasMoe } from '@/utils/currentViewCsv'
+export { CSV_VIEW_TOOLTIP, cell, CRLF, toCurrentViewCsv, currentViewComments, viewScope, metricHasCi, metricHasMoe } from '@/utils/currentViewCsv'
 
 /** #23 client-side export. Blob download only — no server endpoint. */
 export const CSV_HEADERS = [
