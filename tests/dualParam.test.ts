@@ -129,3 +129,11 @@ test('#141 stroke resolves with alias cerebrovascular and round-trips in ?dual='
   assert.equal(resolveMetric('STROKE'), 'stroke')
   assert.equal(encodeDualParam('stroke', 'trees'), 'stroke,trees')
 })
+
+test('#143 disability resolves (no accessibility alias) and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,disability'), { left: 'trees', right: 'disability' })
+  assert.deepEqual(p('DISABILITY,stroke'), { left: 'disability', right: 'stroke' })
+  assert.equal(resolveMetric('Disability'), 'disability')
+  assert.notEqual(resolveMetric('accessibility'), 'disability')
+  assert.equal(encodeDualParam('disability', 'trees'), 'disability,trees')
+})
