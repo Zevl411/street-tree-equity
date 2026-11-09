@@ -4,7 +4,7 @@ import type { Meta, TractCollection } from '@/types'
 export type MetricId = 'canopy' | 'canopyGap' | 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'canopyPct' | 'canopyGapAcres' | 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
+export type MetricValueKey = 'pctDepression' | 'canopyPct' | 'canopyGapAcres' | 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
 
 export interface MetricDef {
   id: MetricId

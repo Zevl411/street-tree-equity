@@ -204,7 +204,7 @@ async function allDownloads(){
  for(const mode of ['p75','30']){
  await ready(URL_MIAMI+(mode==='30'?'&gapTarget=30':''));await installDownloads()
  const full=parseCsv(await tractDownload('All tracts in this city (CSV)'))
- check(full[0].length===103&&full.every(r=>r.length===103)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all152 rows/103 columns preserve every source and scenario cell`)
+ check(full[0].length===106&&full.every(r=>r.length===106)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all152 rows/106 columns preserve every source and scenario cell`)
  const text=await tractDownload('CSV – current view (Canopy gap (acres))'),current=csvBody(text),expected=csvBody(toCurrentViewCsv({rows:fc.features.map(f=>({cityId:'central-miami-fl',meta,props:f.properties})),metrics:['canopyGap'],unit:'acre',gapTarget:mode,comments:[]}))
  check(current[0].length===14&&current.every(r=>r.length===14)&&JSON.stringify(current)===JSON.stringify(expected),`${mode}: native current CSV all152 rows/14 columns, raw context vs1dp metric, acres units`)
  check(text.includes('Collection 1.2')&&text.includes('v2025-6')&&text.includes('plant_need_canopy: relative low-canopy score (0–100)')&&(mode!=='30'||text.includes('gapTarget=30')),`${mode}: native current preamble retains both sources, target/share URL and independent component meaning`)

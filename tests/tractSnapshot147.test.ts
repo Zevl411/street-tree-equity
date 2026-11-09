@@ -3,7 +3,7 @@ import { beforeEach, test } from 'node:test'
 import { existsSync, readFileSync } from 'node:fs'
 import type { Meta, TractCollection, TractProps } from '../src/types.ts'
 import { METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '../src/utils/metrics.ts'
-import { PLACES_MEASURES } from '../src/utils/placesMeasures.ts'
+import { PLACES_MEASURES, PLACES_METRIC_IDS } from '../src/utils/placesMeasures.ts'
 import { SNAPSHOT_CANOPY_METRIC, SNAPSHOT_CANDIDATE_METRICS, SNAPSHOT_EXCLUDED_METRICS, SNAPSHOT_MAPPING_NOTE, SNAPSHOT_INSUFFICIENT, getTractSnapshotIndex, tractSnapshot, snapshotMetric, snapshotRow, snapshotValue, snapshotCityName, snapshotComparison, snapshotCanopyComparison, snapshotMessage, snapshotCanopyUnavailable, snapshotPercent, resetTractSnapshotCache } from '../src/utils/tractSnapshot.ts'
 
 const geoid = (i: number) => String(i).padStart(11, '0')
@@ -36,7 +36,8 @@ test('#147 every candidate gets polarity from the registry, and all 14 PLACES ca
     assert.equal(s.modelEstimate, id in PLACES_MEASURES)
     assert.equal(snapshotRow(s, 'Example', 'acre').line1.includes('model estimate'), id in PLACES_MEASURES)
   }
-  assert.equal(Object.keys(PLACES_MEASURES).length, 14)
+  assert.equal(Object.keys(PLACES_MEASURES).length, 15) // #150 staged data, no UI activation
+  assert.equal(PLACES_METRIC_IDS.length, 14)
   assert.match(snapshotRow(score('uninsured', [0,1,2,3,4,5,6,7,8,9], 9), 'Example', 'acre').ariaLabel, /No health insurance \(ages 18–64\)/)
 })
 test('#147 TL synthetic half ties exclude self; invalid peers never enter n', () => {

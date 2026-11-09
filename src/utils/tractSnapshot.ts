@@ -4,14 +4,15 @@
 import type { Meta, TractCollection, TractProps } from '@/types'
 import { METRICS, METRIC_SWITCH_ORDER, fmtMetric, metricAvailable, metricValue, type MetricId, type MetricUnit } from './metrics.ts'
 import { canopyValue } from './canopySource.ts'
-import { PLACES_MEASURES } from './placesMeasures.ts'
+import { PLACES_MEASURES, type PlacesMeasureId } from './placesMeasures.ts'
 
 export const SNAPSHOT_MIN_VALID_TRACTS = 10
 export const SNAPSHOT_WORST_LIMIT = 3
 /** Registry id, not a field name. #148 can replace the context metric in this one place. */
 export const SNAPSHOT_CANOPY_METRIC: MetricId = 'canopy'
 export const SNAPSHOT_EXCLUDED_METRICS: readonly MetricId[] = Object.freeze(['canopy', 'canopyGap', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
-const allowlist: readonly MetricId[] = ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured']
+// #150 eligibility is prepared now; activation follows the Designer-locked registry/switch order.
+const allowlist: readonly PlacesMeasureId[] = ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'depression', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured']
 /** Future registry entries are not automatically eligible. */
 export const SNAPSHOT_CANDIDATE_METRICS: readonly MetricId[] = Object.freeze(METRIC_SWITCH_ORDER.filter(id => allowlist.includes(id)))
 const order = new Map(METRIC_SWITCH_ORDER.map((id, i) => [id, i]))

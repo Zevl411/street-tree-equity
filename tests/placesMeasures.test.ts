@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { METRICS, METRIC_IDS, type MetricId } from '../src/utils/metrics.ts'
-import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation } from '../src/utils/placesMeasures.ts'
+import { PLACES_MEASURES, PLACES_METRIC_IDS, PLACES_DATA_IDS, placesMetricCitation } from '../src/utils/placesMeasures.ts'
 import { CSV_VIEW_TOOLTIP, citationLines } from '../src/utils/currentViewCsv.ts'
 import type { Meta } from '../src/types.ts'
 
@@ -26,8 +26,8 @@ test('#140 every PLACES MetricId in metrics.ts has a PLACES_MEASURES entry (and 
 
 test('#140 every PLACES_MEASURES measure is in add-cdc-places.mjs MEASURES with the same metricId', () => {
   const ms = scriptMeasures()
-  assert.equal(ms.length, PLACES_METRIC_IDS.length)
-  for (const id of PLACES_METRIC_IDS) {
+  assert.equal(ms.length, PLACES_DATA_IDS.length)
+  for (const id of PLACES_DATA_IDS) {
     const [measure] = PLACES_MEASURES[id]!
     const hit = ms.find((m) => m.measure === measure)
     assert.ok(hit, `${id}: ${measure} missing from MEASURES`)
@@ -37,7 +37,7 @@ test('#140 every PLACES_MEASURES measure is in add-cdc-places.mjs MEASURES with 
 
 test('#140 entries are complete and unique', () => {
   const measures = new Set<string>()
-  for (const id of PLACES_METRIC_IDS) {
+  for (const id of PLACES_DATA_IDS) {
     const [measure, title, topic] = PLACES_MEASURES[id]!
     assert.ok(measure && title && topic, id)
     assert.ok(!measures.has(measure), `duplicate ${measure}`)
