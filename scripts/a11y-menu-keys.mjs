@@ -5,20 +5,11 @@
 // in headless mode and drives it over the DevTools protocol with Node's built-in WebSocket.
 // Set CHROME_PATH to override the browser binary.
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { createServer } from 'node:net'
+import { freePort, launchChrome } from './lib/a11y-browser.mjs'
 
-async function freePort() {
-  const server = createServer()
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
-  const port = server.address().port
-  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
-  return port
-}
 const PORT = Number(process.env.A11Y_PORT || await freePort())
-const DEBUG_PORT = Number(process.env.A11Y_DEBUG_PORT || await freePort())
 const BASE = `http://localhost:${PORT}/`
 const CSV_VIEW_TOOLTIP = 'Download the tracts and metrics in this view as a CSV file'
 const ROUNDS = Number(process.env.A11Y_ROUNDS || 2) // repeat each open key to catch focus races
@@ -303,23 +294,20 @@ async function dualFocusSuite(mobile) {
 const dist = path.resolve('dist/index.html')
 if (!existsSync(dist)) { console.error('dist/ missing: run `npm run build` first'); process.exit(1) }
 
-const srv = spawn(process.execPath, ['server/index.mjs'], { env: { ...process.env, PORT: String(PORT), BASE_PATH: '/' }, stdio: ['ignore', 'ignore', 'inherit'] })
-const profile = mkdtempSync(path.join(tmpdir(), 'ste-a11y-'))
-const chrome = spawn(findChrome(), ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`, '--no-first-run',
-  '--no-default-browser-check', '--window-size=1400,900', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-sandbox',
-  ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), 'about:blank'], { stdio: 'ignore' })
-
+const srv = spawn(process.execPath, ['server/index.mjs'], { env: { ...process.env, PORT: String(PORT), BASE_PATH: '/' }, stdio: ['ignore', 'pipe', 'pipe'] })
+let serverOutput = ''
+let serverError = null
+srv.stdout.on('data', (chunk) => { serverOutput += chunk })
+srv.stderr.on('data', (chunk) => { serverOutput += chunk })
+srv.on('error', (error) => { serverError = error })
+let browser
 try {
-  let pageWs = null
-  for (let i = 0; i < 100 && !pageWs; i++) {
-    await sleep(100)
-    try {
-      const list = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)).json()
-      pageWs = list.find((t) => t.type === 'page')?.webSocketDebuggerUrl ?? null
-    } catch { /* not up yet */ }
-  }
-  if (!pageWs) throw new Error('Chrome DevTools endpoint did not come up')
-  cdp = await Cdp.connect(pageWs)
+  // Never accidentally exercise somebody else's server when an explicit override collides.
+  const deadline = Date.now() + 10000
+  while (!serverOutput.includes('[server] Street Tree Equity') && !serverError && srv.exitCode === null && Date.now() < deadline) await sleep(100)
+  if (!serverOutput.includes('[server] Street Tree Equity')) throw new Error(`Accessibility server failed on port ${PORT}: ${serverError?.message || serverOutput}`)
+  browser = await launchChrome(findChrome(), { timeout: Number(process.env.A11Y_CHROME_TIMEOUT_MS || 30000) })
+  cdp = await Cdp.connect(browser.webSocketUrl)
   await cdp.send('Page.enable')
   await cdp.send('Runtime.enable')
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false })
@@ -411,10 +399,8 @@ try {
   console.error('ERROR', e)
 } finally {
   try { cdp?.close() } catch { /* ignore */ }
-  chrome.kill()
+  await browser?.close()
   srv.kill()
-  await new Promise((resolve) => chrome.once('exit', resolve))
-  try { rmSync(profile, { recursive: true, force: true }) } catch { /* ignore */ }
 }
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)
