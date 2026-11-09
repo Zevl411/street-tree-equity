@@ -199,12 +199,12 @@ async function installDownloads(){await cdp.send('Browser.setDownloadBehavior',{
 async function nativeDownload(action){await evaluate('window.__lastDownload=null');await action();if(!await waitFor('!!window.__lastDownload'))throw Error('No native download');const file=path.join(downloads,await evaluate('window.__lastDownload'));for(let i=0;i<100;i++){if(existsSync(file))return readFileSync(file,'utf8');await sleep(100)}throw Error('Download missing: '+file)}
 async function tractDownload(label){return nativeDownload(async()=>{await evaluate(`[...document.querySelectorAll('#tract-details-panel button')].find(b=>b.textContent.includes('Download…')).click()`);if(!await waitFor(`window.__vis(document.querySelector('#download-menu'))`))throw Error('Download menu closed');await evaluate(`[...document.querySelectorAll('#download-menu .v-list-item')].find(x=>x.textContent.trim()===${JSON.stringify(label)}).click()`)})}
 async function allDownloads(){
- const {toCsv,CSV_HEADERS}=await import('../src/utils/fullCsv.ts'),{toCurrentViewCsv}=await import('../src/utils/currentViewCsv.ts'),{gapValues}=await import('../src/utils/canopyGap.ts')
+ const {toCsv,fullCsvHeaders}=await import('../src/utils/fullCsv.ts'),{toCurrentViewCsv}=await import('../src/utils/currentViewCsv.ts'),{gapValues}=await import('../src/utils/canopyGap.ts')
  const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8')),meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
  for(const mode of ['p75','30']){
  await ready(URL_MIAMI+(mode==='30'?'&gapTarget=30':''));await installDownloads()
  const full=parseCsv(await tractDownload('All tracts in this city (CSV)'))
- check(full[0].length===CSV_HEADERS.length&&full.every(r=>r.length===CSV_HEADERS.length)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all${full.length-1} rows/${full[0].length} columns preserve every source and scenario cell`)
+ check(full[0].length===fullCsvHeaders().length&&full.every(r=>r.length===fullCsvHeaders().length)&&JSON.stringify(full)===JSON.stringify(parseCsv(toCsv(fc.features.map(f=>f.properties),meta,mode))),`${mode}: native full CSV all${fc.features.length} rows/${fullCsvHeaders().length} columns preserve every source and scenario cell`)
  const text=await tractDownload('CSV – current view (Canopy gap (acres))'),current=csvBody(text),expected=csvBody(toCurrentViewCsv({rows:fc.features.map(f=>({cityId:'central-miami-fl',meta,props:f.properties})),metrics:['canopyGap'],unit:'acre',gapTarget:mode,comments:[]}))
  check(current[0].length===14&&current.every(r=>r.length===14)&&JSON.stringify(current)===JSON.stringify(expected),`${mode}: native current CSV all152 rows/14 columns, raw context vs1dp metric, acres units`)
  check(text.includes('Collection 1.2')&&text.includes('v2025-6')&&text.includes('plant_need_canopy: relative low-canopy score (0–100)')&&(mode!=='30'||text.includes('gapTarget=30')),`${mode}: native current preamble retains both sources, target/share URL and independent component meaning`)
@@ -301,7 +301,7 @@ async function depressionUI(){
   }
   await evaluate(`document.querySelector('button[aria-label="Layers"]').click()`)
   if(!await waitFor(`window.__vis(document.querySelector('#layers-panel'))`))throw Error('Layers did not open')
-  check(await evaluate(`(()=>{const b=[...document.querySelectorAll('#layers-panel button')].find(b=>b.textContent.trim()==='Depression history'),labels=[...b.parentElement.children].filter(e=>e.tagName==='BUTTON').map(e=>e.textContent.trim()),i=labels.indexOf('Depression history');window.__depressionControl=b;return labels.length===31&&labels[i-1]==='Mental health'&&labels[i+1]==='Physical health'&&!b.disabled})()`),`${name}: one enabled native option immediately after MHLTH, 31 locked options`)
+  check(await evaluate(`(()=>{const b=[...document.querySelectorAll('#layers-panel button')].find(b=>b.textContent.trim()==='Depression history'),labels=[...b.parentElement.children].filter(e=>e.tagName==='BUTTON').map(e=>e.textContent.trim()),i=labels.indexOf('Depression history');window.__depressionControl=b;return labels.length===32&&labels[i-1]==='Mental health'&&labels[i+1]==='Physical health'&&!b.disabled})()`),`${name}: one enabled native option immediately after MHLTH, 32 locked options`)
   await evaluate(`window.__stores().ui.setActiveMetric('mentalHealth');window.__depressionControl.focus()`)
   await press('Space')
   check(await waitFor(`window.__stores().ui.activeMetric==='depression'&&document.activeElement===window.__depressionControl&&window.__depressionControl.isConnected`),`${name}: native Space selects depression and retains same connected focus`)
@@ -347,6 +347,116 @@ async function depressionUI(){
  await evaluate(`window.__stores().ui.setDualView(true)`)
  check(await waitFor(`!document.querySelector('button[data-snapshot-metric="depression"]')&&document.querySelector('[data-snapshot-metric="depression"]')?.tagName==='DIV'`),'depression snapshot remains noninteractive plain text in dual mode')
 }
+async function generalHealthUI(){
+ const {getTractSnapshotIndex}=await import('../src/utils/tractSnapshot.ts')
+ const {GHLTH_METHODS,placesMetricCitation}=await import('../src/utils/placesMeasures.ts')
+ const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8')),meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
+ const caption='Self-rated overall health, not an objective health assessment. Physical health (PHLTH) measures 14+ days of poor physical health in the past 30 days.'
+ const url=URL_MIAMI.replace('metric=canopyGap','metric=generalHealth')
+ for(const width of [1400,390])for(const mode of ['light','dark','contrast']){
+  const name=`generalHealth ${width}px ${mode}`
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false})
+  await ready(url+'&theme='+(mode==='dark'?'dark':'light')+(mode==='contrast'?'&hc=1':''))
+  check(await evaluate(`document.querySelector('.general-health-detail')?.textContent==='Adults rating their overall health as fair or poor · 44.8% (95% CI 39.2–50.7) · model estimate'&&document.querySelector('.general-health-caption')?.textContent===${JSON.stringify(caption)}`),`${name}: exact self-rated row, 95% CI/model marker and readable PHLTH distinction`)
+  check(await evaluate(`(!document.querySelector('.legend')||document.querySelector('.legend').textContent.includes('Adults rating their overall health as fair or poor'))&&document.documentElement.scrollWidth<=innerWidth+1&&[document.querySelector('.general-health-detail'),document.querySelector('.general-health-detail .v-list-subheader__text'),document.querySelector('.general-health-caption'),document.querySelector('.legend')].filter(Boolean).every(e=>e.scrollWidth<=e.clientWidth+1)`),`${name}: exact legend and long text wrap without horizontal overflow`)
+  const contrast=await evaluate(`(()=>{const e=document.querySelector('.general-health-detail'),bg=getComputedStyle(e).getPropertyValue('--v-theme-surface').split(',').map(Number),fg=(getComputedStyle(e).color.match(/[0-9.]+/g)||[]).map(Number),alpha=fg[3]??1;const rgb=fg.slice(0,3).map((v,i)=>v*alpha+bg[i]*(1-alpha));function lum(c){const a=c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return.2126*a[0]+.7152*a[1]+.0722*a[2]}return(Math.max(lum(rgb),lum(bg))+.05)/(Math.min(lum(rgb),lum(bg))+.05)})()`)
+  check(contrast>=4.5,`${name}: measured normal-text contrast >=4.5`,String(contrast))
+  if(process.env.A11Y_SCREENSHOT_DIR){
+   await evaluate(`document.querySelector('.general-health-caption').scrollIntoView({block:'center'})`)
+   const dir=path.resolve(process.env.A11Y_SCREENSHOT_DIR);mkdirSync(dir,{recursive:true});const shot=await cdp.send('Page.captureScreenshot',{format:'png'});writeFileSync(path.join(dir,`generalHealth-${width}-${mode}.png`),Buffer.from(shot.data,'base64'))
+  }
+  await evaluate(`document.querySelector('button[aria-label="Layers"]').click()`)
+  if(!await waitFor(`window.__vis(document.querySelector('#layers-panel'))`))throw Error('Layers did not open')
+  check(await evaluate(`(()=>{const b=[...document.querySelectorAll('#layers-panel button')].find(b=>b.textContent.trim()==='Fair or poor health'),labels=[...b.parentElement.children].filter(e=>e.tagName==='BUTTON').map(e=>e.textContent.trim()),i=labels.indexOf('Fair or poor health');window.__generalHealthControl=b;return labels.length===32&&labels[i-1]==='Physical health'&&labels[i+1]==='Blood pressure'&&!b.disabled})()`),`${name}: one enabled native option immediately after PHLTH, 32 locked options`)
+  await evaluate(`window.__stores().ui.setActiveMetric('physicalHealth');window.__generalHealthControl.focus()`)
+  await press('Space')
+  check(await waitFor(`window.__stores().ui.activeMetric==='generalHealth'&&document.activeElement===window.__generalHealthControl&&window.__generalHealthControl.isConnected`),`${name}: native Space selects generalHealth and retains same connected focus`)
+  await press('Escape')
+  if(width===390){
+   // Existing mobile design hides the legend while details are open: close the drawer first.
+   await evaluate(`document.querySelector('#tract-details-panel .tract-close').click()`)
+   if(!await waitFor(`window.__vis(document.querySelector('.map-legend-box'))`))throw Error('Mobile legend box did not return')
+   if(!await evaluate(`!!document.querySelector('.legend')`))await evaluate(`document.querySelector('.map-legend-box .legend-toggle').click()`)
+   check(await waitFor(`document.querySelector('.legend')?.textContent.includes('Adults rating their overall health as fair or poor')&&document.querySelector('.legend').scrollWidth<=document.querySelector('.legend').clientWidth+1&&document.documentElement.scrollWidth<=innerWidth+1`),`${name}: mobile legend opens in its existing no-drawer context with exact wrapped title`)
+  }
+  await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'h',code:'KeyH',windowsVirtualKeyCode:72})
+  await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'h',code:'KeyH',windowsVirtualKeyCode:72})
+  check(await waitFor(`window.__vis(document.querySelector('#hotspots-panel'))&&document.querySelector('#hotspots-panel .v-card-title').textContent.includes('Highest share rating overall health as fair or poor')&&document.querySelector('#hotspots-panel .v-card-title').scrollWidth<=document.querySelector('#hotspots-panel .v-card-title').clientWidth+1`),`${name}: existing Hotspots action shows the exact untruncated wrapped title`)
+  await press('Escape')
+ }
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await ready(url);await installDownloads()
+ const current=csvBody(await tractDownload('CSV – current view (Fair or poor health)')),h=current[0],r=current.find(r=>r[h.indexOf('geoid')]==='12086002404')
+ check(h.length===16&&current.every(r=>r.length===16)&&r[h.indexOf('metric_value')]==='44.8'&&r[h.indexOf('metric_ci_lo')]==='39.2'&&r[h.indexOf('metric_ci_hi')]==='50.7', 'generalHealth: actual current-view native download has 16 aligned columns and exact check CI')
+ const geo=JSON.parse(await tractDownload('All tracts (GeoJSON)'))
+ check(geo.features.length===152&&geo.features.every((f,i)=>['pct_general_health','pct_general_health_ci_lo','pct_general_health_ci_hi'].every((k,j)=>f.properties[k]===fc.features[i].properties[['pctGeneralHealth','pctGeneralHealthLo','pctGeneralHealthHi'][j]])),'generalHealth: native GeoJSON includes all152 numeric source triples')
+ await evaluate(`navigator.clipboard.writeText=async text=>window.__generalHealthCitations=text;document.querySelector('button[aria-label="About"]').click()`)
+ check(await waitFor(`window.__vis(document.querySelector('.about-sources'))&&document.querySelector('.about-sources').textContent.includes(${JSON.stringify(placesMetricCitation('generalHealth',meta.cdcPlaces.years))})&&document.querySelector('.about-sources').textContent.includes(${JSON.stringify(GHLTH_METHODS)})`),'generalHealth: About renders the shared 2023 source and exact methods distinction')
+ await evaluate(`[...document.querySelectorAll('.v-overlay--active button')].find(b=>b.textContent.trim()==='Copy citations').click()`)
+ check(await waitFor(`window.__generalHealthCitations?.includes(${JSON.stringify(GHLTH_METHODS)})&&window.__generalHealthCitations.includes(${JSON.stringify(placesMetricCitation('generalHealth',meta.cdcPlaces.years))})`),'generalHealth: actual Copy citations reuses the exact source year and methods text')
+ await press('Escape')
+ await evaluate(`window.__generalHealthDetails=window.__component('TractDetails');window.__generalHealthOriginal=window.__generalHealthDetails.props.tract`)
+ for(const [props,expected]of [[{pctGeneralHealth:0,pctGeneralHealthLo:0,pctGeneralHealthHi:0},'Adults rating their overall health as fair or poor · 0.0% (95% CI 0.0–0.0) · model estimate'],[{pctGeneralHealth:44.8,pctGeneralHealthLo:null,pctGeneralHealthHi:null},'Adults rating their overall health as fair or poor · 44.8% · model estimate']]){
+  await evaluate(`window.__generalHealthDetails.props.tract={...window.__generalHealthOriginal,...${JSON.stringify(props)}}`)
+  check(await waitFor(`document.querySelector('.general-health-detail')?.textContent===${JSON.stringify(expected)}`),'generalHealth controlled zero/missing-CI exact copy: '+expected)
+ }
+ await evaluate(`window.__generalHealthDetails.props.tract={...window.__generalHealthOriginal,pctGeneralHealth:null}`)
+ check(await waitFor(`!document.querySelector('.general-health-detail')&&!document.querySelector('.general-health-caption')&&document.querySelector('#tract-details-panel').textContent.includes('No self-rated general-health estimate for this tract')`),'generalHealth null omits routine row/caption, never zero-fills; exact active no-data text')
+ await evaluate(`window.__generalHealthDetails.props.tract=window.__generalHealthOriginal`)
+ const index=getTractSnapshotIndex(fc,meta),winner=fc.features.find(f=>index.select(f.properties.geoid)?.worst.some(s=>s.metricId==='generalHealth'))
+ if(!winner)throw Error('No real generalHealth snapshot winner found')
+ await evaluate(`window.__stores().ui.setActiveMetric('copd');window.__stores().city.select(${JSON.stringify(winner.properties.geoid)})`)
+ if(!await waitFor(`!!document.querySelector('button[data-snapshot-metric="generalHealth"]')`))throw Error('Depression snapshot winner did not render')
+ await evaluate(`window.__ghlthSnapshot=document.querySelector('button[data-snapshot-metric="generalHealth"]');window.__ghlthSnapshot.scrollIntoView({block:'center'});window.__ghlthSnapshot.focus();window.__ghlthCanvas=document.querySelector('canvas.maplibregl-canvas')`)
+ await press('Space')
+ check(await waitFor(`window.__stores().ui.activeMetric==='generalHealth'&&window.__status()==='Map now showing Fair or poor health (self-rated)'&&document.activeElement===window.__ghlthSnapshot&&window.__ghlthSnapshot.isConnected`),'generalHealth real snapshot winner: native Space, exact polite status and same connected focus')
+ check(await evaluate(`window.__ghlthSnapshot.textContent.includes('model estimate')&&document.querySelector('canvas.maplibregl-canvas')===window.__ghlthCanvas&&window.__ghlthSnapshot.getAttribute('aria-current')==='true'`),'generalHealth snapshot model/current marker retained without map remount')
+ await evaluate(`window.__stores().ui.setDualView(true)`)
+ check(await waitFor(`!document.querySelector('button[data-snapshot-metric="generalHealth"]')&&document.querySelector('[data-snapshot-metric="generalHealth"]')?.tagName==='DIV'`),'generalHealth snapshot remains noninteractive plain text in dual mode')
+}
+
+async function genericHotspotsHeadings(){
+ const {METRICS,metricAvailable}=await import('../src/utils/metrics.ts')
+ const fc=JSON.parse(readFileSync('public/data/central-miami-fl/tracts-equity.geojson','utf8')),meta=JSON.parse(readFileSync('public/data/central-miami-fl/meta.json','utf8'))
+ const ids=[...new Set([...Object.values(METRICS).sort((a,b)=>b.hotspotTitle.length-a.hotspotTitle.length).slice(0,6).map(d=>d.id),'generalHealth','depression','uninsured','disability','shortSleep'])].filter(id=>metricAvailable(id,meta,fc))
+ check(ids.includes('generalHealth')&&ids.includes('uninsured'),`generic heading runtime longest-six union: ${ids.join(', ')}`)
+ async function open(){
+  await evaluate(`window.__wrapOpener=document.querySelector('button[aria-label="Layers"]');window.__wrapOpener.focus()`)
+  await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'h',code:'KeyH',windowsVirtualKeyCode:72});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'h',code:'KeyH',windowsVirtualKeyCode:72})
+  if(!await waitFor(`window.__vis(document.querySelector('#hotspots-panel'))&&document.activeElement===document.querySelector('#hotspots-panel .hotspots-close')`,4000))throw Error('Existing Hotspots keyboard autofocus did not settle')
+ }
+ const layout=title=>`(()=>{const card=document.querySelector('#hotspots-panel'),head=card.querySelector('.hotspots-heading'),text=card.querySelector('.hotspots-heading-text'),close=card.querySelector('.hotspots-close'),t=text.getBoundingClientRect(),b=close.getBoundingClientRect(),c=card.getBoundingClientRect(),cs=getComputedStyle(text);return text.textContent===${JSON.stringify(title)}&&cs.whiteSpace!=='nowrap'&&(!cs.webkitLineClamp||cs.webkitLineClamp==='none')&&getComputedStyle(head).whiteSpace!=='nowrap'&&text.scrollWidth<=text.clientWidth+1&&text.scrollHeight<=text.clientHeight+1&&head.scrollWidth<=head.clientWidth+1&&card.scrollWidth<=card.clientWidth+1&&document.documentElement.scrollWidth<=innerWidth+1&&t.right<=b.left+1&&b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight&&b.width>=31.9&&b.height>=31.9&&close.getAttribute('aria-label')==='Close'&&getComputedStyle(close).flexShrink==='0'&&(innerWidth<=600||c.width<=381)})()`
+ for(const width of [390,1400])for(const mode of ['light','dark','contrast']){
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false})
+  await ready(URL_MIAMI+'&theme='+(mode==='dark'?'dark':'light')+(mode==='contrast'?'&hc=1':''))
+  await evaluate(`document.querySelector('#tract-details-panel .tract-close').click()`)
+  if(!await waitFor(`!window.__vis(document.querySelector('#tract-details-panel'))`))throw Error('Existing drawer close did not settle')
+  for(const id of ids){
+   await evaluate(`window.__stores().ui.setActiveMetric(${JSON.stringify(id)})`)
+   let geometry=true,keyboard=true
+   for(const key of ['Enter','Space','Escape']){
+    // Focus can settle before the existing bottom-sheet transition finishes.
+    await open();const settled=await waitFor(layout(METRICS[id].hotspotTitle),4000);geometry=geometry&&settled
+    if(!settled)console.error('HEADING LAYOUT',await evaluate(`(()=>{const card=document.querySelector('#hotspots-panel'),head=card.querySelector('.hotspots-heading'),text=card.querySelector('.hotspots-heading-text'),close=card.querySelector('.hotspots-close');return {title:text.textContent,text:{clientWidth:text.clientWidth,scrollWidth:text.scrollWidth,clientHeight:text.clientHeight,scrollHeight:text.scrollHeight,rect:text.getBoundingClientRect().toJSON(),whiteSpace:getComputedStyle(text).whiteSpace,clamp:getComputedStyle(text).webkitLineClamp},head:{client:head.clientWidth,scroll:head.scrollWidth,whiteSpace:getComputedStyle(head).whiteSpace},card:{client:card.clientWidth,scroll:card.scrollWidth,rect:card.getBoundingClientRect().toJSON()},close:{rect:close.getBoundingClientRect().toJSON(),flexShrink:getComputedStyle(close).flexShrink},document:{scroll:document.documentElement.scrollWidth,width:innerWidth,height:innerHeight}}})()`))
+    if(key==='Enter'&&width===390&&mode!=='contrast'&&['uninsured','generalHealth'].includes(id)&&process.env.A11Y_SCREENSHOT_DIR){
+     const dir=path.resolve(process.env.A11Y_SCREENSHOT_DIR);mkdirSync(dir,{recursive:true});const shot=await cdp.send('Page.captureScreenshot',{format:'png'});writeFileSync(path.join(dir,`hotspots-${id}-${width}-${mode}.png`),Buffer.from(shot.data,'base64'))
+    }
+    await press(key);const restored=await waitFor(`!window.__vis(document.querySelector('#hotspots-panel'))&&document.activeElement===window.__wrapOpener&&window.__wrapOpener.isConnected`,4000);keyboard=keyboard&&restored
+    if(!restored)throw Error(`${width}px ${mode} ${id}: existing ${key}/focus return failed`)
+   }
+   check(geometry,`${width}px ${mode} ${id}: full generic title wraps without clipping/overflow or overlap; unchanged visible Close target`)
+   check(keyboard,`${width}px ${mode} ${id}: native Enter/Space/Escape close and restore the same connected opener`)
+  }
+  await open()
+  // The registry is static: cycle existing reactive selection to render the controlled title.
+  const unbroken='W'.repeat(120)
+  await evaluate(`window.__wrapClose=document.querySelector('#hotspots-panel .hotspots-close');window.__wrapId=window.__stores().ui.activeMetric;window.__wrapMetric=window.__stores().ui.metric;window.__wrapTitle=window.__wrapMetric.hotspotTitle;window.__wrapMetric.hotspotTitle=${JSON.stringify(unbroken)};window.__stores().ui.setActiveMetric('generalHealth')`)
+  await waitFor(`document.querySelector('.hotspots-heading-text')?.textContent===${JSON.stringify(METRICS.generalHealth.hotspotTitle)}`)
+  await evaluate(`window.__stores().ui.setActiveMetric(window.__wrapId)`)
+  if(!await waitFor(`document.querySelector('.hotspots-heading-text')?.textContent===${JSON.stringify(unbroken)}`))throw Error('Controlled unbroken title did not render')
+  check(await waitFor(layout(unbroken)+`&&document.querySelector('#hotspots-panel .hotspots-close')===window.__wrapClose`,4000),`${width}px ${mode}: generic anywhere fallback wraps unbroken title without remounting Close`)
+  await evaluate(`window.__wrapMetric.hotspotTitle=window.__wrapTitle;window.__stores().ui.setActiveMetric('generalHealth')`);await waitFor(`document.querySelector('.hotspots-heading-text')?.textContent===${JSON.stringify(METRICS.generalHealth.hotspotTitle)}`);await evaluate(`window.__stores().ui.setActiveMetric(window.__wrapId)`);await press('Escape')
+ }
+}
 if(!existsSync(path.resolve('dist/index.html')))throw Error('Build first')
 const srv=spawn(process.execPath,['server/index.mjs'],{env:{...process.env,PORT:String(PORT),BASE_PATH:'/'},stdio:['ignore','ignore','inherit']})
 const profile=mkdtempSync(path.join(tmpdir(),'ste-gap-a11y-'))
@@ -356,6 +466,6 @@ try{
  cdp=await Cdp.connect(ws);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:HELPERS+GAP_HELPERS})
  for(const width of [1400,390])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();await semantics(`${width}px ${theme}`)}
  for(const width of [700,195])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:450,deviceScaleFactor:2,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();check(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('.canopy-gap-target').scrollWidth<=document.querySelector('.canopy-gap-target').clientWidth+1`),`${width}px ${theme}: 200%-equivalent target/helper reflow without overflow`)}
- await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts();await pendingTarget();await depressionUI()
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts();await pendingTarget();await depressionUI();await generalHealthUI();await genericHotspotsHeadings()
 }catch(e){failed++;console.error('ERROR',e.stack||e.message)}finally{try{cdp?.close()}catch{}chrome.kill();srv.kill();await new Promise(r=>chrome.exitCode!==null?r():chrome.once('exit',r));for(const dir of [profile,downloads])try{rmSync(dir,{recursive:true,force:true})}catch{}}
 console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0)

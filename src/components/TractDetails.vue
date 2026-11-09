@@ -427,6 +427,9 @@ function copyLink() {
       <p v-if="Number.isFinite(tract.pctDepression)" class="text-caption px-4 pb-2 depression-caption">Lifetime history, not necessarily current depression. Mental health (MHLTH) measures 14+ days of poor mental health in the past 30 days.</p>
       <p v-else-if="ui.activeMetric === 'depression'" class="text-caption px-4 pb-2">No depression-history estimate for this tract</p>
       <v-list-subheader v-if="tract.pctPhysicalHealth != null">Adults with frequent physical distress · {{ tract.pctPhysicalHealth.toFixed(1) }}%<template v-if="tract.pctPhysicalHealthLo != null && tract.pctPhysicalHealthHi != null"> (95% CI {{ tract.pctPhysicalHealthLo.toFixed(1) }}–{{ tract.pctPhysicalHealthHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
+      <v-list-subheader v-if="Number.isFinite(tract.pctGeneralHealth)" class="general-health-detail">Adults rating their overall health as fair or poor · {{ tract.pctGeneralHealth!.toFixed(1) }}%<template v-if="Number.isFinite(tract.pctGeneralHealthLo) && Number.isFinite(tract.pctGeneralHealthHi)"> (95% CI {{ tract.pctGeneralHealthLo!.toFixed(1) }}–{{ tract.pctGeneralHealthHi!.toFixed(1) }})</template> · model estimate</v-list-subheader>
+      <p v-if="Number.isFinite(tract.pctGeneralHealth)" class="text-caption px-4 pb-2 general-health-caption">Self-rated overall health, not an objective health assessment. Physical health (PHLTH) measures 14+ days of poor physical health in the past 30 days.</p>
+      <p v-else-if="ui.activeMetric === 'generalHealth'" class="text-caption px-4 pb-2">No self-rated general-health estimate for this tract</p>
       <v-list-subheader v-if="tract.pctBpHigh != null">Adults with high blood pressure · {{ tract.pctBpHigh.toFixed(1) }}%<template v-if="tract.pctBpHighLo != null && tract.pctBpHighHi != null"> (95% CI {{ tract.pctBpHighLo.toFixed(1) }}–{{ tract.pctBpHighHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctChd != null">Adults with coronary heart disease · {{ tract.pctChd.toFixed(1) }}%<template v-if="tract.pctChdLo != null && tract.pctChdHi != null"> (95% CI {{ tract.pctChdLo.toFixed(1) }}–{{ tract.pctChdHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctStroke != null">Adults ever told they had a stroke · {{ tract.pctStroke.toFixed(1) }}%<template v-if="tract.pctStrokeLo != null && tract.pctStrokeHi != null"> (95% CI {{ tract.pctStrokeLo.toFixed(1) }}–{{ tract.pctStrokeHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
@@ -542,6 +545,7 @@ function copyLink() {
 </template>
 
 <style scoped>
+.general-health-detail :deep(.v-list-subheader__text) { white-space: normal; overflow: visible; }
 /* #150: keep the full lifetime-history row readable rather than Vuetify subheader ellipsis. */
 .depression-detail :deep(.v-list-subheader__text) { white-space: normal; overflow: visible; }
 .tract-snapshot { color: rgb(var(--v-theme-on-surface)); }

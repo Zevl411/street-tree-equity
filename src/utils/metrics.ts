@@ -1,7 +1,7 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to canopy. */
-export type MetricId = 'canopy' | 'canopyGap' | 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured' | 'depression'
+export type MetricId = 'canopy' | 'canopyGap' | 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured' | 'depression' | 'generalHealth'
 export type MetricUnit = 'acre' | 'km2'
 
 export type MetricValueKey = 'pctGeneralHealth' | 'pctDepression' | 'canopyPct' | 'canopyGapAcres' | 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
@@ -472,6 +472,27 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults aged 18+ who report ever being told by a doctor, nurse, or other health professional that they had a depressive disorder, including depression, major depression, dysthymia, or minor depression (CDC PLACES). This is a lifetime history measure, not necessarily current depression; it does not measure severity or duration. Mental health (MHLTH) instead measures 14 or more days of poor mental health in the past 30 days. Community-need context — no causal or diagnostic claim.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #151: self-rated overall health, distinct from frequent physical distress.
+  generalHealth: {
+    id: 'generalHealth',
+    label: 'Self-rated general health (fair or poor)',
+    shortLabel: 'Fair or poor health',
+    valueKey: 'pctGeneralHealth',
+    overallKey: 'pctGeneralHealth',
+    legendTitle: () => 'Adults rating their overall health as fair or poor',
+    unitNoun: 'fair-or-poor self-rated health share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median share of adults rating their overall health as fair or poor',
+    bmSwitchLabel: 'Above city median',
+    fine: false,
+    hotspotNoun: ['tract with a higher share of adults rating health as fair or poor', 'tracts with higher shares of adults rating health as fair or poor'],
+    hotspotTitle: 'Highest share rating overall health as fair or poor',
+    missingCaption: 'This pack has no self-rated general-health estimate yet',
+    tooltip: 'Model-based share of adults aged 18+ who rate their overall health as fair or poor (CDC PLACES). This is self-rated general health, not an objective health assessment. Physical health (PHLTH) instead measures 14 or more days in the past 30 days when physical health, including illness or injury, was not good. Current refers to health at the time of the survey, not a live health reading. Community-need context — no causal or diagnostic claim.',
+    higherIsBetter: false,
+    usesDensityUnit: false,
+    percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -490,10 +511,10 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
-/** #124 Planting need after Trees; #125 Mental health after Obesity; #150 Depression history after Mental health; #127 Physical health after Depression history; #143 cardio reorder: #131 Blood pressure after Physical health; #129 Heart disease after Blood pressure; #141 Stroke after Heart disease; #133 Inactivity after Stroke; #136 COPD after Inactivity; #138 Smoking after COPD; #143 Disability after Smoking; #144 Short sleep after Disability; #146 Uninsured (ACCESS2) after Short sleep; rest in registry order. */
+/** #124 Planting need after Trees; #125 Mental health after Obesity; #150 Depression history after Mental health; #127 Physical health after Depression history; #151 Fair or poor health after Physical health; #143 cardio reorder: #131 Blood pressure after Fair or poor health; #129 Heart disease after Blood pressure; #141 Stroke after Heart disease; #133 Inactivity after Stroke; #136 COPD after Inactivity; #138 Smoking after COPD; #143 Disability after Smoking; #144 Short sleep after Disability; #146 Uninsured (ACCESS2) after Short sleep; rest in registry order. */
 /** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
-const BASE_SWITCH_ORDER: MetricId[] = ['canopy', 'canopyGap', 'trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'canopy' && id !== 'canopyGap' && id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'depression' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'uninsured' && id !== 'age65' && id !== 'under18')
-  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'depression', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'] : [id]))]
+const BASE_SWITCH_ORDER: MetricId[] = ['canopy', 'canopyGap', 'trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'canopy' && id !== 'canopyGap' && id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'depression' && id !== 'physicalHealth' && id !== 'generalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'uninsured' && id !== 'age65' && id !== 'under18')
+  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'depression', 'physicalHealth', 'generalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'] : [id]))]
 const RB = BASE_SWITCH_ORDER.indexOf('rentBurden')
 export const METRIC_SWITCH_ORDER: MetricId[] = [...BASE_SWITCH_ORDER.slice(0, RB + 1), 'age65', 'under18', ...BASE_SWITCH_ORDER.slice(RB + 1)]
 
@@ -535,6 +556,9 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   insurance: 'uninsured', noinsurance: 'uninsured', 'no insurance': 'uninsured', access2: 'uninsured',
   // #150: lifetime-history aliases; never reinterpret depressed or existing MHLTH links.
   depressive: 'depression', 'depressive disorder': 'depression',
+  // #151: exact general-health aliases; never steal physical/mental/depression or broad health.
+  'general health': 'generalHealth', 'fair or poor health': 'generalHealth', ghlth: 'generalHealth',
+  'self-rated health': 'generalHealth', 'self rated health': 'generalHealth',
 }
 
 export function isMetricId(v: unknown): v is MetricId {

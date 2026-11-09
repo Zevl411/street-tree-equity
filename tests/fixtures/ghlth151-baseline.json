@@ -202,10 +202,5 @@
         "url": "https://data.cdc.gov/resource/yjkw-uj5s.json?%24where=tractfips+in+%28%2712009064400%27%29&%24select=tractfips%2Cghlth_crudeprev%2Cghlth_crude95ci%2Ctotalpop18plus&%24limit=1000"
       }
     ]
-  },
-  "uiSha256": {
-    "src/App.vue": "8cf8167afb48b47bd81540a3522908a4e6ddc3179d6bdde58915b22229aaf8d1",
-    "src/components/TractDetails.vue": "99bbd83afbc1f6fbb8128c2287b57e24d157554fd29e5363b7b146d8a053e3ed",
-    "src/utils/tractSnapshot.ts": "4356cd4cecd866912869cdf2a69ad852f437426e7718c13dc1a0aebe28a411de"
   }
 }

@@ -49,6 +49,9 @@ export const CSV_HEADERS = [
 ]
 
 
+/** #151: same header array, no second list or builder. */
+export function fullCsvHeaders(): readonly string[] { return CSV_HEADERS }
+
 export function csvRow(t: TractProps, meta: Meta, mode: GapTargetMode = 'p75'): string {
   return [
     t.geoid, t.name, t.county, t.treeCount, t.treesPerAcre, t.treesPerKm2, t.areaAcres, t.areaKm2,

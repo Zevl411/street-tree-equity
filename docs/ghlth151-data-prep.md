@@ -1,6 +1,6 @@
-# Invent #151 — GHLTH data preparation only
+# Invent #151 — GHLTH verification
 
-Base: `759775005e2819d4053b12c98e33a2abfaaae0e4` (#150 squash). Branch: `feat/general-health-151`. No new GHLTH UI is enabled before Designer lock; no push or PR in this phase.
+Base: `759775005e2819d4053b12c98e33a2abfaaae0e4` (#150 squash). Branch: `feat/general-health-151`. Data preparation was committed as `7fe727d` before the Designer lock. The following UI integration follows LOCKED rev1.1 exactly.
 
 ## Source, method and coverage
 
@@ -34,23 +34,26 @@ Each was independently requested from `https://data.cdc.gov/resource/yjkw-uj5s.j
 ## Byte-level diff, exports and sizes
 
 - Removing exactly `pctGeneralHealth`, `pctGeneralHealthLo`, `pctGeneralHealthHi`, `generalHealthAdultPop` reproduces every old tract file byte-for-byte against main7597750. **0 geometry changes; 0 old-property changes.** This includes depression, all earlier PLACES, canopy/landAcres/gap and Planting need values, precision, property/feature order. Removing only new GHLTH metadata also reproduces the original metadata bytes.
-- Full CSV **106→109**. Shared `PLACES_EXPORT` appends `pct_general_health`, `pct_general_health_ci_lo`, `pct_general_health_ci_hi` after depression, columns88–90. Existing106 headers retain relative order. Tests cover all464 rows under both canopy targets, null/zero and GeoJSON numeric/null triple parity. `CI_KEYS` and the raw value-key type are prepared without exposing a new metric option.
+- Full CSV **106→109**. Shared `PLACES_EXPORT` appends `pct_general_health`, `pct_general_health_ci_lo`, `pct_general_health_ci_hi` after depression, columns88–90. Existing106 headers retain relative order. Tests cover all464 rows under both canopy targets, null/zero and GeoJSON numeric/null triple parity. `CI_KEYS` and the raw value-key type include the new measure.
 - Tracts **+48,358 B**; metadata **+1,312 B**; combined **+49,670 B**. Largest changed tract file: Miami **629,455 B**, below1 MiB. Existing warn>1 MiB/fail>3 MiB guard is unchanged; only pre-existing overlay warnings.
 
 ## Authorized softs
 
-- `HotspotsPanel.vue`: generic static `text-wrap` on the heading, replacing the depression-only conditional. No control/container/focus changes.
-- Snapshot a11y full-CSV log derives its column count from `full[0].length` (and row count from the parsed download), rather than stale103. A source regression test protects both softs.
+- `HotspotsPanel.vue`: generic `hotspots-heading text-wrap`, shrinkable noninteractive text span and scoped wrapping CSS; the original spacer and same close button/attributes/handler/order remain. No control/container/focus changes. Runtime longest-six-title union tests include GHLTH, depression, uninsured, disability and shortSleep, plus an unbroken controlled string.
+- Thin pure `fullCsvHeaders()` returns the same `CSV_HEADERS` array. Snapshot and gap a11y assertions/captions use `fullCsvHeaders().length`, not103/106/109 literals; both retain complete parsed source-cell equality. The independent unit contract still pins109 and exact column positions/old-header order.
 
 ## Checks
 
-- Typecheck, build, unit **171/171**, smoke **7/7**, sizes and dedicated size guard **4/4** pass. Browser regression suites for the two softs are recorded in the final handoff.
+- Typecheck, build, unit **178/178**, smoke **7/7**, sizes and dedicated size guard **4/4** pass. Menu a11y **100/100**, snapshot a11y **239/239**, and gap/GHLTH/generic-heading a11y **296/296** pass.
 - New tests use small committed fixtures and `os.tmpdir()`, with explicit fixture year override, no raw cache/network/Python at test time. Historical fingerprints remain pinned; only later additive GHLTH fields are stripped in older tests.
 
-## UI still pending Designer lock
+## Designer LOCKED rev1.1 UI integration
 
-- `generalHealth` registry definition (`higherIsBetter:false`) and switch option next to PHLTH, exact label/tooltip/legend/Hotspots/missing copy, precision and aliases; do not invent a side/order or strings.
-- TractDetails row/caption, About/Copy-citations methods/What changed and user docs according to the locked sheet.
-- Snapshot allowlist/rankable integration (next to PHLTH per TL) and corresponding25-candidate/UI/a11y checks; GHLTH was **not** added to exclusions. Existing24-candidate ranking is unchanged during data prep.
-- Current-view selectable-metric/deep-link/alias integration and locked source-topic/citation copy. Full data exports/CI/year plumbing are already ready.
-- `PLACES_DATA_IDS` contains all16 prepared measures in the single map; `PLACES_METRIC_IDS` derives only the15 registered metrics. This keeps App/About/Copy/snapshot UI unchanged without a duplicate source map. Registering the metric after lock will include it automatically. `App.vue`, `TractDetails.vue`, and `tractSnapshot.ts` remain byte-identical to main.
+- Full32-option switch order is unchanged except the new `generalHealth` immediately after PHLTH/before bphigh. Registry/source/export append order stays after depression. `higherIsBetter:false`, 0–100 percent points/one decimal, no density conversion; all strings/flags match the sheet. No new layer token, interaction or composite. Canopy remains the default.
+- Exact finite/zero/null/CI-missing details row and always-readable self-rated/PHLTH caption; only the new row opts out of legacy subheader ellipsis. Old PHLTH/MHLTH/DEPRESSION rows and meanings are unchanged. Source citation year is meta-driven; exact shared GHLTH methods note is gated and reused by About/Copy citations. What changed and both user docs use the locked wording.
+- Shared map now has16 registered measures; temporary data-only type/filter plumbing was removed. Exact canonical/spaced/mixed-case aliases are tested; `health`/`poor health` are not aliases, and old physical/mental/depression links retain their meanings. Single/dual URL writers preserve unrelated flags and canopy targets.
+- Snapshot25 candidates, same7 exclusions, only explicit allowlist/label/count-comment changes. Label is `Fair or poor health (self-rated)`. Miami check n152/B151/T0/X100 gives the exact all151 helper; its actual top3 remain Income/Diabetes/Physical health. A real GHLTH winning tract is used for keyboard/SR/same-focus/dual-text regression. No weighting or significance claim in rankings.
+- Current-view CSV16/18(single/compare),22/24(dual/dual-income), with compare adding2; both group directions, units, targets, zero/null, raw CI and dynamic year are tested. Full109-column and numeric/null GeoJSON tests cover all464 tracts and preserve all106 old headers.
+- No edits to Dev2's shared Layers/menu/dual/Compare/focus containers or handlers. Branch remains `feat/general-health-151` per the explicit setup, not the sheet's suggested branch name. No raw files, new dependencies, runtime CDC calls or paid services.
+
+Fresh-clone exact-head verification is recorded in the final handoff and PR body. Screenshots are on the shared box at `/tmp/ste-ghlth151-shots/`, including GHLTH details at 390px/desktop in light/dark/high contrast, and the longest legacy and GHLTH Hotspots titles at 390px light/dark.

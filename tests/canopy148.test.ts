@@ -34,12 +34,12 @@ function parse(csv:string):string[][] {
 }
 const polygon=(x0:number,y0:number,x1:number,y1:number)=>({type:'Polygon',coordinates:[[[x0,y0],[x1,y0],[x1,y1],[x0,y1],[x0,y0]]]})
 const score=(values:number[],x:number)=>snapshotMetric('canopy',x,[...values].sort((a,b)=>a-b))!
-test('#148 registry default, exact aliases, collisions and 30-id order',()=>{
+test('#148 registry default, exact aliases, collisions and 32-id order',()=>{
  assert.equal(DEFAULT_METRIC,'canopy');for(const s of [undefined,'unknown',''])assert.equal(normalizeMetric(s),'canopy')
  for(const a of ['canopy',' tree canopy ','TCC','shade'])assert.equal(resolveMetric(a),'canopy')
  assert.equal(resolveMetric('trees'),'trees');assert.equal(resolveMetric('tree'),null);assert.equal(resolveMetric('access'),null)
  assert.equal(resolveMetric('parks'),'parks');assert.equal(resolveMetric('need'),'plantNeed')
- assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,31);assert.equal(new Set(METRIC_SWITCH_ORDER).size,31)
+ assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,32);assert.equal(new Set(METRIC_SWITCH_ORDER).size,32)
  assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
  assert.equal(METRICS.canopy.usesDensityUnit,false);assert.equal(METRICS.canopy.valueKey,'canopyPct');assert.equal(metricHasCi('canopy'),false)
  assert.equal(METRICS.trees.shortLabel,'Mapped street trees (OSM)');assert.equal(METRICS.trees.valueKey,'treesPerAcre')

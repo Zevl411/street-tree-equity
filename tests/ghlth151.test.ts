@@ -7,10 +7,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import type { Meta, TractCollection, TractProps } from '../src/types.ts'
-import { METRIC_IDS, METRIC_SWITCH_ORDER, resolveMetric } from '../src/utils/metrics.ts'
-import { PLACES_MEASURES, PLACES_DATA_IDS, PLACES_METRIC_IDS, placesMetricCitation } from '../src/utils/placesMeasures.ts'
-import { SNAPSHOT_EXCLUDED_METRICS, SNAPSHOT_CANDIDATE_METRICS } from '../src/utils/tractSnapshot.ts'
-import { CSV_HEADERS, PLACES_EXPORT, csvRow, toCsv } from '../src/utils/fullCsv.ts'
+import { METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, resolveMetric, DEFAULT_METRIC, metricAvailable, fmtMetric, hotspotAscending, type MetricId } from '../src/utils/metrics.ts'
+import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation, GHLTH_METHODS } from '../src/utils/placesMeasures.ts'
+import { SNAPSHOT_EXCLUDED_METRICS, SNAPSHOT_CANDIDATE_METRICS, snapshotMetric, snapshotRow, snapshotLabel, tractSnapshot } from '../src/utils/tractSnapshot.ts'
+import { CSV_HEADERS, fullCsvHeaders, PLACES_EXPORT, csvRow, toCsv } from '../src/utils/fullCsv.ts'
+import { toCurrentViewCsv, currentViewComments, metricHasCi, metricUnitToken } from '../src/utils/currentViewCsv.ts'
+import { readDeepLink, writeDeepLink, DEFAULT_LAYERS } from '../src/composables/useDeepLink.ts'
 import { GAP_COLUMNS, gapCells, scenarioProps } from '../src/utils/canopyGap.ts'
 // @ts-ignore Build-only CSV helpers; tests use temp fixtures, never ignored raw files/network.
 import { readPlaces, splitCsv, parseCi, placesNum } from '../scripts/lib/places.mjs'
@@ -64,21 +66,15 @@ test('#151 all 464 tracts and three independent Socrata check rows match includi
   assert.deepEqual(baseline.source.checks[0].ci, [39.2, 50.7])
   assert.equal(baseline.source.checks[0].value, 44.8)
 })
-test('#151 prepared single shared map and CI key do not expose any new unlocked UI or snapshot exclusion', () => {
-  assert.equal(PLACES_DATA_IDS.length, 16); assert.equal(PLACES_DATA_IDS.at(-1), 'generalHealth')
-  assert.equal(PLACES_MEASURES.generalHealth![0], 'GHLTH')
-  assert.equal(PLACES_MEASURES.generalHealth![1], 'Fair or poor self-rated health status among adults')
-  assert.equal(PLACES_METRIC_IDS.length, 15)
-  assert.ok(!(PLACES_METRIC_IDS as readonly string[]).includes('generalHealth'))
-  assert.ok(!(METRIC_IDS as readonly string[]).includes('generalHealth'))
-  assert.ok(!(METRIC_SWITCH_ORDER as readonly string[]).includes('generalHealth'))
-  assert.ok(!(SNAPSHOT_EXCLUDED_METRICS as readonly string[]).includes('generalHealth'))
-  assert.equal(SNAPSHOT_CANDIDATE_METRICS.length, 24)
-  assert.equal(resolveMetric('generalHealth'), null)
-  for (const [file, sha] of Object.entries(baseline.uiSha256)) assert.equal(hash(readFileSync(file, 'utf8')), sha, file)
-  assert.match(readFileSync('src/utils/currentViewCsv.ts', 'utf8'), /const CI_KEYS[^\n]*'pctGeneralHealth'/)
-  assert.match(placesMetricCitation('generalHealth', { GHLTH: 2042 })!, /BRFSS 2042/)
-  assert.doesNotMatch(placesMetricCitation('generalHealth', {})!, /BRFSS|undefined|2023/)
+test('#151 shared map, registered polarity, exact32 switch order and explicit25-candidate inclusion', () => {
+  assert.equal(PLACES_METRIC_IDS.length,16);assert.equal(PLACES_METRIC_IDS.at(-1),'generalHealth')
+  assert.equal(PLACES_MEASURES.generalHealth![0],'GHLTH');assert.equal(PLACES_MEASURES.generalHealth![2],'fair or poor general health')
+  assert.equal(METRIC_IDS.at(-1),'generalHealth');assert.equal(METRIC_SWITCH_ORDER.length,32)
+  assert.deepEqual(METRIC_SWITCH_ORDER.slice(METRIC_SWITCH_ORDER.indexOf('physicalHealth'),METRIC_SWITCH_ORDER.indexOf('physicalHealth')+3),['physicalHealth','generalHealth','bphigh'])
+  assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,25);assert.ok(SNAPSHOT_CANDIDATE_METRICS.includes('generalHealth'))
+  assert.equal(SNAPSHOT_EXCLUDED_METRICS.length,7);assert.ok(!SNAPSHOT_EXCLUDED_METRICS.includes('generalHealth'))
+  assert.equal(METRICS.generalHealth.higherIsBetter,false);assert.equal(metricHasCi('generalHealth'),true)
+  assert.equal(DEFAULT_METRIC,'canopy')
 })
 test('#151 full CSV109 retains all106 old headers, appends GHLTH triple after depression, and every cell aligns in all packs/both targets', () => {
   assert.equal(CSV_HEADERS.length, 109); assert.equal(new Set(CSV_HEADERS).size, 109)
@@ -158,10 +154,94 @@ test('#151 GeoJSON data triple is numeric/null/zero and geometry is untouched', 
 })
 test('#151 both independent softs: all Hotspots titles wrap and snapshot log derives the actual header count', () => {
   const hotspots = readFileSync('src/components/HotspotsPanel.vue', 'utf8')
-  assert.match(hotspots, /<v-card-title class="d-flex align-center text-subtitle-1 text-wrap">/)
+  assert.match(hotspots, /<v-card-title class="d-flex align-center text-subtitle-1 hotspots-heading text-wrap">/)
   assert.doesNotMatch(hotspots, /'text-wrap': ui\.metric\.id === 'depression'/)
   const snapshot = readFileSync('scripts/a11y-tract-snapshot.mjs', 'utf8')
-  assert.ok(snapshot.includes('${full[0].length} columns'))
+  assert.ok(snapshot.includes('${fullCsvHeaders().length} columns'))
   assert.doesNotMatch(snapshot, /152 rows \/ 103 columns/)
-  assert.match(readFileSync('scripts/a11y-canopy-gap.mjs', 'utf8'), /full\[0\]\.length===CSV_HEADERS\.length/)
+  assert.match(readFileSync('scripts/a11y-canopy-gap.mjs', 'utf8'), /full\[0\]\.length===fullCsvHeaders\(\)\.length/)
+})
+
+const locked = JSON.parse(readFileSync(new URL('fixtures/ghlth151-locked.json', import.meta.url), 'utf8'))
+test('#151 every registry string/flag equals locked rev1.1; aliases preserve all prior meanings and percent scale', () => {
+  const def = METRICS.generalHealth
+  for (const [key, expected] of Object.entries(locked.registry)) {
+    const actual = (def as any)[key]
+    assert.deepEqual(typeof actual === 'function' ? actual('acre') : actual, expected, key)
+  }
+  assert.notEqual(def.percent,true);assert.equal(hotspotAscending(def),false)
+  for(const token of ['generalHealth','GENERALHEALTH',' general health ','  FaIr Or PoOr HeAlTh  ','ghlth',' SELF-RATED HEALTH ','self rated health']) assert.equal(resolveMetric(token),'generalHealth')
+  for(const token of ['health','poor health','unhealthy people','general health symptoms'])assert.equal(resolveMetric(token),null)
+  for(const [token,id]of [['physical','physicalHealth'],['phlth','physicalHealth'],['mental','mentalHealth'],['mhlth','mentalHealth'],['depressive','depression'],['depressive disorder','depression']]as const)assert.equal(resolveMetric(token),id)
+  for(const km2 of [false,true]){assert.equal(fmtMetric(def,44.8,km2,247.105),'44.8%');assert.equal(fmtMetric(def,0,km2,247.105),'0.0%')}
+})
+test('#151 exact shared dynamic citation, methods, readable details/caption/What changed/docs; PHLTH source row unchanged', () => {
+  assert.equal(placesMetricCitation('generalHealth',{GHLTH:2023}),locked.citation)
+  assert.equal(placesMetricCitation('generalHealth',{GHLTH:2042}),locked.citation.replace('BRFSS 2023','BRFSS 2042'))
+  for(const y of [undefined,NaN])assert.equal(placesMetricCitation('generalHealth',{GHLTH:y}),locked.citation.replace('BRFSS 2023 model-based estimates','model-based estimates'))
+  assert.equal(GHLTH_METHODS,locked.methods)
+  const app=readFileSync('src/App.vue','utf8'),details=readFileSync('src/components/TractDetails.vue','utf8')
+  assert.ok(app.includes(locked.changed));assert.ok(app.includes('PLACES_MEASURES.generalHealth![0]'));assert.ok(app.includes('${generalHealthMethods.value}'));assert.ok(app.includes('{{ generalHealthMethods }}'))
+  assert.ok(details.indexOf('class="general-health-detail"')>details.indexOf('Adults with frequent physical distress'))
+  assert.ok(details.indexOf('class="general-health-detail"')<details.indexOf('Adults with high blood pressure'))
+  assert.ok(details.includes('Self-rated overall health, not an objective health assessment. Physical health (PHLTH) measures 14+ days of poor physical health in the past 30 days.'))
+  for(const f of ['README.md','docs/user-guide.md'])assert.ok(readFileSync(f,'utf8').includes(locked.docs))
+  const p=load('public/data/central-miami-fl').fc.features.find(f=>f.properties.geoid==='12086002404')!.properties
+  assert.deepEqual([p.pctPhysicalHealth,p.pctPhysicalHealthLo,p.pctPhysicalHealthHi],[24.9,21.7,28.5])
+})
+test('#151 all locked source breaks/weighted-overalls and availability handle values above50, zero, missing and empty breaks', () => {
+  const expected:Record<string,[number[],number]>={'public/data':[[10.2,12,13.2,15.3],14.1],'central-miami-fl':[[7.5,17.4,26.8,33.2],26],'melbourne-fl':[[13.9,15.4,18.1,23.2],19],'pembroke-pines-fl':[[13.6,14.8,16.2,19.6],18.1],'orlando-fl':[[9.1,12.9,17.1,27.6],20],'tampa-fl':[[8.7,15.8,25.5,30.7],22.7],'central-jacksonville-fl':[[10.8,18.1,24.8,38.3],27.4]}
+  for(const [name,[breaks,mean]]of Object.entries(expected)){const {fc,meta}=load(name==='public/data'?name:'public/data/'+name);assert.deepEqual(meta.metricBreaks!.generalHealth,breaks);assert.equal(meta.overall.pctGeneralHealth,mean);assert.equal(metricAvailable('generalHealth',meta,fc),true)}
+  const {fc,meta}=load('public/data/central-miami-fl'),zeros={...fc,features:fc.features.map(f=>({...f,properties:{...f.properties,pctGeneralHealth:0}}))}
+  assert.equal(metricAvailable('generalHealth',{...meta,metricBreaks:{...meta.metricBreaks,generalHealth:[]}},zeros),true)
+  assert.equal(metricAvailable('generalHealth',{...meta,metricBreaks:{...meta.metricBreaks,generalHealth:undefined}},fc),false)
+  for(const v of [undefined,null,NaN,Infinity])assert.equal(metricAvailable('generalHealth',meta,{...fc,features:fc.features.map(f=>({...f,properties:{...f.properties,pctGeneralHealth:v}}))}as TractCollection),false)
+  assert.ok(load('public/data/orlando-fl').fc.features.some(f=>f.properties.pctGeneralHealth!>50))
+})
+test('#151 snapshot self-rated label and exact check all151 helper without forcing Miami top3; zero/null/insufficient path', () => {
+  const {fc,meta}=load('public/data/central-miami-fl'),t=fc.features.find(f=>f.properties.geoid==='12086002404')!.properties
+  const score=snapshotMetric('generalHealth',t.pctGeneralHealth!,fc.features.map(f=>f.properties.pctGeneralHealth!).sort((a,b)=>a-b))!
+  assert.deepEqual([score.validCount,score.lower,score.tied,score.higher,score.badness],[152,151,0,0,100])
+  assert.equal(snapshotLabel('generalHealth'),'Fair or poor health (self-rated)')
+  const row=snapshotRow(score,'Miami','acre');assert.equal(row.line1,'Fair or poor health (self-rated) · 44.8% · model estimate');assert.equal(row.line2,'Higher than all 151 other tracts in Miami')
+  assert.equal(row.ariaLabel,'Switch map to Fair or poor health (self-rated), higher than all 151 other tracts in Miami, 44.8%, model estimate')
+  const s=tractSnapshot(fc,t.geoid,meta)!;assert.equal(s.eligibleCount,25);assert.deepEqual(s.worst.map(v=>v.metricId),['income','diabetes','physicalHealth'])
+  const zero=snapshotMetric('generalHealth',0,[0,1,2,3,4,5,6,7,8,9])!;assert.equal(snapshotRow(zero,'Example','acre').line1,'Fair or poor health (self-rated) · 0.0% · model estimate')
+  assert.equal(snapshotMetric('generalHealth',1,[0,1,2,3,4,5,6,7,8]),null)
+  assert.equal(snapshotMetric('generalHealth',NaN,[0,1,2,3,4,5,6,7,8,9]),null)
+  assert.ok(fc.features.some(f=>tractSnapshot(fc,f.properties.geoid,meta)!.worst.some(s=>s.metricId==='generalHealth')))
+})
+test('#151 current-view CSV both group directions/single/dual/compare, null/zero, units/targets and meta year all align', () => {
+  const {fc,meta}=load('public/data/central-miami-fl'),t=fc.features.find(f=>f.properties.geoid==='12086002404')!.properties
+  const props=[t,{...t,geoid:'zero',pctGeneralHealth:0,pctGeneralHealthLo:0,pctGeneralHealthHi:0},{...t,geoid:'missing',pctGeneralHealth:undefined,pctGeneralHealthLo:undefined,pctGeneralHealthHi:undefined}]
+  const pairs:MetricId[][]=[['generalHealth'],['generalHealth','trees'],['trees','generalHealth'],['generalHealth','physicalHealth'],['physicalHealth','generalHealth'],['generalHealth','depression'],['generalHealth','income'],['income','generalHealth']]
+  for(const unit of ['acre','km2']as const)for(const gapTarget of ['p75','30']as const)for(const compare of [false,true])for(const metrics of pairs){
+    const text=toCurrentViewCsv({rows:props.map(props=>({cityId:'miami',cityName:'Miami, FL',meta,props})),metrics,unit,compare,gapTarget,comments:[]})
+    const [h,...rows]=text.trimEnd().split('\r\n').filter(l=>!l.startsWith('#')).map(splitCsv)
+    const n=(metrics.length===1?16:metrics.includes('income')?24:22)+(compare?2:0),key=metrics.length===1?'metric':metrics[0]==='generalHealth'?'metric_a':'metric_b'
+    assert.equal(h.length,n);assert.ok(rows.every((r:string[])=>r.length===n))
+    for(const [k,v]of Object.entries({value:'44.8',ci_lo:'39.2',ci_hi:'50.7',unit:'%',id:'generalHealth',label:'Fair or poor health'}))assert.equal(rows[0][h.indexOf(key+'_'+k)],v)
+    assert.equal(rows.find((r:string[])=>r[h.indexOf('geoid')]==='zero')![h.indexOf(key+'_value')],'0.0')
+    assert.equal(rows.find((r:string[])=>r[h.indexOf('geoid')]==='missing')![h.indexOf(key+'_value')],'')
+  }
+  const comments=currentViewComments([{id:'miami',meta:{...meta,cdcPlaces:{...meta.cdcPlaces!,years:{...meta.cdcPlaces!.years,GHLTH:2042}}}}],['generalHealth'],'https://example.test/?gapTarget=30').join('\n')
+  assert.match(comments,/BRFSS 2042/);assert.match(comments,/self-reported fair or poor general health/)
+})
+test('#151 canonical and alias URLs preserve dual encoding/gapTarget/unrelated flags; writer emits canonical generalHealth', () => {
+  for(const token of ['generalHealth','GENERALHEALTH','general health','fair or poor health','ghlth','self-rated health','self rated health']){
+    const link=readDeepLink('?metric='+encodeURIComponent(token)+'&gapTarget=30&dual=trees,generalHealth&audit=keep')
+    assert.equal(link.metric,'generalHealth');assert.equal(link.gapTarget,'30');assert.deepEqual(link.dual,{left:'trees',right:'generalHealth'})
+  }
+  const old=(globalThis as any).window
+  try{
+    let href='https://example.test/?metric=ghlth&gapTarget=30&audit=keep';(globalThis as any).window={location:{get href(){return href}},history:{state:{},replaceState(_s:any,_t:any,u:any){href=String(u)}}}
+    writeDeepLink({city:'central-miami-fl',geoid:'12086002404',basemap:'streets',theme:'treeDark',layers:DEFAULT_LAYERS,unit:'acre',metric:'generalHealth',dual:{left:'trees',right:'generalHealth'},gapTarget:'30'})
+    const q=new URL(href).searchParams;assert.equal(q.get('metric'),'generalHealth');assert.equal(q.get('audit'),'keep');assert.equal(q.get('gapTarget'),'30')
+    assert.deepEqual(readDeepLink(new URL(href).search).dual,{left:'trees',right:'generalHealth'})
+  }finally{if(old===undefined)delete(globalThis as any).window;else(globalThis as any).window=old}
+})
+test('#151 shared thin fullCsvHeaders accessor returns the exact existing array and agrees with emitted headers', () => {
+  assert.equal(fullCsvHeaders(),CSV_HEADERS);assert.equal(fullCsvHeaders().length,109)
+  const {fc,meta}=load('public/data/central-miami-fl')
+  assert.deepEqual(splitCsv(toCsv([fc.features[0].properties],meta).split('\r\n')[0]),fullCsvHeaders())
 })

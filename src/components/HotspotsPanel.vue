@@ -163,8 +163,8 @@ function pick(geoid: string) {
 <template>
   <component :is="mobile ? VBottomSheet : VDialog" v-model="open" :max-width="mobile ? undefined : 380" scrollable>
     <v-card id="hotspots-panel" :density="mobile ? 'comfortable' : 'compact'">
-      <v-card-title class="d-flex align-center text-subtitle-1 text-wrap">
-        {{ ui.metric.hotspotTitle }}
+      <v-card-title class="d-flex align-center text-subtitle-1 hotspots-heading text-wrap">
+        <span class="hotspots-heading-text">{{ ui.metric.hotspotTitle }}</span>
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close" class="hotspots-close" @click="open = false" />
       </v-card-title>
@@ -216,5 +216,8 @@ function pick(geoid: string) {
 </template>
 
 <style scoped>
+.hotspots-heading { min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; }
+.hotspots-heading-text { min-width: 0; flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere; }
+.hotspots-heading .hotspots-close { flex: 0 0 auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>

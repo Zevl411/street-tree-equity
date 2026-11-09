@@ -8,7 +8,7 @@ import { cell, ymd } from '@/utils/currentViewCsv'
 export { CSV_VIEW_TOOLTIP, cell, CRLF, toCurrentViewCsv, currentViewComments, viewScope, metricHasCi, metricHasMoe } from '@/utils/currentViewCsv'
 
 // #23 full CSV (headers + row) lives in the pure fullCsv module (node-testable); re-exported for callers.
-export { CSV_HEADERS, PLACES_EXPORT, csvRow, toCsv } from '@/utils/fullCsv'
+export { CSV_HEADERS, fullCsvHeaders, PLACES_EXPORT, csvRow, toCsv } from '@/utils/fullCsv'
 
 export const ODBL_NOTICE =
   'Includes OpenStreetMap-derived values (ODbL). © OSM contributors. Tracts: U.S. Census Bureau.'

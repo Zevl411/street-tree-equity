@@ -162,7 +162,7 @@ console.log(`[places] ${CSV}: ${total} rows; columns ${JSON.stringify(columns)}`
 // #150 gate: validate every requested tract before mutating/writing any pack. No fallback.
 if (selectedMeasures.some((M) => M.measure === 'DEPRESSION')) {
   const missing = [...want].filter((id) => { const v = placesNum(rows.get(id)?.depression_crudeprev); return v == null || v < 0 || v > 100 })
-  if (missing.length) throw new Error(`STOP: DEPRESSION coverage ${want.size - missing.length}/${want.size}; missing ${missing.join(', ')}. GHLTH requires TL approval.`)
+  if (missing.length) throw new Error(`STOP: DEPRESSION coverage ${want.size - missing.length}/${want.size}; missing ${missing.join(', ')}. No alternate measure is substituted.`)
 }
 // #151: GHLTH must have complete coverage before any output is changed.
 if (selectedMeasures.some((M) => M.measure === 'GHLTH')) {

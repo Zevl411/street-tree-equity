@@ -36,14 +36,14 @@ for(const dir of Object.keys(baseline.packs))test(`#150 ${dir}: complete value/C
  assert.ok(m.metricBreaks!.depression!.length>0);assert.ok(Number.isFinite(m.overall.pctDepression));assert.ok(Number.isFinite(m.overall.pctDepressionMedian))
 })
 test('#150 locked registry, append-only data order, switch adjacency, lower-is-better polarity and explicit snapshot eligibility',()=>{
- assert.equal(PLACES_METRIC_IDS.at(-1),'depression')
+ assert.equal(PLACES_METRIC_IDS.at(-2),'depression')
  assert.equal(METRICS.depression.valueKey,'pctDepression');assert.equal(METRICS.depression.higherIsBetter,false)
  assert.equal((SNAPSHOT_EXCLUDED_METRICS as readonly string[]).includes('depression'),false)
  assert.match(readFileSync('src/utils/tractSnapshot.ts','utf8'),/'mentalHealth', 'depression', 'physicalHealth'/)
- assert.equal(METRIC_IDS.at(-1),'depression')
+ assert.equal(METRIC_IDS.at(-2),'depression')
  assert.deepEqual(METRIC_SWITCH_ORDER.slice(METRIC_SWITCH_ORDER.indexOf('mentalHealth'),METRIC_SWITCH_ORDER.indexOf('mentalHealth')+3),['mentalHealth','depression','physicalHealth'])
- assert.ok(SNAPSHOT_CANDIDATE_METRICS.includes('depression'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,24)
- assert.equal(PLACES_METRIC_IDS.length,15);assert.equal(DEFAULT_METRIC,'canopy')
+ assert.ok(SNAPSHOT_CANDIDATE_METRICS.includes('depression'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,25)
+ assert.equal(PLACES_METRIC_IDS.length,16);assert.equal(DEFAULT_METRIC,'canopy')
  assert.match(readFileSync('src/utils/currentViewCsv.ts','utf8'),/const CI_KEYS[^\n]*'pctDepression'/)
 })
 test('#150 direct Socrata yjkw-uj5s check: 12086002404 = 14.1, 95% CI 11.8–16.4; year from column metadata',()=>{
@@ -146,13 +146,13 @@ test('#150 all seven locked break/weighted-overall values and availability/null/
  assert.equal(metricAvailable('depression',{...meta,metricBreaks:{...meta.metricBreaks,depression:undefined}},fc),false)
  assert.equal(metricAvailable('depression',meta,{...fc,features:fc.features.map(f=>({...f,properties:{...f.properties,pctDepression:undefined}}))}),false)
 })
-test('#150 real Miami depression snapshot score is model-based, B85/T0/n152 =>56%, eligible24 but not forced into top3',()=>{
+test('#150 real Miami depression snapshot score is model-based, B85/T0/n152 =>56%, eligible25 but not forced into top3',()=>{
  const {fc,meta}=load('public/data/central-miami-fl'),t=fc.features.find(f=>f.properties.geoid==='12086002404')!.properties
  const score=snapshotMetric('depression',t.pctDepression!,fc.features.map(f=>f.properties.pctDepression!).sort((a,b)=>a-b))!
  assert.deepEqual([score.validCount,score.lower,score.tied,score.higher],[152,85,0,66]);assert.ok(Math.abs(score.badness-56.29139072847682)<1e-10)
  const row=snapshotRow(score,'Miami','acre');assert.equal(row.line1,'Depression history · 14.1% · model estimate');assert.equal(row.line2,'Higher than 56% of other tracts in Miami')
  assert.equal(row.ariaLabel,'Switch map to Depression history, higher than 56% of other tracts in Miami, 14.1%, model estimate')
- const s=tractSnapshot(fc,t.geoid,meta)!;assert.equal(s.eligibleCount,24);assert.deepEqual(s.worst.map(v=>v.metricId),['income','diabetes','physicalHealth'])
+ const s=tractSnapshot(fc,t.geoid,meta)!;assert.equal(s.eligibleCount,25);assert.deepEqual(s.worst.map(v=>v.metricId),['income','diabetes','physicalHealth'])
  const zero=snapshotMetric('depression',0,[0,1,2,3,4,5,6,7,8,9])!;assert.equal(snapshotRow(zero,'Example','acre').line1,'Depression history · 0.0% · model estimate')
  assert.equal(snapshotMetric('depression',1,[0,1,2,3,4,5,6,7,8]),null)
 })

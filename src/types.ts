@@ -96,7 +96,7 @@ export interface TractProps {
   pctDepressionLo?: number
   pctDepressionHi?: number
   depressionAdultPop?: number
-  /** #151: CDC PLACES 2025 GHLTH, fair/poor self-rated general health among adults 18+, crude 0–100 %, 95% CI, adult-population weight. */
+  /** #151: CDC PLACES 2025 GHLTH; adults 18+ rating overall health fair or poor, self-rated at survey time, crude 0–100 %, 95% CI, TotalPop18plus Census 2020 weight. */
   pctGeneralHealth?: number
   pctGeneralHealthLo?: number
   pctGeneralHealthHi?: number
