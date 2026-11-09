@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127) and CHD (coronary heart disease, #129) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129) and BPHIGH (high blood pressure, #131) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -25,6 +25,9 @@
  *   pctChd ← CHD_CrudePrev  (#129; crude, 0–100 %)
  *   pctChdLo/Hi ← CHD_Crude95CI
  *   chdAdultPop ← TotalPop18plus
+ *   pctBpHigh ← BPHIGH_CrudePrev  (#131; crude, 0–100 %)
+ *   pctBpHighLo/Hi ← BPHIGH_Crude95CI
+ *   bpHighAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
@@ -50,6 +53,7 @@ const MEASURES = [
   { measure: 'MHLTH', metricId: 'mentalHealth', key: 'pctMentalHealth', popKey: 'mentalHealthAdultPop', value: 'mhlth_crudeprev', ci: 'mhlth_crude95ci' },
   { measure: 'PHLTH', metricId: 'physicalHealth', key: 'pctPhysicalHealth', popKey: 'physicalHealthAdultPop', value: 'phlth_crudeprev', ci: 'phlth_crude95ci' },
   { measure: 'CHD', metricId: 'chd', key: 'pctChd', popKey: 'chdAdultPop', value: 'chd_crudeprev', ci: 'chd_crude95ci' },
+  { measure: 'BPHIGH', metricId: 'bphigh', key: 'pctBpHigh', popKey: 'bpHighAdultPop', value: 'bphigh_crudeprev', ci: 'bphigh_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')

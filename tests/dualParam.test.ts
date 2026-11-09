@@ -89,3 +89,12 @@ test('#129 chd resolves with alias heart and round-trips in ?dual=', () => {
   assert.equal(resolveMetric('CHD'), 'chd')
   assert.equal(encodeDualParam('chd', 'trees'), 'chd,trees')
 })
+
+test('#131 bphigh resolves with aliases bp/hypertension and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,bphigh'), { left: 'trees', right: 'bphigh' })
+  assert.deepEqual(p('BP,chd'), { left: 'bphigh', right: 'chd' })
+  assert.equal(resolveMetric('hypertension'), 'bphigh')
+  assert.equal(resolveMetric('BPHIGH'), 'bphigh')
+  assert.equal(encodeDualParam('bphigh', 'trees'), 'bphigh,trees')
+})
+
