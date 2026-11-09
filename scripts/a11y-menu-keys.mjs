@@ -255,6 +255,21 @@ async function dualFocusSuite(mobile) {
   await observeFocus(); await press('d')
   check(await waitFor(`!${dualOn}`, 2000), 'Dual shortcut OFF from select: changes view')
   await focusCheck('Dual shortcut OFF from select', `document.activeElement === (${dualSwitch})`)
+  // Enabling dual disables the single-metric buttons; they need the same pre-change handoff.
+  await toggleTo(false)
+  await focusElement(`document.querySelector('.metric-toggle button:not([disabled])')`)
+  await observeFocus(); await press('d')
+  check(await waitFor(dualOn, 2000), 'Dual shortcut ON from metric button: changes view')
+  await focusCheck('Dual shortcut ON from disabled metric button', `document.activeElement === (${dualSwitch})`)
+  // Focus mode hides Layers. Expose the fallback before replacing its focused canvas.
+  await toggleTo(false)
+  await press('Escape'); await waitFor(`!${layersVisible}`); await settled()
+  await evaluate(`document.querySelector('button[aria-label="Focus map"]').click()`)
+  await waitFor(`!document.querySelector('button[aria-label="Layers"]')`)
+  await focusElement(`document.querySelector('.maplibregl-canvas')`)
+  await observeFocus(); await press('d')
+  check(await waitFor(dualOn, 2000), 'Dual shortcut ON in focus mode: changes view')
+  await focusCheck('Dual shortcut ON in focus mode', `document.activeElement === (${dualSwitch})`)
   // The single/dual canvas is replaced too. d must not strand focus in the removed map.
   await toggleTo(false)
   await press('Escape'); await waitFor(`!${layersVisible}`); await settled()

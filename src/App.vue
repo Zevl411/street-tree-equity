@@ -125,10 +125,13 @@ async function setDual(on: boolean, reason?: string) {
   // do not. Move focus BEFORE removing a focused subtree, not after it has fallen to body.
   const active = document.activeElement as HTMLElement | null
   const removed = (!on && active?.closest('.dual-selects')) || active?.closest('#map-stage > .map, #map-stage > .dual')
+    || (on && active?.closest('.metric-toggle button, .map-legend-box'))
   if (removed) {
+    // Focus mode hides Layers; expose the required fallback before removing the old target.
+    if (focusMode.value) setFocus(false)
     layersFocusDual.value = true
     layersOpen.value = true
-    await focusSoon('#layers-panel .dual-switch input')
+    if (!await focusSoon('#layers-panel .dual-switch input')) return
   }
   // Keep the camera across the single ↔ dual remount (session view is per-city).
   const v = readSessionView()
