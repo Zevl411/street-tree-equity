@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { stripTypeScriptTypes } from 'node:module'
+import { computed, reactive } from 'vue'
 import { createExpression } from '@maplibre/maplibre-gl-style-spec'
 import type { Meta,TractCollection,TractProps } from '../src/types.ts'
 import { canopyGapView,packP75,type7,gapValues,gapReason,gapNumber,gapSnapshotSentence,gapBreaks,parseGapTarget,GAP_COLUMNS,SQM_PER_ACRE } from '../src/utils/canopyGap.ts'
@@ -163,4 +164,31 @@ test('#149 hotspots: positive finite gaps descending only, including >100 acres,
  const fc=collection([0,1,200,2,null,undefined,-1,NaN,Infinity].map(canopyGapAcres=>({canopyGapAcres})))
  assert.deepEqual(hotspotTracts(fc.features,'canopyGapAcres',false).map(f=>f.properties.canopyGapAcres),[200,2,1])
  assert.equal(hotspotTracts(collection([{canopyGapAcres:0}]).features,'canopyGapAcres',false).length,0)
+})
+
+// Execute the actual SFC computed description, not a duplicated text implementation.
+function targetDescription(props: { mode: 'p75' | '30'; target: number | null; loading?: boolean }) {
+ const source=readFileSync('src/components/CanopyGapTarget.vue','utf8')
+ const script=source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)![1].replace(/^import .*$/gm,'')
+ const setup=new Function('defineProps','defineEmits','computed','gapNumber',stripTypeScriptTypes(script)+';return description')
+ return setup(()=>props,()=>()=>{},computed,gapNumber) as { readonly value: string }
+}
+test('#149 target description distinguishes pending data from an unavailable completed target',()=>{
+ const props=reactive<{ mode:'p75'|'30'; target:number|null; loading:boolean }>({mode:'p75',target:null,loading:true})
+ const description=targetDescription(props)
+ assert.equal(description.value,'Loading canopy-gap estimate…')
+ assert.doesNotMatch(description.value,/City target unavailable/)
+ props.mode='30'
+ assert.equal(description.value,'Loading canopy-gap estimate…')
+ assert.doesNotMatch(description.value,/City target unavailable/)
+ props.loading=false
+ assert.equal(description.value,'Target: 30% canopy — a fixed comparison, not an official recommendation.')
+})
+test('#149 completed-empty city target retains its exact unavailable copy; loaded data leaves loading copy',()=>{
+ const props=reactive<{ mode:'p75'|'30'; target:number|null; loading:boolean }>({mode:'p75',target:null,loading:false})
+ const description=targetDescription(props)
+ assert.equal(description.value,'City target unavailable. Use a fixed 30% target to choose a comparison.')
+ assert.doesNotMatch(description.value,/Loading canopy-gap estimate/)
+ props.target=20.69223154579695
+ assert.equal(description.value,"Target: 20.7% canopy — your city's leafier neighborhoods (75th percentile of tract estimates in this pack).")
 })

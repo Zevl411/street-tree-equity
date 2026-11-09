@@ -258,6 +258,28 @@ async function contexts(){
  check(await waitFor(`document.querySelector('.legend').textContent.includes('No canopy-gap estimate')`),'controlled null legend has a labelled neutral swatch distinct from valid zero')
  await evaluate(`window.__legend.props.tracts=window.__legendTracts`)
 }
+// Hold a real pack request to exercise App's pending props and preserve the same native input.
+async function pendingTarget(){
+ await ready(URL_MIAMI)
+ // Let the existing drawer-close focus contract finish before testing target-control focus.
+ await evaluate(`window.__stores().city.select(null)`)
+ if(!await waitFor(`document.activeElement?.id==='map-stage'`))throw Error('Drawer-close focus did not settle')
+ await layers()
+ await evaluate(`window.__gapObserve();window.__pendingInput=window.__gapInput();window.__pendingInput.focus();window.__realPendingFetch=window.fetch;window.fetch=async function(...args){if(String(args[0]).includes('/orlando-fl/meta.json')){window.__packHeld=true;await new Promise(resolve=>window.__releasePack=resolve)}return window.__realPendingFetch.apply(this,args)};window.__component('PlacePicker').emit('select','orlando-fl')`)
+ check(await waitFor(`window.__packHeld&&window.__component('CanopyGapTarget')?.props.loading===true&&document.getElementById('canopy-gap-target-description')?.textContent==='Loading canopy-gap estimate…'`),'pending pack shows the locked loading copy through App loading props')
+ check(await evaluate(`!document.getElementById('canopy-gap-target-description').textContent.includes('City target unavailable')&&window.__gapStatus()===''`),'pending pack never renders or announces a completed-unavailable target')
+ await press('Space')
+ check(await waitFor(`window.__gapInput().checked&&document.getElementById('canopy-gap-target-description').textContent==='Loading canopy-gap estimate…'`),'fixed-mode control still toggles normally while the pack is pending')
+ await press('Space')
+ check(await waitFor(`!window.__gapInput().checked&&document.getElementById('canopy-gap-target-description').textContent==='Loading canopy-gap estimate…'&&window.__gapActions===2`),'p75 control still toggles normally without misclassifying pending data')
+ check(await evaluate(`document.activeElement===window.__pendingInput&&window.__pendingInput.isConnected&&window.__gapMessages.length===0&&window.__gapStatus()===''`),'pending target changes preserve the same focus and never announce unavailable')
+ await evaluate(`window.fetch=window.__realPendingFetch;window.__releasePack()`)
+ check(await waitFor(`window.__component('CanopyGapTarget')?.props.loading===false&&document.getElementById('canopy-gap-target-description')?.textContent==="Target: 20.7% canopy — your city's leafier neighborhoods (75th percentile of tract estimates in this pack)."`,25000),'completed valid pack replaces loading copy with its own city target')
+ check(await evaluate(`document.activeElement===window.__pendingInput&&window.__pendingInput.isConnected&&window.__gapMessages.length===0`),'completion keeps target input focus and remains quiet')
+ await evaluate(`window.__pendingTarget=window.__component('CanopyGapTarget');window.__loadedTarget=window.__pendingTarget.props.target;window.__pendingTarget.props.target=null`)
+ check(await waitFor(`document.getElementById('canopy-gap-target-description')?.textContent==='City target unavailable. Use a fixed 30% target to choose a comparison.'&&!document.getElementById('canopy-gap-target-description').textContent.includes('Loading canopy-gap estimate')`),'completed-empty target retains exact unavailable copy, never loading copy')
+ await evaluate(`window.__pendingTarget.props.target=window.__loadedTarget`)
+}
 if(!existsSync(path.resolve('dist/index.html')))throw Error('Build first')
 const srv=spawn(process.execPath,['server/index.mjs'],{env:{...process.env,PORT:String(PORT),BASE_PATH:'/'},stdio:['ignore','ignore','inherit']})
 const profile=mkdtempSync(path.join(tmpdir(),'ste-gap-a11y-'))
@@ -267,6 +289,6 @@ try{
  cdp=await Cdp.connect(ws);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:HELPERS+GAP_HELPERS})
  for(const width of [1400,390])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:1,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();await semantics(`${width}px ${theme}`)}
  for(const width of [700,195])for(const theme of ['light','dark']){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:450,deviceScaleFactor:2,mobile:false});await ready(URL_MIAMI+'&theme='+theme);await layers();check(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('.canopy-gap-target').scrollWidth<=document.querySelector('.canopy-gap-target').clientWidth+1`),`${width}px ${theme}: 200%-equivalent target/helper reflow without overflow`)}
- await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts()
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1400,height:900,deviceScaleFactor:1,mobile:false});await allDownloads();await contexts();await pendingTarget()
 }catch(e){failed++;console.error('ERROR',e.stack||e.message)}finally{try{cdp?.close()}catch{}chrome.kill();srv.kill();await new Promise(r=>chrome.exitCode!==null?r():chrome.once('exit',r));for(const dir of [profile,downloads])try{rmSync(dir,{recursive:true,force:true})}catch{}}
 console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0)

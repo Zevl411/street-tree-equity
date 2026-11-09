@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { gapNumber, type GapTargetMode } from '@/utils/canopyGap'
-const props=defineProps<{ mode:GapTargetMode; target:number|null }>()
+const props=defineProps<{ mode:GapTargetMode; target:number|null; loading?:boolean }>()
 const emit=defineEmits<{ change:[mode:GapTargetMode] }>()
-const description=computed(()=>props.mode==='30'?'Target: 30% canopy — a fixed comparison, not an official recommendation.':props.target===null?'City target unavailable. Use a fixed 30% target to choose a comparison.':`Target: ${gapNumber(props.target)}% canopy — your city's leafier neighborhoods (75th percentile of tract estimates in this pack).`)
+const description=computed(()=>props.loading?'Loading canopy-gap estimate…':props.mode==='30'?'Target: 30% canopy — a fixed comparison, not an official recommendation.':props.target===null?'City target unavailable. Use a fixed 30% target to choose a comparison.':`Target: ${gapNumber(props.target)}% canopy — your city's leafier neighborhoods (75th percentile of tract estimates in this pack).`)
 </script>
 <template>
   <div class="canopy-gap-target my-3">

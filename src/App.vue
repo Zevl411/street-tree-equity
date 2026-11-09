@@ -71,6 +71,8 @@ async function changeGapTarget(mode: GapTargetMode) {
   if (mode===ui.canopyGapTarget) return
   ui.setCanopyGapTarget(mode)
   await nextTick()
+  // A pending pack has no completed target to announce yet.
+  if (loading.value) return
   const target=gapView.value?.target??null
   gapTargetStatus.value=mode==='30'?'Canopy-gap target set to 30% canopy.':target===null?'City canopy target unavailable.':`Canopy-gap target set to ${gapNumber(target)}% canopy: your city's leafier neighborhoods.`
 }
@@ -969,7 +971,7 @@ watch(drawerOpen, async (open) => {
               <v-btn v-for="id in METRIC_SWITCH_ORDER" :key="id" :value="id" size="small" :disabled="!metricOk[id] || ui.dualView" :title="METRICS[id].tooltip">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
             <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric — use the Left/Right selects below</div>
-            <CanopyGapTarget v-if="gapTargetVisible" :mode="ui.canopyGapTarget" :target="gapView?.target ?? null" @change="changeGapTarget" />
+            <CanopyGapTarget v-if="gapTargetVisible" :mode="ui.canopyGapTarget" :target="gapView?.target ?? null" :loading="loading" @change="changeGapTarget" />
             <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual view" color="primary" density="compact" hide-details inset
               class="dual-switch" :class="{ 'switch-touch': !mdAndUp }" @click.stop @update:model-value="(v) => setDual(!!v)" />
             <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">Needs two metrics in this pack</div>
