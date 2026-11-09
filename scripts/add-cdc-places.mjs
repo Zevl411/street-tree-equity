@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136), CSMOKING (current cigarette smoking, #138), STROKE (stroke, #141), DISABILITY (any disability, #143) and SLEEP (short sleep duration, #144; BRFSS 2022 even-year core) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136), CSMOKING (current cigarette smoking, #138), STROKE (stroke, #141), DISABILITY (any disability, #143), SLEEP (short sleep duration, #144; BRFSS 2022 even-year core) and ACCESS2 (lack of health insurance, ages 18–64, #146) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -46,6 +46,11 @@
  *   pctShortSleep ← SLEEP_CrudePrev  (#144; crude, 0–100 %)
  *   pctShortSleepLo/Hi ← SLEEP_Crude95CI
  *   shortSleepAdultPop ← TotalPop18plus
+ *   pctUninsured ← ACCESS2_CrudePrev  (#146; ages 18–64, crude, 0–100 %)
+ *   pctUninsuredLo/Hi ← ACCESS2_Crude95CI
+ *   uninsuredAdultPop ← TotalPop18plus (adults 18+ proxy weight for the 18–64 measure)
+ *   Methods (#146): Pack aggregates weight by adults 18+; ACCESS2 covers 18–64.
+ *   The GIS file has no 18–64 denominator; no ACS-derived denominator is introduced.
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
  *   #133/#136/#138: BRFSS years for ALL measures from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.*
  * Blank / non-finite → prop absent (null ≠ 0).
@@ -127,6 +132,7 @@ const MEASURES = [
   { measure: 'STROKE', metricId: 'stroke', key: 'pctStroke', popKey: 'strokeAdultPop', value: 'stroke_crudeprev', ci: 'stroke_crude95ci' },
   { measure: 'DISABILITY', metricId: 'disability', key: 'pctDisability', popKey: 'disabilityAdultPop', value: 'disability_crudeprev', ci: 'disability_crude95ci' },
   { measure: 'SLEEP', metricId: 'shortSleep', key: 'pctShortSleep', popKey: 'shortSleepAdultPop', value: 'sleep_crudeprev', ci: 'sleep_crude95ci' },
+  { measure: 'ACCESS2', metricId: 'uninsured', key: 'pctUninsured', popKey: 'uninsuredAdultPop', value: 'access2_crudeprev', ci: 'access2_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
@@ -174,11 +180,11 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, weightsNote: 'Pack aggregates weight by adults 18+; ACCESS2 covers 18–64', years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }
-// #136/#138/#141/#143/#144 locked check row (central-miami-fl pack)
+// #136/#138/#141/#143/#144/#146 locked check row (central-miami-fl pack)
 for (const p of packs) {
   if (!p.dir.includes('central-miami')) continue
   const f = p.fc.features.find((x) => tractGeoid(x) === '12086002404')
@@ -188,5 +194,6 @@ for (const p of packs) {
     console.log(`[places] #141 check 12086002404 pctStroke=${f.properties.pctStroke} CI=(${f.properties.pctStrokeLo}, ${f.properties.pctStrokeHi}) pop=${f.properties.strokeAdultPop}`)
     console.log(`[places] #143 check 12086002404 pctDisability=${f.properties.pctDisability} CI=(${f.properties.pctDisabilityLo}, ${f.properties.pctDisabilityHi}) pop=${f.properties.disabilityAdultPop}`)
     console.log(`[places] #144 check 12086002404 pctShortSleep=${f.properties.pctShortSleep} CI=(${f.properties.pctShortSleepLo}, ${f.properties.pctShortSleepHi}) pop=${f.properties.shortSleepAdultPop}`)
-  } else console.warn('[places] #136/#138/#141/#143/#144 check tract 12086002404 not in pack', p.dir)
+    console.log(`[places] #146 check 12086002404 pctUninsured=${f.properties.pctUninsured} CI=(${f.properties.pctUninsuredLo}, ${f.properties.pctUninsuredHi}) adults18plusWeight=${f.properties.uninsuredAdultPop}`)
+  } else console.warn('[places] #136/#138/#141/#143/#144/#146 check tract 12086002404 not in pack', p.dir)
 }

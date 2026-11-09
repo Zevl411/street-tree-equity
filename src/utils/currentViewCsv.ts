@@ -34,7 +34,7 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const fixed = (n: number | null, dp: number): string => (n === null ? '' : n.toFixed(dp))
 
 /** PLACES CI props (`<valueKey>Lo` / `<valueKey>Hi`, #23 soft cols). */
-const CI_KEYS = new Set<MetricValueKey>(['pctAsthma', 'pctDiabetes', 'pctObesity', 'pctMentalHealth', 'pctPhysicalHealth', 'pctChd', 'pctBpHigh', 'pctInactivity', 'pctCopd', 'pctSmoking', 'pctStroke', 'pctDisability', 'pctShortSleep'])
+const CI_KEYS = new Set<MetricValueKey>(['pctAsthma', 'pctDiabetes', 'pctObesity', 'pctMentalHealth', 'pctPhysicalHealth', 'pctChd', 'pctBpHigh', 'pctInactivity', 'pctCopd', 'pctSmoking', 'pctStroke', 'pctDisability', 'pctShortSleep', 'pctUninsured'])
 /** ACS MOE props (`<valueKey>Moe`). */
 const MOE_KEYS = new Set<MetricValueKey>(['medianIncome', 'pctPoverty', 'pctNoVehicle', 'pctRentBurden', 'pctUnder18', 'pctAge65Plus', 'pctLep', 'pctSnap'])
 export const metricHasCi = (id: MetricId) => CI_KEYS.has(METRICS[id].valueKey)

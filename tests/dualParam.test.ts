@@ -151,3 +151,21 @@ test('#144 shortSleep resolves with aliases sleep / "short sleep" (no insomnia/s
   assert.deepEqual(p('short sleep,disability'), { left: 'shortSleep', right: 'disability' })
   assert.equal(encodeDualParam('shortSleep', 'trees'), 'shortsleep,trees')
 })
+
+test('#146 uninsured resolves all locked aliases, including "no insurance", and round-trips in ?dual=', () => {
+  for (const alias of ['uninsured', 'insurance', 'noinsurance', 'no insurance', 'access2', '  No Insurance ']) {
+    assert.equal(resolveMetric(alias), 'uninsured', alias)
+  }
+  assert.equal(resolveMetric(new URLSearchParams('metric=no%20insurance').get('metric')), 'uninsured')
+  assert.deepEqual(p('trees,no insurance'), { left: 'trees', right: 'uninsured' })
+  assert.deepEqual(p('ACCESS2,shortSleep'), { left: 'uninsured', right: 'shortSleep' })
+  assert.equal(encodeDualParam('uninsured', 'trees'), 'uninsured,trees')
+})
+
+test('#146 access is NOT an uninsured alias; foodAccess and other aliases are unchanged', () => {
+  assert.notEqual(resolveMetric('access'), 'uninsured')
+  assert.equal(resolveMetric('access'), null)
+  assert.equal(resolveMetric('healthcare'), null)
+  assert.equal(resolveMetric('healthinsurance'), null)
+  assert.equal(resolveMetric('foodAccess'), 'foodAccess')
+})

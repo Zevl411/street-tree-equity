@@ -128,6 +128,12 @@ export interface TractProps {
   pctShortSleepLo?: number
   pctShortSleepHi?: number
   shortSleepAdultPop?: number
+  /** #146 CDC PLACES ACCESS2: lack of health insurance among adults aged 18–64, crude prevalence % */
+  pctUninsured?: number
+  pctUninsuredLo?: number
+  pctUninsuredHi?: number
+  /** TotalPop18plus (adults 18+) proxy weight for the ACCESS2 ages 18–64 measure; not an 18–64 population. */
+  uninsuredAdultPop?: number
   /** #120: ACS B16004 % residents 5+ speaking English less than "very well" (0–100, 1 dp) + derived MOE, count */
   pctLep?: number
   pctLepMoe?: number
@@ -216,10 +222,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; fountains?: number; postOffices?: number; playgrounds?: number; toilets?: number; benches?: number; pharmacies?: number; clinics?: number; hospitals?: number; fireStations?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctInactivity?: number | null; pctInactivityMedian?: number | null; pctCopd?: number | null; pctCopdMedian?: number | null; pctSmoking?: number | null; pctSmokingMedian?: number | null; pctStroke?: number | null; pctStrokeMedian?: number | null; pctDisability?: number | null; pctDisabilityMedian?: number | null; pctShortSleep?: number | null; pctShortSleepMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctInactivity?: number | null; pctInactivityMedian?: number | null; pctCopd?: number | null; pctCopdMedian?: number | null; pctSmoking?: number | null; pctSmokingMedian?: number | null; pctStroke?: number | null; pctStrokeMedian?: number | null; pctDisability?: number | null; pctDisabilityMedian?: number | null; pctShortSleep?: number | null; pctShortSleepMedian?: number | null; pctUninsured?: number | null; pctUninsuredMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; inactivity?: number[]; copd?: number[]; smoking?: number[]; stroke?: number[]; disability?: number[]; shortSleep?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; inactivity?: number[]; copd?: number[]; smoking?: number[]; stroke?: number[]; disability?: number[]; shortSleep?: number[]; uninsured?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -240,7 +246,7 @@ export interface Meta {
   /** #124 planting-need composite provenance */
   plantNeed?: { inputs: string[]; weights: 'equal'; scaling: 'pack min-max'; asthmaIncluded: boolean }
   /** #117 CDC PLACES provenance */
-  cdcPlaces?: { release: string; measure: string; measures?: string[]; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string>; years?: { LPA?: number; [measure: string]: number | undefined } }
+  cdcPlaces?: { release: string; measure: string; measures?: string[]; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string>; weightsNote?: string; years?: { LPA?: number; [measure: string]: number | undefined } }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; acsAge?: string; acsLep?: string; acsSnap?: string; cdcPlaces?: string }
