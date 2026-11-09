@@ -38,6 +38,7 @@
     "add:plantneed": "node scripts/add-plant-need.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "add:places": "node scripts/add-cdc-places.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "report:sizes": "node scripts/report-pack-sizes.mjs",
+    "slim:sidewalks": "node scripts/slim-sidewalks.mjs",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {

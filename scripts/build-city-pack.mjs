@@ -12,6 +12,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { checkFile, packReport } from './lib/size-guard.mjs'
+import { slimAndMergeSidewalks } from './lib/slim-lines.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = Object.fromEntries(
@@ -67,6 +68,15 @@ if (get('SKIP_BUILD') !== '1') {
     await fs.writeFile(configPath, original)
     // Restore Portland root pack files overwritten by the build.
     git('checkout', '--', ...FILES.map((f) => `public/data/${f}`))
+  }
+  // #137: sidewalks slim + merge-by-props (idempotent; build-data already slims after tract metrics — tracts untouched here).
+  {
+    const swPath = path.join(packDir, 'sidewalks.geojson')
+    const swText = await fs.readFile(swPath, 'utf8').catch(() => null)
+    if (swText) {
+      const r = slimAndMergeSidewalks(JSON.parse(swText), `${cityId}/sidewalks.geojson`)
+      await fs.writeFile(swPath, JSON.stringify(r.fc))
+    }
   }
   for (const f of ['meta.json', 'tracts-equity.geojson']) {
     await fs.access(path.join(packDir, f)).catch(() => fail(`required ${f} missing from pack`))

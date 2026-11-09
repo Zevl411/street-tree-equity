@@ -10,6 +10,7 @@ import path from 'node:path'
 import * as turf from '@turf/turf'
 import { setRawOptions } from './lib/sources.mjs'
 import { fetchSidewalks, applySidewalks } from './lib/sidewalks.mjs'
+import { slimAndMergeSidewalks } from './lib/slim-lines.mjs'
 
 const dirs = process.argv.slice(2).filter((a) => !a.startsWith('--'))
 if (!dirs.length) throw new Error('usage: add-sidewalks-overlay.mjs <packDir>...')
@@ -24,7 +25,8 @@ for (const dir of dirs) {
   const lines = await fetchSidewalks(`${d[1]},${d[0]},${d[3]},${d[2]}`)
   const r = applySidewalks(tractsFc.features, lines)
   meta.counts = { ...meta.counts, sidewalkKm: r.sidewalkKm }
-  await fs.writeFile(path.join(dir, 'sidewalks.geojson'), JSON.stringify(turf.featureCollection(lines)))
+  // #137: slim + merge by props AFTER applySidewalks (tract metrics computed from per-way lines).
+  await fs.writeFile(path.join(dir, 'sidewalks.geojson'), JSON.stringify(slimAndMergeSidewalks(turf.featureCollection(lines)).fc))
   await fs.writeFile(path.join(dir, 'tracts-equity.geojson'), JSON.stringify(tractsFc))
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta))
   console.log(`[sidewalks] ${dir}: ${lines.length} ways (${r.sidewalkKm} km)`)

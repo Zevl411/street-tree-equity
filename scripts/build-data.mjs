@@ -42,6 +42,7 @@ import { fetchClinics, applyClinics } from './lib/clinics.mjs'
 import { fetchEmergency, applyEmergency } from './lib/emergency.mjs'
 import { roundCoords, roundFeature, pointInBbox, quantileBreaks, densityBreaks } from './lib/geo-utils.mjs'
 import { checkFile } from './lib/size-guard.mjs'
+import { slimLines, assertSlimInvariant, slimAndMergeSidewalks } from './lib/slim-lines.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -359,7 +360,11 @@ sizes.tracts = await writeJson('tracts-equity.geojson', turf.featureCollection(t
 sizes.parks = await writeJson('parks.geojson', turf.featureCollection(parks))
 sizes.groceries = await writeJson('groceries.geojson', turf.featureCollection(groceries))
 sizes.schools = await writeJson('schools.geojson', turf.featureCollection(schools))
-sizes.bike = await writeJson('bike.geojson', turf.featureCollection(bike))
+// #137: slim AFTER tract metrics (applyMobility above) so tract bike props are unchanged.
+const bikeFc = turf.featureCollection(bike)
+const bikeSlim = slimLines(bikeFc)
+assertSlimInvariant(bikeFc, bikeSlim, 'bike.geojson')
+sizes.bike = await writeJson('bike.geojson', bikeSlim)
 sizes.libraries = await writeJson('libraries.geojson', turf.featureCollection(libraries))
 sizes.gardens = await writeJson('gardens.geojson', turf.featureCollection(gardens))
 sizes.fountains = await writeJson('fountains.geojson', turf.featureCollection(fountains))
@@ -367,7 +372,11 @@ sizes.postoffices = await writeJson('postoffices.geojson', turf.featureCollectio
 sizes.playgrounds = await writeJson('playgrounds.geojson', turf.featureCollection(playgrounds))
 sizes.toilets = await writeJson('toilets.geojson', turf.featureCollection(toilets))
 sizes.benches = await writeJson('benches.geojson', turf.featureCollection(benches))
-sizes.sidewalks = await writeJson('sidewalks.geojson', turf.featureCollection(sidewalks))
+// #137: slim + merge-by-props AFTER applySidewalks so tract sidewalkKm/sidewalkKmPerKm2 are unchanged.
+const sidewalksFc = turf.featureCollection(sidewalks)
+const swm = slimAndMergeSidewalks(sidewalksFc, 'sidewalks.geojson')
+log(`sidewalks: ${swm.parts} line parts → ${swm.features} MultiLineString features (${swm.propSets} prop sets)`)
+sizes.sidewalks = await writeJson('sidewalks.geojson', swm.fc)
 sizes.clinics = await writeJson('clinics.geojson', turf.featureCollection(clinics))
 sizes.emergency = await writeJson('emergency.geojson', turf.featureCollection(emergency))
 sizes.transit = await writeJson('transit.geojson', turf.featureCollection(transit))
