@@ -48,6 +48,8 @@ Copy the share link to send someone exactly what you see. The link keeps your th
 
 You can export the selected tract, or all tracts, as a CSV file for use in a spreadsheet.
 
+To export just what the map is showing, choose **CSV – current view** in the tract **Download…** menu or under **Export…** in Layers. It has every tract in the city with tree density (trees per acre or km², not a canopy percent) and the active metric, or both metrics in dual view. In Compare cities, **CSV – compare view** exports both cities. These files start with a few lines beginning with `#` that list the city, metric, data sources and share link. Skip rows starting with `#`; the header row is the first non-comment line.
+
 ## Keyboard
 
 Press `?` in the app for the full shortcut list. The main ones:
