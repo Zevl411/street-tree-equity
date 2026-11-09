@@ -67,6 +67,19 @@
       "status": "ready"
     },
     {
+      "id": "tampa-fl",
+      "cityName": "Tampa, FL",
+      "subtitle": "Central Tampa",
+      "dataPath": "data/tampa-fl",
+      "bbox": [
+        -82.52,
+        27.92,
+        -82.4,
+        28.02
+      ],
+      "status": "ready"
+    },
+    {
       "id": "central-jacksonville-fl",
       "cityName": "Jacksonville, FL",
       "subtitle": "Central Jacksonville",
