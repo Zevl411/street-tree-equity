@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136), CSMOKING (current cigarette smoking, #138), STROKE (stroke, #141) and DISABILITY (any disability, #143) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136), CSMOKING (current cigarette smoking, #138), STROKE (stroke, #141), DISABILITY (any disability, #143) and SLEEP (short sleep duration, #144; BRFSS 2022 even-year core) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -43,6 +43,9 @@
  *   pctDisability ← DISABILITY_CrudePrev  (#143; crude, 0–100 %)
  *   pctDisabilityLo/Hi ← DISABILITY_Crude95CI
  *   disabilityAdultPop ← TotalPop18plus
+ *   pctShortSleep ← SLEEP_CrudePrev  (#144; crude, 0–100 %)
+ *   pctShortSleepLo/Hi ← SLEEP_Crude95CI
+ *   shortSleepAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
  *   #133/#136/#138: BRFSS years for ALL measures from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.*
  * Blank / non-finite → prop absent (null ≠ 0).
@@ -123,6 +126,7 @@ const MEASURES = [
   { measure: 'CSMOKING', metricId: 'smoking', key: 'pctSmoking', popKey: 'smokingAdultPop', value: 'csmoking_crudeprev', ci: 'csmoking_crude95ci' },
   { measure: 'STROKE', metricId: 'stroke', key: 'pctStroke', popKey: 'strokeAdultPop', value: 'stroke_crudeprev', ci: 'stroke_crude95ci' },
   { measure: 'DISABILITY', metricId: 'disability', key: 'pctDisability', popKey: 'disabilityAdultPop', value: 'disability_crudeprev', ci: 'disability_crude95ci' },
+  { measure: 'SLEEP', metricId: 'shortSleep', key: 'pctShortSleep', popKey: 'shortSleepAdultPop', value: 'sleep_crudeprev', ci: 'sleep_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
@@ -174,7 +178,7 @@ for (const p of packs) {
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }
-// #136/#138/#141/#143 locked check row (central-miami-fl pack)
+// #136/#138/#141/#143/#144 locked check row (central-miami-fl pack)
 for (const p of packs) {
   if (!p.dir.includes('central-miami')) continue
   const f = p.fc.features.find((x) => tractGeoid(x) === '12086002404')
@@ -183,5 +187,6 @@ for (const p of packs) {
     console.log(`[places] #138 check 12086002404 pctSmoking=${f.properties.pctSmoking} CI=(${f.properties.pctSmokingLo}, ${f.properties.pctSmokingHi}) pop=${f.properties.smokingAdultPop}`)
     console.log(`[places] #141 check 12086002404 pctStroke=${f.properties.pctStroke} CI=(${f.properties.pctStrokeLo}, ${f.properties.pctStrokeHi}) pop=${f.properties.strokeAdultPop}`)
     console.log(`[places] #143 check 12086002404 pctDisability=${f.properties.pctDisability} CI=(${f.properties.pctDisabilityLo}, ${f.properties.pctDisabilityHi}) pop=${f.properties.disabilityAdultPop}`)
-  } else console.warn('[places] #136/#138/#141/#143 check tract 12086002404 not in pack', p.dir)
+    console.log(`[places] #144 check 12086002404 pctShortSleep=${f.properties.pctShortSleep} CI=(${f.properties.pctShortSleepLo}, ${f.properties.pctShortSleepHi}) pop=${f.properties.shortSleepAdultPop}`)
+  } else console.warn('[places] #136/#138/#141/#143/#144 check tract 12086002404 not in pack', p.dir)
 }

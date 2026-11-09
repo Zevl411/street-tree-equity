@@ -137,3 +137,17 @@ test('#143 disability resolves (no accessibility alias) and round-trips in ?dual
   assert.notEqual(resolveMetric('accessibility'), 'disability')
   assert.equal(encodeDualParam('disability', 'trees'), 'disability,trees')
 })
+
+test('#144 shortSleep resolves with aliases sleep / "short sleep" (no insomnia/short_sleep) and round-trips in ?dual=', () => {
+  assert.equal(resolveMetric('shortSleep'), 'shortSleep')
+  assert.equal(resolveMetric('SHORTSLEEP'), 'shortSleep')
+  assert.equal(resolveMetric('sleep'), 'shortSleep')
+  assert.equal(resolveMetric('short sleep'), 'shortSleep')
+  assert.equal(resolveMetric('  Short Sleep '), 'shortSleep')
+  assert.equal(resolveMetric(new URLSearchParams('metric=short%20sleep').get('metric')), 'shortSleep')
+  assert.equal(resolveMetric('insomnia'), null)
+  assert.equal(resolveMetric('short_sleep'), null)
+  assert.deepEqual(p('trees,sleep'), { left: 'trees', right: 'shortSleep' })
+  assert.deepEqual(p('short sleep,disability'), { left: 'shortSleep', right: 'disability' })
+  assert.equal(encodeDualParam('shortSleep', 'trees'), 'shortsleep,trees')
+})
