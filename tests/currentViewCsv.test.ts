@@ -68,20 +68,22 @@ test('dual scope: a = left, b = right; CI slots emitted for both sides when eith
   assert.equal(viewScope(['trees', 'copd']), 'view-trees-copd')
 })
 
-test('compare scope: city_id + city_name lead; sorted city_id asc then geoid asc', () => {
+test('compare scope: city_id + city_name lead; city A rows then city B (on-screen order, even when A sorts after B), geoid asc within each', () => {
   const csv = toCurrentViewCsv({
     rows: [
       { cityId: 'tampa-fl', cityName: 'Tampa, FL', props: tract('12057000200', { pctCopd: 8 }) },
       { cityId: 'tampa-fl', cityName: 'Tampa, FL', props: tract('12057000100', { pctCopd: 9 }) },
+      { cityId: 'portland-or', cityName: 'Portland, OR', props: tract('41051000200', { pctCopd: 4 }) },
       { cityId: 'portland-or', cityName: 'Portland, OR', props: tract('41051000100', { pctCopd: 5 }) },
     ],
     metrics: ['copd'], unit: 'acre', comments: [], compare: true,
   })
   const b = body(csv)
   assert.equal(b[0], 'city_id,city_name,geoid,tract_name,canopy,canopy_unit,metric_id,metric_label,metric_value,metric_unit,metric_ci_lo,metric_ci_hi')
-  assert.deepEqual(b.slice(1).map((l) => l.split(',')[0] + ':' + l.match(/,(\d{11}),/)![1]), ['portland-or:41051000100', 'tampa-fl:12057000100', 'tampa-fl:12057000200'])
-  // "Portland, OR" contains a comma → RFC 4180 quoted
-  assert.ok(b[1].startsWith('portland-or,"Portland, OR",41051000100,'))
+  assert.deepEqual(b.slice(1).map((l) => l.split(',')[0] + ':' + l.match(/,(\d{11}),/)![1]), ['tampa-fl:12057000100', 'tampa-fl:12057000200', 'portland-or:41051000100', 'portland-or:41051000200'])
+  // "Tampa, FL" / "Portland, OR" contain a comma → RFC 4180 quoted
+  assert.ok(b[1].startsWith('tampa-fl,"Tampa, FL",12057000100,'))
+  assert.ok(b[3].startsWith('portland-or,"Portland, OR",41051000100,'))
   assert.equal(viewScope(['copd'], true), 'view-compare-copd')
 })
 

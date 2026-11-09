@@ -102,8 +102,11 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
     ...(ci ? [auxCell(def, t, 'Lo'), auxCell(def, t, 'Hi')] : []),
     ...(moe ? [auxCell(def, t, 'Moe')] : []),
   ]
+  // Compare: on-screen order — all of city A, then all of city B (first-appearance order); geoid asc within each city.
+  const cityOrder = new Map<string, number>()
+  for (const r of o.rows) if (!cityOrder.has(r.cityId)) cityOrder.set(r.cityId, cityOrder.size)
   const rows = [...o.rows].sort((a, b) =>
-    (o.compare ? a.cityId.localeCompare(b.cityId) : 0) || String(a.props.geoid).localeCompare(String(b.props.geoid)))
+    (o.compare ? cityOrder.get(a.cityId)! - cityOrder.get(b.cityId)! : 0) || String(a.props.geoid).localeCompare(String(b.props.geoid)))
   const lines = [
     ...o.comments.map((c) => `# ${c.replace(/[\r\n]+/g, ' ')}`),
     header.join(','),

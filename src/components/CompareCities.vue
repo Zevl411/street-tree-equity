@@ -150,7 +150,7 @@ const rows = computed(() => {
   return out
 })
 
-// #139 compare-view CSV: city A then city B tracts (city_id, geoid asc), app's active metric both sides.
+// #139 compare-view CSV: city A tracts then city B tracts (geoid asc within each), app's active metric both sides.
 const csvTitle = computed(() => `CSV – compare view (${ui.metric.shortLabel})`)
 const csvCount = computed(() => (result.value ? result.value.a.props.length + result.value.b.props.length : 0))
 const csvAria = computed(() => `Download compare-view CSV, ${ui.metric.shortLabel}, ${csvCount.value} tracts across 2 cities`)
