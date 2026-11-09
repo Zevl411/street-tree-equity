@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import CanopyGapTarget from '@/components/CanopyGapTarget.vue'
+import { canopyGapView, gapNumber, GAP_METHODS, type GapTargetMode } from '@/utils/canopyGap'
 import { CANOPY_URL, WATER_URL, CC0_URL, USFS_CREDIT, canopyCitation, canopyCitationParts, canopyTooltip } from '@/utils/canopySource'
 import { CSV_VIEW_TOOLTIP, currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
@@ -37,7 +39,7 @@ import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation } from '@/util
 import { getTractSnapshotIndex, type TractSnapshotIndex } from '@/utils/tractSnapshot'
 import { useMenuButtonFocus, useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
-const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, gardens, fountains, postOffices, playgrounds, toilets, benches, clinics, emergency, sidewalks, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
+const { meta: rawMeta, tracts: rawTracts, parks, roads, bike, transit, trees, schools, libraries, gardens, fountains, postOffices, playgrounds, toilets, benches, clinics, emergency, sidewalks, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
 /** #51: hide the trees switch when the pack ships no tree points. */
 const treesAvailable = computed(() => !!trees.value?.features.length)
 const ISSUE_URL = 'https://github.com/Zevl411/street-tree-equity/issues/new'
@@ -59,17 +61,35 @@ const packRows = computed<{ label: string; value: string; mono?: boolean }[]>(()
   return rows
 })
 const ui = useUiStore()
+// #149: derive the matching feature/meta pair atomically; the snapshot index retains raw identities.
+const gapView = computed(() => !loading.value && rawTracts.value && rawMeta.value ? canopyGapView(toRaw(rawTracts.value),toRaw(rawMeta.value),ui.canopyGapTarget) : null)
+const meta = computed(() => gapView.value?.meta ?? rawMeta.value)
+const tracts = computed(() => gapView.value?.collection ?? null)
+const gapTargetVisible = computed(() => ui.dualView ? ui.dualLeft==='canopyGap'||ui.dualRight==='canopyGap' : ui.activeMetric==='canopyGap')
+const gapTargetStatus = ref('')
+async function changeGapTarget(mode: GapTargetMode) {
+  if (mode===ui.canopyGapTarget) return
+  ui.setCanopyGapTarget(mode)
+  await nextTick()
+  // A pending pack has no completed target to announce yet.
+  if (loading.value) return
+  const target=gapView.value?.target??null
+  gapTargetStatus.value=mode==='30'?'Canopy-gap target set to 30% canopy.':target===null?'City canopy target unavailable.':`Canopy-gap target set to ${gapNumber(target)}% canopy: your city's leafier neighborhoods.`
+}
+function restoreGapTarget() { ui.setCanopyGapTarget(readDeepLink().gapTarget) }
+onMounted(() => window.addEventListener('popstate',restoreGapTarget))
+onBeforeUnmount(() => window.removeEventListener('popstate',restoreGapTarget))
 // #147: warm the raw collection once when its successfully loaded metadata pair is ready.
 // Clearing synchronously prevents the previous city's index from reaching a replacement tract.
 const snapshotIndex = shallowRef<TractSnapshotIndex | null>(null)
-watch([tracts, meta, loading], ([collection, metadata, busy]) => {
+watch([rawTracts, rawMeta, loading], ([collection, metadata, busy]) => {
   snapshotIndex.value = !busy && collection && metadata ? getTractSnapshotIndex(toRaw(collection), toRaw(metadata)) : null
 }, { immediate: true, flush: 'sync' })
 function selectSnapshotMetric(id: MetricId) {
   if (ui.dualView) return
   const index = snapshotIndex.value
   if (loading.value || !tracts.value || !meta.value || !selectedTract.value || !index ||
-    index.collection !== toRaw(tracts.value) || index.meta !== toRaw(meta.value) ||
+    index.collection !== toRaw(rawTracts.value!) || index.meta !== toRaw(rawMeta.value!) ||
     !index.select(selectedTract.value.geoid) || !metricAvailable(id, meta.value, tracts.value)) return
   ui.setActiveMetric(id)
   syncUrl()
@@ -256,6 +276,7 @@ const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.o
 const citationsText = computed(() => [
   'Street Tree Equity — data sources',
   `- ${canopyCitation(meta.value)}`,
+  `- Canopy gap (tract) — ${GAP_METHODS}`,
   `- Street trees, parks, groceries, schools, bike lanes & transit stops, libraries & community centres, community gardens & allotments, drinking fountains, post offices, playgrounds, public toilets, benches, mapped sidewalks & footpaths, pharmacies & clinics, hospitals & fire stations: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
   ...(meta.value?.acs ? [`- Median household income (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acs.table} (${meta.value.acs.vintage}). Retrieved ${meta.value.acs.retrievedAt} from ${meta.value.acs.sourceUrl}. Public domain.`] : []),
@@ -267,7 +288,7 @@ const citationsText = computed(() => [
   ...(meta.value?.cdcPlaces ? placesCitations.value.map((c) => `- ${c} Retrieved ${meta.value!.cdcPlaces!.retrievedAt} from ${meta.value!.cdcPlaces!.sourceUrl}`) : []),
   ...(meta.value?.acsLep ? [`- Limited English proficiency (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsLep.table}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over (${meta.value.acsLep.vintage}). Retrieved ${meta.value.acsLep.retrievedAt} from ${meta.value.acsLep.sourceUrl}. Public domain. “Limited English” = speaks English less than “very well.”`] : []),
   ...(meta.value?.acsSnap ? [`- SNAP households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsSnap.table}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households (${meta.value.acsSnap.vintage}). Retrieved ${meta.value.acsSnap.retrievedAt} from ${meta.value.acsSnap.sourceUrl}. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.`] : []),
-  ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.`] : []),
+  ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs. The relative low-canopy score does not use the selected canopy-gap target.`] : []),
   ...(meta.value?.fara ? [`- ${FARA_CITATION} Retrieved ${meta.value.fara.retrievedAt} from ${meta.value.fara.sourceUrl}`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
@@ -318,6 +339,7 @@ async function init() {
   if (link.layers) applyLayers(link.layers)
   // #94: a trees-on deep link auto-loads points once on mobile.
   wantTreesFromLink = !!link.layers?.trees
+  ui.setCanopyGapTarget(link.gapTarget)
   ui.setActiveMetric(link.metric)
   if (link.unit) ui.setDensityUnit(link.unit)
   if (link.hc) ui.setChoroplethMode('contrast')
@@ -340,7 +362,7 @@ async function init() {
   openFavoritesFromUrl()
   openFocusFromUrl()
   // #79 precedence: valid `?bin=` (explicit override, persisted) > ste-bin[city] > null. Clamped once meta is ready.
-  const binCount = () => (meta.value ? choroplethColors(meta.value, ui.choroplethMode, ui.choroplethPalette).length : undefined)
+  const binCount = () => (viewMeta.value ? choroplethColors(viewMeta.value, ui.choroplethMode, ui.choroplethPalette).length : undefined)
   ui.setDensityBin(link.bin !== null ? link.bin : storedBin(cityStore.cityId), binCount())
   persistBin(cityStore.cityId, ui.densityBinIndex)
   // #79: on city change restore that city's stored bin (or null); no cross-pack bleed.
@@ -348,11 +370,11 @@ async function init() {
   // #79: mirror bin into ste-bin for the active city (clear / clamp→null deletes the key).
   watch(() => ui.densityBinIndex, (i) => persistBin(cityStore.cityId, i))
   // #73: re-clamp bin if the color ramp length changes (mode flip / new meta)
-  watch(() => (meta.value ? choroplethColors(meta.value, ui.choroplethMode).length : 0), (n) => {
+  watch(() => (viewMeta.value ? choroplethColors(viewMeta.value, ui.choroplethMode).length : 0), (n) => {
     if (ui.densityBinIndex !== null) ui.setDensityBin(ui.densityBinIndex, n)
   })
   // Keep the address bar shareable as the view changes.
-  watch([() => cityStore.cityId, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showToilets, showBenches, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex, () => ui.dualView, () => ui.dualLeft, () => ui.dualRight], syncUrl)
+  watch([() => cityStore.cityId, () => ui.activeMetric, () => ui.canopyGapTarget, selectedGeoid, basemap, theme, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showToilets, showBenches, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, densityUnit, choroplethMode, () => ui.legendExpandedPref, () => ui.densityBinIndex, () => ui.dualView, () => ui.dualLeft, () => ui.dualRight], syncUrl)
 }
 
 /** #118: restore a valid `?dual=` pair once the first pack is loaded; invalid → ignored (single map). */
@@ -421,7 +443,7 @@ const activePreset = computed(() => {
 })
 
 function syncUrl() {
-  writeDeepLink({ city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, metric: ui.activeMetric, dual: ui.dualView ? { left: ui.dualLeft, right: ui.dualRight } : null, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
+  writeDeepLink({ gapTarget: ui.canopyGapTarget, city: cityStore.cityId, geoid: selectedGeoid.value, basemap: basemap.value, theme: theme.value, layers: currentLayers(), unit: densityUnit.value, metric: ui.activeMetric, dual: ui.dualView ? { left: ui.dualLeft, right: ui.dualRight } : null, choroplethMode: choroplethMode.value, legend: ui.legendExpandedPref, bin: ui.densityBinIndex })
 }
 
 const compareOpen = ref(false)
@@ -431,8 +453,9 @@ const overviewDensity = computed(() => {
   const m = meta.value
   if (!m) return ''
   const ov = m.overall[ui.metric.overallKey]
-  const o = ov != null ? ov : m.overall.treesPerAcre
-  if (!ui.metric.usesDensityUnit) return fmtUnitless(ui.metric, o)
+  const o = ui.metric.id === 'canopyGap' ? ov : ov != null ? ov : m.overall.treesPerAcre
+  if (o == null) return '—'
+  if (!ui.metric.usesDensityUnit) return fmtUnitless(ui.metric, o)+(ui.metric.id==='canopyGap'?' acres':'')
   if (ui.metric.fine) {
     return densityUnit.value === 'km2'
       ? `${(o * ACRES_PER_KM2).toLocaleString(undefined, { maximumFractionDigits: 2 })} / km²`
@@ -671,7 +694,7 @@ function exportAllTracts() {
   const id = cityStore.cityId
   const feats = tracts.value?.features ?? []
   if (!id || !feats.length) return
-  const csv = toAllTractsCsv(feats.map((f) => f.properties), id, densityUnit.value === 'km2' ? 'km2' : 'acre', allFavs.list(id))
+  const csv = toAllTractsCsv(feats.map((f) => f.properties), id, densityUnit.value === 'km2' ? 'km2' : 'acre', allFavs.list(id), meta.value!, ui.canopyGapTarget)
   downloadBlob(csv, exportFilename(id, 'all-tracts', 'csv'), 'text/csv;charset=utf-8')
   linkSnack.value = 'All tracts CSV downloaded'
 }
@@ -707,10 +730,10 @@ function exportCurrentView() {
     syncUrl()
     const ids = viewMetricIds.value
     const csv = toCurrentViewCsv({
-      rows: feats.map((f) => ({ cityId: id, cityName: m.cityName, props: f.properties })),
-      metrics: ids,
+      rows: feats.map((f) => ({ cityId: id, cityName: m.cityName, meta: m, props: f.properties })),
+      metrics: ids, gapTarget: ui.canopyGapTarget,
       unit: densityUnit.value === 'km2' ? 'km2' : 'acre',
-      comments: currentViewComments([{ id, meta: m }], ids, window.location.href),
+      comments: currentViewComments([{ id, meta: m }], ids, window.location.href, undefined, ui.canopyGapTarget),
     })
     const name = exportFilename(id, viewScope(ids), 'csv')
     downloadBlob(csv, name, 'text/csv;charset=utf-8')
@@ -948,6 +971,7 @@ watch(drawerOpen, async (open) => {
               <v-btn v-for="id in METRIC_SWITCH_ORDER" :key="id" :value="id" size="small" :disabled="!metricOk[id] || ui.dualView" :title="METRICS[id].tooltip">{{ METRICS[id].shortLabel }}</v-btn>
             </v-btn-toggle>
             <div v-if="ui.dualView" class="text-caption text-medium-emphasis mb-1">Exit dual view to change metric — use the Left/Right selects below</div>
+            <CanopyGapTarget v-if="gapTargetVisible" :mode="ui.canopyGapTarget" :target="gapView?.target ?? null" :loading="loading" @change="changeGapTarget" />
             <v-switch v-if="dualAvailable" :model-value="ui.dualView" label="Dual view" color="primary" density="compact" hide-details inset
               class="dual-switch" :class="{ 'switch-touch': !mdAndUp }" @click.stop @update:model-value="(v) => setDual(!!v)" />
             <div v-else-if="meta && !loading" class="text-caption text-medium-emphasis mb-1">Needs two metrics in this pack</div>
@@ -1156,6 +1180,7 @@ watch(drawerOpen, async (open) => {
           <v-list-item prepend-icon="mdi-information-outline" title="About" @click="aboutOpen = true" />
         </v-list>
       </v-menu>
+      <span role="status" aria-live="polite" aria-atomic="true" class="sr-only canopy-gap-status">{{ gapTargetStatus }}</span>
       <span class="sr-only" aria-live="polite">{{ themeAnnounce }}</span>
       <span class="sr-only" aria-live="polite">{{ jumpAnnounce }}</span>
       <span class="sr-only" aria-live="polite" aria-atomic="true">{{ dualAnnounce }}</span>
@@ -1224,7 +1249,7 @@ watch(drawerOpen, async (open) => {
         <p v-if="canopyFallback" class="text-caption mt-2">Tree canopy unavailable in this pack. Showing mapped street trees (OSM).</p>
         <div class="text-body-2 mt-1">
           <div><strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees · <strong>{{ meta.counts.tracts }}</strong> tracts</div>
-          <div>Avg <strong>{{ overviewDensity }}</strong></div>
+          <div>{{ ui.metric.id === 'canopyGap' ? 'Average canopy gap per tract' : 'Avg' }} <strong>{{ overviewDensity }}</strong></div>
           <div v-if="spread" class="text-caption text-medium-emphasis" role="group" :aria-label="spread.aria">
             <span aria-hidden="true">Spread&nbsp; p10 <strong>{{ spread.p10 }}</strong> · median <strong>{{ spread.med }}</strong> · p90 <strong>{{ spread.p90 }}</strong>&nbsp; {{ spread.unit }}<template v-if="spread.ratio"> · p90÷p10 ≈ {{ spread.ratio }}</template></span>
           </div>
@@ -1252,7 +1277,7 @@ watch(drawerOpen, async (open) => {
         <div class="d-flex flex-wrap ga-1 text-caption">
           <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} mapped trees (OSM)</v-chip>
           <v-chip size="small" variant="tonal">{{ meta.counts.tracts }} tracts</v-chip>
-          <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
+          <v-chip size="small" variant="tonal">{{ ui.metric.id === 'canopyGap' ? 'Average canopy gap per tract' : 'avg' }} {{ overviewDensity.replace(' / ', '/') }}</v-chip>
           <v-chip v-if="spread" size="small" variant="tonal" class="spread-chip" :aria-label="spread.aria"><span class="text-truncate">p10 {{ spread.p10 }} · med {{ spread.med }} · p90 {{ spread.p90 }}{{ spread.unit }}<template v-if="spread.ratio"> {{ spread.ratio }}</template></span></v-chip>
           <v-chip v-if="plantHereChip" size="small" variant="tonal" color="deep-orange">{{ plantHereChip }}</v-chip>
         </div>
@@ -1299,6 +1324,7 @@ watch(drawerOpen, async (open) => {
         <v-card-text>
           <h3 class="text-subtitle-1 font-weight-bold mb-1">What it is</h3>
           <p class="text-body-2 mb-2">The default map shows the share of non-water land under tree canopy, estimated from USFS satellite data. Mapped street trees (OSM) remains a separate metric and point layer; incomplete mapping is not proof that an area has no trees.</p>
+          <p class="text-body-2 mb-2">Nov 2026: Canopy gap now shows estimated canopy acres short of your city's leafier neighborhoods, with an optional fixed 30% target. Tree canopy remains the default map. Planting need is unchanged; its canopy component is now labelled relative low-canopy score.</p>
           <p class="text-body-2 mb-2">Nov 2026: The default map now shows USFS tree-canopy estimates instead of mapped street-tree density. Planting need now uses canopy cover. OpenStreetMap tree counts remain available separately.</p>
           <p class="text-body-2 mb-2">Low counts can mean fewer trees <em>or</em> fewer trees mapped — treat it as a conversation starter, and consider adding trees on OSM.</p>
           <p class="text-body-2 mb-2">Orange streets have no mapped tree within {{ meta?.roadsBufferMeters ?? 20 }} m. Parks come from OSM <code>leisure=park</code>.</p>
@@ -1320,7 +1346,8 @@ watch(drawerOpen, async (open) => {
             <template v-if="meta?.cdcPlaces"><li v-for="c in placesCitations" :key="c">{{ c }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li></template>
             <li v-if="meta?.acsLep"><strong>Limited English proficiency (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsLep.table }}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over ({{ meta.acsLep.vintage }}). Retrieved {{ meta.acsLep.retrievedAt }} from <a :href="meta.acsLep.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsLep.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. “Limited English” = speaks English less than “very well.”</li>
             <li v-if="meta?.acsSnap"><strong>SNAP households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsSnap.table }}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households ({{ meta.acsSnap.vintage }}). Retrieved {{ meta.acsSnap.retrievedAt }} from <a :href="meta.acsSnap.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsSnap.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.</li>
-            <li v-if="meta?.plantNeed"><strong>Planting need (tract)</strong> — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.</li>
+            <li><strong>Canopy gap (tract)</strong> — {{ GAP_METHODS }} <span v-if="meta?.canopyGap">{{ meta.canopyGap.percentile.nValid }} valid tract estimates in this pack.</span></li>
+            <li v-if="meta?.plantNeed"><strong>Planting need (tract)</strong> — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs. The relative low-canopy score does not use the selected canopy-gap target.</li>
             <li v-if="meta?.fara"><strong>Food access (tract)</strong> — {{ FARA_CITATION }} Retrieved {{ meta.fara.retrievedAt }} from <a :href="meta.fara.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.fara.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>

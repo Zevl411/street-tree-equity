@@ -1,3 +1,4 @@
+import type { GapTargetMode } from '@/utils/canopyGap'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type { ChoroplethMode, ChoroplethPalette } from '@/utils/choropleth'
@@ -107,6 +108,8 @@ export const useUiStore = defineStore('ui', () => {
 
   // #38: display-only density unit; persisted locally, not in deep links.
   // #97 A0: active metric (session only; trees is the only registered metric).
+  const canopyGapTarget = ref<GapTargetMode>('p75')
+  function setCanopyGapTarget(v: GapTargetMode) { canopyGapTarget.value = v }
   const activeMetric = ref<MetricId>(DEFAULT_METRIC)
   // #105/#113: session-only dual view of any two MetricIds (never persisted / in share URL).
   // While on, the effective (primary) metric is the Hotspots-primary pane (left by default);
@@ -216,7 +219,7 @@ export const useUiStore = defineStore('ui', () => {
   const aboutOpen = ref(false)
 
   return {
-    activeMetric, metric, setActiveMetric, dualView, setDualView,
+    activeMetric, metric, setActiveMetric, canopyGapTarget, setCanopyGapTarget, dualView, setDualView,
     dualLeft, dualRight, dualPrimary, dualPrimaryId, setDualSide, validateDual,
     theme, isDark, themeAnnounce, setTheme, toggleTheme,
     basemap, setBasemap,

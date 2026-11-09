@@ -193,14 +193,14 @@ function pick(geoid: string) {
         <p v-if="transitCaption" class="text-caption text-medium-emphasis mb-1">{{ transitCaption }}</p>
         <div role="status" aria-live="polite" class="sr-only">{{ status }}</div>
         <p v-if="noTracts" class="text-body-2 mt-2">No tract data for this city yet.</p>
-        <p v-else-if="!loading && !items.length" class="text-body-2 mt-2">No hotspots to show.</p>
+        <p v-else-if="!loading && !items.length" class="text-body-2 mt-2">{{ ui.metric.id === 'canopyGap' ? 'No canopy gap at this target.' : 'No hotspots to show.' }}</p>
         <v-list v-else :density="mobile ? 'comfortable' : 'compact'" :disabled="loading" class="mt-1"
           style="max-height: 60vh; overflow-y: auto">
-          <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="ui.metric.id === 'canopy' ? `${f.properties.name} · ${canopyValue(val(f.properties))}% of land` : f.properties.name"
-            :subtitle="ui.metric.id === 'canopy' ? undefined : `${density(val(f.properties))}${unitless ? '' : ` /${unitLabel}`} · #${f.properties.rank} of ${total}`"
-            :aria-label="ui.metric.id === 'canopy' ? `Open ${f.properties.name}, tree canopy ${canopyValue(val(f.properties))}% of land` : `Open ${f.properties.name}, ${density(val(f.properties))} ${unitless ? ui.metric.unitNoun : `per ${unitLabel}`}, rank ${f.properties.rank} of ${total}`"
+          <v-list-item v-for="f in items" :key="f.properties.geoid" min-height="48" :title="ui.metric.id === 'canopyGap' ? `${f.properties.name} · Canopy gap · ${density(val(f.properties))} acres${val(f.properties) === 0 ? ' — At or above target' : ''}` : ui.metric.id === 'canopy' ? `${f.properties.name} · ${canopyValue(val(f.properties))}% of land` : f.properties.name"
+            :subtitle="ui.metric.id === 'canopy' || ui.metric.id === 'canopyGap' ? undefined : `${density(val(f.properties))}${unitless ? '' : ` /${unitLabel}`} · #${f.properties.rank} of ${total}`"
+            :aria-label="ui.metric.id === 'canopyGap' ? `Open ${f.properties.name}, Canopy gap · ${density(val(f.properties))} acres` : ui.metric.id === 'canopy' ? `Open ${f.properties.name}, tree canopy ${canopyValue(val(f.properties))}% of land` : `Open ${f.properties.name}, ${density(val(f.properties))} ${unitless ? ui.metric.unitNoun : `per ${unitLabel}`}, rank ${f.properties.rank} of ${total}`"
             @click="pick(f.properties.geoid)">
-            <template v-if="ui.metric.id !== 'canopy' && f.properties.bottomQuartile" #append>
+            <template v-if="ui.metric.id !== 'canopy' && ui.metric.id !== 'canopyGap' && f.properties.bottomQuartile" #append>
               <v-chip size="x-small" variant="tonal" color="warning">Bottom 25%</v-chip>
             </template>
           </v-list-item>

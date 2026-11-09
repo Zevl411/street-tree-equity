@@ -1,15 +1,16 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to canopy. */
-export type MetricId = 'canopy' | 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured'
+export type MetricId = 'canopy' | 'canopyGap' | 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'canopyPct' | 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
+export type MetricValueKey = 'canopyPct' | 'canopyGapAcres' | 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
 
 export interface MetricDef {
   id: MetricId
   /** Layers stub / future switch label */
   shortLabel: string
+  label?: string
   /** Choropleth property used today (pack field) */
   valueKey: MetricValueKey
   legendTitle: (unit: MetricUnit) => string
@@ -55,6 +56,15 @@ export const METRICS: Record<MetricId, MetricDef> = {
     missingCaption: 'This pack has no tree-canopy estimate yet', higherIsBetter: true,
     usesDensityUnit: false, percentPoints: true, fine: false,
     tooltip: "Share of each tract's land area under tree canopy, excluding open water (USFS/NLCD Tree Canopy Cover, 2025, v2025.6). Satellite-based model estimates from Landsat and Sentinel-2 at 30 m resolution; small or scattered urban canopy can be underestimated. Not a street-tree count or a direct measure of sidewalk shade. Open water is masked using Annual NLCD Land Cover 2025, Collection 1.2, class 11.",
+  },
+  canopyGap: {
+    id: 'canopyGap', label: 'Canopy gap to target', shortLabel: 'Canopy gap (acres)', valueKey: 'canopyGapAcres', overallKey: 'canopyGapAcres',
+    legendTitle: () => 'Additional canopy to target (acres)', unitNoun: 'canopy-gap area', spreadUnit: () => 'acres',
+    bmCaption: "Dims tracts below this city's median canopy-gap area", bmSwitchLabel: 'Above city median',
+    hotspotNoun: ['tract with a canopy gap', 'tracts with canopy gaps'], hotspotTitle: 'Largest canopy gaps',
+    missingCaption: 'This pack has no canopy-gap estimate yet', higherIsBetter: false,
+    usesDensityUnit: false, percent: false, percentPoints: false, currency: false, fine: false,
+    tooltip: "Estimated additional tree-canopy area needed to reach the selected canopy target, in acres. The default target is the 75th-percentile tract canopy estimate in this pack — your city's leafier neighborhoods — or you can choose a fixed 30%. The gap uses non-water canopy-sampling land area; larger tracts can have larger gaps. This is a comparison, not a tree count, planting-space survey or official canopy goal. USFS canopy estimates are modeled at 30 m and can miss small or scattered urban canopy.",
   },
   trees: {
     id: 'trees',
@@ -458,6 +468,7 @@ export function hotspotAscending(def: MetricDef): boolean {
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 /** #103: unitless display — currency metrics → USD no cents, else 1 decimal. */
 export function fmtUnitless(def: MetricDef, n: number): string {
+  if (def.id === 'canopyGap' && n > 0 && n < 0.05) return '<0.1'
   if (def.id === 'canopy' && n > 0 && n < 0.05) return '<0.1%'
   if (def.percentPoints) return `${n.toFixed(1)}%`
   if (def.percent) return `${(n * 100).toFixed(1)}%`
@@ -467,13 +478,14 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
 /** #124 Planting need after Trees; #125 Mental health after Obesity; #127 Physical health after Mental health; #143 cardio reorder: #131 Blood pressure after Physical health; #129 Heart disease after Blood pressure; #141 Stroke after Heart disease; #133 Inactivity after Stroke; #136 COPD after Inactivity; #138 Smoking after COPD; #143 Disability after Smoking; #144 Short sleep after Disability; #146 Uninsured (ACCESS2) after Short sleep; rest in registry order. */
 /** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
-const BASE_SWITCH_ORDER: MetricId[] = ['canopy', 'trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'canopy' && id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'uninsured' && id !== 'age65' && id !== 'under18')
+const BASE_SWITCH_ORDER: MetricId[] = ['canopy', 'canopyGap', 'trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'canopy' && id !== 'canopyGap' && id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'uninsured' && id !== 'age65' && id !== 'under18')
   .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'] : [id]))]
 const RB = BASE_SWITCH_ORDER.indexOf('rentBurden')
 export const METRIC_SWITCH_ORDER: MetricId[] = [...BASE_SWITCH_ORDER.slice(0, RB + 1), 'age65', 'under18', ...BASE_SWITCH_ORDER.slice(RB + 1)]
 
 const METRIC_BY_LOWER: Record<string, MetricId> = {
   ...Object.fromEntries(METRIC_IDS.map((id) => [id.toLowerCase(), id])),
+  'canopy gap': 'canopyGap', 'canopy deficit': 'canopyGap', 'tree canopy gap': 'canopyGap',
   'tree canopy': 'canopy', tcc: 'canopy', shade: 'canopy',
   // #115 soft aliases
   under18plus: 'under18', children: 'under18',
@@ -551,6 +563,10 @@ export function metricMeta(meta: Meta, id: MetricId): Meta {
   if (id === 'trees') return meta
   const breaks = meta.metricBreaks?.[id]
   if (!breaks) return meta
+  if (id === 'canopyGap') {
+    const ramp=['#d9f0a3','#addd8e','#78c679','#31a354','#006837'], n=breaks.length+1
+    return {...meta,breaks,colors:Array.from({length:n},(_,i)=>ramp[n<=1?0:Math.round(i*4/(n-1))])}
+  }
   const pal = ['#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#31a354', '#006837']
   const colors = meta.colors.length === breaks.length + 1 ? meta.colors : pal.slice(-(breaks.length + 1))
   return { ...meta, breaks, colors }

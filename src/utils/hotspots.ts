@@ -1,5 +1,5 @@
 import type { TractFeature } from '@/types'
-import { metricValue, type MetricValueKey } from '@/utils/metrics'
+import { metricValue, type MetricValueKey } from './metrics.ts'
 
 /** #43/#90: hotspot set size — shared by HotspotsPanel list and MapView dim. */
 export const HOTSPOTS_MAX = 10
@@ -8,7 +8,7 @@ export const HOTSPOTS_MAX = 10
 export function hotspotTracts(features: TractFeature[] | null | undefined, key: MetricValueKey = 'treesPerAcre', higherIsBetter = true): TractFeature[] {
   const dir = higherIsBetter ? 1 : -1 // #100: risk → highest first
   return [...(features ?? [])]
-    .filter((f) => Number.isFinite(metricValue(f.properties, key)))
+    .filter((f) => Number.isFinite(metricValue(f.properties, key)) && (key !== 'canopyGapAcres' || metricValue(f.properties,key)>0))
     .sort((a, b) => {
       const pa = a.properties, pb = b.properties
       return dir * (metricValue(pa, key) - metricValue(pb, key))

@@ -16,7 +16,7 @@ const median = computed(() => (props.belowMedian ? cityMedian(props.tracts, ui.m
 
 const bins = computed(() => {
   const isKm2 = ui.effectiveUnit === 'km2'
-  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1, (ui.metric.currency || ui.metric.percent || ui.metric.percentPoints) ? (n: number) => fmtUnitless(ui.metric, n) : undefined)
+  const rows = binRows(props.meta.breaks, choroplethColors(props.meta, ui.choroplethMode, ui.choroplethPalette), isKm2, isKm2 ? ACRES_PER_KM2 : 1, (ui.metric.id === 'canopyGap' || ui.metric.currency || ui.metric.percent || ui.metric.percentPoints) ? (n: number) => fmtUnitless(ui.metric, n)+(ui.metric.id==='canopyGap'?' acres':'') : undefined)
   const raw = binCounts(props.tracts, props.meta.breaks, ui.metric.valueKey)
   const counts = rows.map((_, i) => raw[i] ?? 0)
   const max = Math.max(1, ...counts)
@@ -72,7 +72,7 @@ const total = computed(() => bins.value.reduce((s, b) => s + b.count, 0))
       <v-btn v-else variant="text" size="x-small" icon="mdi-filter-off" aria-label="Clear bin filter" class="clear-dense" @click="ui.setDensityBin(null)" />
       <span v-if="!dense" class="text-caption text-medium-emphasis ml-1">Map filtered to one density bin</span>
     </div>
-    <div v-if="!dense && median !== null && selected === null" class="text-caption text-medium-emphasis mt-1">Dimmed bins are above the city median</div>
+    <div v-if="!dense && median !== null && selected === null" class="text-caption text-medium-emphasis mt-1">{{ ui.metric.id === 'canopyGap' ? ui.metric.bmCaption : 'Dimmed bins are above the city median' }}</div>
   </div>
 </template>
 

@@ -1,3 +1,4 @@
+import { GAP_COLUMNS, gapCells, scenarioProps, type GapTargetMode } from './canopyGap.ts'
 /** #139 current-view CSV — pure helpers (no DOM / store / alias value imports so `node --test` can load them).
  * `cell()` lives here and is re-used by every sibling export in exportData.ts. */
 import type { Meta, TractProps } from '@/types'
@@ -29,7 +30,7 @@ export function ymd(d = new Date()): string {
 }
 
 export type DensUnit = 'acre' | 'km2'
-export interface ViewRow { cityId: string; cityName?: string; props: TractProps }
+export interface ViewRow { cityId: string; cityName?: string; meta?: Meta; props: TractProps }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const fixed = (n: number | null, dp: number): string => (n === null ? '' : n.toFixed(dp))
@@ -50,6 +51,7 @@ export function mappedStreetTreesCell(t: TractProps, unit: DensUnit): string {
 export const mappedStreetTreesUnit = (unit: DensUnit) => (unit === 'km2' ? 'trees_per_km2' : 'trees_per_acre')
 
 export function metricUnitToken(def: MetricDef, unit: DensUnit): string {
+  if (def.id === 'canopyGap') return 'acres'
   if (def.usesDensityUnit) return def.id === 'trees' ? mappedStreetTreesUnit(unit) : `${def.id}_per_${unit}`
   if (def.percent || def.percentPoints) return '%'
   if (def.currency) return 'USD'
@@ -76,6 +78,7 @@ const auxCell = (def: MetricDef, t: TractProps, suffix: 'Lo' | 'Hi' | 'Moe'): st
 }
 
 export interface CurrentViewOpts {
+  gapTarget?: GapTargetMode
   rows: ViewRow[]
   /** length 1 (single / compare) or 2 (dual: left, right) */
   metrics: MetricId[]
@@ -96,7 +99,7 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
   const metricCols = (p: string) => [`${p}_id`, `${p}_label`, `${p}_value`, `${p}_unit`, ...(ci ? [`${p}_ci_lo`, `${p}_ci_hi`] : []), ...(moe ? [`${p}_moe`] : [])]
   const header = [
     ...(o.compare ? ['city_id', 'city_name'] : []),
-    'geoid', 'tract_name', 'mapped_street_trees', 'mapped_street_trees_unit', 'canopy_pct',
+    'geoid', 'tract_name', 'mapped_street_trees', 'mapped_street_trees_unit', 'canopy_pct', ...GAP_COLUMNS,
     ...(dual ? [...metricCols('metric_a'), ...metricCols('metric_b')] : metricCols('metric')),
   ]
   const metricCells = (def: MetricDef, t: TractProps) => [
@@ -112,11 +115,11 @@ export function toCurrentViewCsv(o: CurrentViewOpts): string {
   const lines = [
     ...o.comments.map((c) => `# ${c.replace(/[\r\n]+/g, ' ')}`),
     header.join(','),
-    ...rows.map(({ cityId, cityName, props: t }) => [
+    ...rows.map(({ cityId, cityName, props, meta }) => { const t=scenarioProps(props,meta??({} as Meta),o.gapTarget); return [
       ...(o.compare ? [cell(cityId), textCell(cityName ?? '')] : []),
-      cell(t.geoid), textCell(t.name ?? ''), mappedStreetTreesCell(t, o.unit), cell(mappedStreetTreesUnit(o.unit)), cell(num(t.canopyPct)),
+      cell(t.geoid), textCell(t.name ?? ''), mappedStreetTreesCell(t, o.unit), cell(mappedStreetTreesUnit(o.unit)), cell(num(t.canopyPct)), ...gapCells(t).map(cell),
       ...defs.flatMap((d) => metricCells(d, t)),
-    ].join(',')),
+    ].join(',')}),
   ]
   return lines.join(CRLF) + CRLF
 }
@@ -158,7 +161,7 @@ const metricText = (ids: MetricId[]) => ids.map((id) => `${id} · ${METRICS[id].
 const packText = (p: PackRef) => [p.id, p.meta.cityName, p.meta.subtitle].filter(Boolean).join(' · ')
 
 /** Preamble lines (without `# `). Compare: 2 packs → two `pack:` lines + per-pack sources. */
-export function currentViewComments(packs: PackRef[], metrics: MetricId[], url: string, d = new Date()): string[] {
+export function currentViewComments(packs: PackRef[], metrics: MetricId[], url: string, d = new Date(), mode: GapTargetMode = 'p75'): string[] {
   const multi = packs.length > 1
   return [
     'Street Tree Equity — current-view CSV',
@@ -167,6 +170,11 @@ export function currentViewComments(packs: PackRef[], metrics: MetricId[], url: 
     `generated: ${ymd(d)}`,
     ...packs.map((p) => `sources${multi ? ` (${p.id})` : ''}: ${sourcesLine(p.meta, metrics)}`),
     ...packs.flatMap(p => citationLines(p.meta, metrics).map(line => multi ? `${line} (pack ${p.id})` : line)),
+    'canopy_gap: max(0, target canopy percentage - tract canopy percentage) / 100 * canopy sampling land acres; targets compare canopy cover, not planting capacity.',
+    "canopy_target_mode: p75 uses this pack's unweighted type-7 75th-percentile tract canopy estimate; 30 uses a fixed 30% comparison. Numerical targets and gaps use unrounded values.",
+    'land_acres: estimated non-water support of the canopy calculation, not Census area_acres; missing support is blank, never substituted.',
+    'plant_need_canopy: relative low-canopy score (0–100), independent of canopy_gap_pct, canopy_gap_acres and the selected target.',
+    ...packs.map(p=>`canopy_target (${p.id}): p75=${p.meta.canopyGap?.p75??'unavailable'}; fixed=30; selected=${mode}`),
     'canopy_pct: % of non-water land; mostly-water and missing estimates are blank, not zero.',
     'schema: canopy_pct is USFS estimated percent canopy over non-water land; mapped_street_trees and mapped_street_trees_unit retain the former canopy/canopy_unit OSM-density values; plant_need_canopy replaces plant_need_trees in full exports.',
     `url: ${url}`,

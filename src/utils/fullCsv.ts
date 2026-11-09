@@ -1,3 +1,4 @@
+import { GAP_COLUMNS, gapCells, scenarioProps, type GapTargetMode } from './canopyGap.ts'
 /** #23 full-tract CSV — pure (no DOM / store / alias value imports) so `node --test` can load it.
  * #143 bug fix: headers and row cells for the CDC PLACES triples both derive from PLACES_EXPORT, so they
  * can't drift apart again (row() had dropped bphigh…stroke and shifted every later column left by 15). */
@@ -43,11 +44,11 @@ export const CSV_HEADERS = [
   // #104 soft: mobility overlays
   'bike_km', 'transit_stops',
   // #110 soft
-  'sidewalk_km', 'canopy_pct',
+  'sidewalk_km', 'canopy_pct', ...GAP_COLUMNS,
 ]
 
 
-export function csvRow(t: TractProps, meta: Meta): string {
+export function csvRow(t: TractProps, meta: Meta, mode: GapTargetMode = 'p75'): string {
   return [
     t.geoid, t.name, t.county, t.treeCount, t.treesPerAcre, t.treesPerKm2, t.areaAcres, t.areaKm2,
     t.rank, t.percentile, t.bottomQuartile, t.parksInside, t.roadKm, t.lowTreeRoadKm, t.lowTreeRoadPct,
@@ -58,10 +59,10 @@ export function csvRow(t: TractProps, meta: Meta): string {
     ...placesCells(t),
     t.pctLep, t.pctLepMoe, t.popLep, t.pctSnap, t.pctSnapMoe, t.hhSnap, t.plantNeed, t.plantNeedParts?.T, t.plantNeedParts?.P, t.plantNeedParts?.A,
     t.bikeKm, t.transitStopsInside,
-    t.sidewalkKm, t.canopyPct,
+    t.sidewalkKm, t.canopyPct, ...gapCells(scenarioProps(t,meta,mode)),
   ].map(cell).join(',')
 }
 
 /** Header row first (exact Designer order); ODbL notice is shown in the UI, not in the CSV. */
-export const toCsv = (tracts: TractProps[], meta: Meta) =>
-  [CSV_HEADERS.join(','), ...tracts.map((t) => csvRow(t, meta))].join('\r\n') + '\r\n'
+export const toCsv = (tracts: TractProps[], meta: Meta, mode: GapTargetMode = 'p75') =>
+  [CSV_HEADERS.join(','), ...tracts.map((t) => csvRow(t, meta, mode))].join('\r\n') + '\r\n'

@@ -6,6 +6,7 @@ import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
 import { useMenuButtonFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
+import { gapNumber, gapReason, gapSnapshotSentence, gapTargetLine, scenarioProps, GAP_CAUTION } from '@/utils/canopyGap'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { CSV_VIEW_TOOLTIP, ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
 import { canopyHelper, canopyMissing, canopyMissingExplanation, canopyTooltip, canopyValue, validCanopy, OSM_COVERAGE_NOTE } from '@/utils/canopySource'
@@ -22,6 +23,9 @@ const vsCity = computed(() => {
   return Math.round((props.tract.treesPerAcre / city) * 100)
 })
 const ui = useUiStore()
+const gap = computed(() => scenarioProps(props.tract,props.meta,ui.canopyGapTarget))
+const gapNull = computed(() => gapReason(gap.value,gap.value.canopyTargetPct??null))
+const gapSentence = computed(() => gapSnapshotSentence(gap.value.canopyGapAcres,ui.canopyGapTarget))
 const isKm2 = computed(() => ui.densityUnit === 'km2')
 // #69 tract vs city median (same median as #59)
 const MINUS = '\u2212'
@@ -168,11 +172,11 @@ async function doExport(kind: 'tract' | 'all-csv' | 'all-geojson') {
   try {
     const cityId = cityStore.city?.id ?? cityStore.cityId ?? 'city'
     if (kind === 'tract') {
-      downloadBlob(toCsv([props.tract], props.meta), exportFilename(cityId, props.tract.geoid, 'csv'), 'text/csv;charset=utf-8')
+      downloadBlob(toCsv([props.tract], props.meta, ui.canopyGapTarget), exportFilename(cityId, props.tract.geoid, 'csv'), 'text/csv;charset=utf-8')
     } else {
       const fc = await fetchTracts(cityStore.city?.dataPath ?? 'data')
-      if (kind === 'all-csv') downloadBlob(toCsv(fc.features.map((f) => f.properties), props.meta), exportFilename(cityId, 'all', 'csv'), 'text/csv;charset=utf-8')
-      else downloadBlob(toGeoJson(fc, props.meta), exportFilename(cityId, 'all', 'geojson'), 'application/geo+json')
+      if (kind === 'all-csv') downloadBlob(toCsv(fc.features.map((f) => f.properties), props.meta, ui.canopyGapTarget), exportFilename(cityId, 'all', 'csv'), 'text/csv;charset=utf-8')
+      else downloadBlob(toGeoJson(fc, props.meta, ui.canopyGapTarget), exportFilename(cityId, 'all', 'geojson'), 'application/geo+json')
     }
     snackText.value = 'Download started'
   } catch {
@@ -195,10 +199,10 @@ async function exportView() {
     const fc = await fetchTracts(cityStore.city?.dataPath ?? 'data')
     const ids = viewMetrics.value
     const csv = toCurrentViewCsv({
-      rows: fc.features.map((f) => ({ cityId, cityName: props.meta.cityName, props: f.properties })),
-      metrics: ids,
+      rows: fc.features.map((f) => ({ cityId, cityName: props.meta.cityName, meta: props.meta, props: f.properties })),
+      metrics: ids, gapTarget: ui.canopyGapTarget,
       unit: ui.densityUnit === 'km2' ? 'km2' : 'acre',
-      comments: currentViewComments([{ id: cityId, meta: props.meta }], ids, window.location.href),
+      comments: currentViewComments([{ id: cityId, meta: props.meta }], ids, window.location.href, undefined, ui.canopyGapTarget),
     })
     const name = exportFilename(cityId, viewScope(ids), 'csv')
     downloadBlob(csv, name, 'text/csv;charset=utf-8')
@@ -240,7 +244,7 @@ function copyLink() {
   try {
     url = tractShareUrl({
       city: cityStore.cityId ?? cityStore.city?.id ?? null, geoid: props.tract.geoid,
-      metric: ui.activeMetric, basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
+      metric: ui.activeMetric, gapTarget: ui.canopyGapTarget, basemap: ui.basemap, theme: ui.theme, unit: ui.densityUnit,
       choroplethMode: ui.choroplethMode, legend: ui.legendExpandedPref, bin: ui.densityBinIndex,
       layers: { trees: ui.showTrees, parks: ui.showParks, roads: ui.showRoads, bq: ui.highlightBottomQuartile, bm: ui.belowMedian, schools: ui.showSchools, bike: ui.showBike, transit: ui.showTransit, libraries: ui.showLibraries, gardens: ui.showGardens, fountains: ui.showFountains, postoffices: ui.showPostOffices, playgrounds: ui.showPlaygrounds, toilets: ui.showToilets, benches: ui.showBenches, clinics: ui.showClinics, emergency: ui.showEmergency, sidewalks: ui.showSidewalks },
     })
@@ -301,6 +305,19 @@ function copyLink() {
         <div v-if="validCanopy(tract)" class="text-h5 font-weight-bold">{{ canopyValue(tract.canopyPct) }}% of land</div>
         <template v-else><p class="text-body-2">{{ canopyMissing(tract) }}</p><p class="text-caption mt-1">{{ canopyMissingExplanation(tract) }}</p></template>
         <p class="text-caption mt-2">{{ canopyTooltip(meta) }}</p>
+        <section class="canopy-gap-detail mt-3" aria-labelledby="canopy-gap-heading">
+          <h3 id="canopy-gap-heading" class="text-subtitle-2">Canopy gap</h3>
+          <template v-if="gapNull"><p class="text-body-2">{{ gapNull[0] }}</p><p class="text-caption mt-1">{{ gapNull[1] }}</p></template>
+          <template v-else-if="gap.canopyGapAcres != null">
+            <p class="text-h6 font-weight-bold">{{ gapNumber(gap.canopyGapAcres) }} {{ gapNumber(gap.canopyGapAcres) === '1' ? 'acre' : 'acres' }}<template v-if="gap.canopyGapAcres > 0"> short of target</template></p>
+            <p v-if="gap.canopyGapAcres === 0" class="text-body-2">At or above target</p>
+          </template>
+          <p class="text-caption mt-2">{{ gapTargetLine(ui.canopyGapTarget, gap.canopyTargetPct ?? null) }}</p>
+          <p v-if="gap.canopyGapPct != null" class="text-caption mt-1">Canopy-share gap: {{ gapNumber(gap.canopyGapPct) }} percentage {{ gapNumber(gap.canopyGapPct) === '1' ? 'point' : 'points' }}</p>
+          <p v-if="typeof gap.landAcres === 'number' && Number.isFinite(gap.landAcres) && gap.landAcres > 0" class="text-caption mt-1">Canopy sampling land area: {{ gapNumber(gap.landAcres) }} acres</p>
+          <p class="text-caption mt-2">Targets can be changed in Layers. Larger tracts can need more canopy acres even when their percentage-point gaps are smaller.</p>
+          <p class="text-caption mt-2">{{ GAP_CAUTION }}</p>
+        </section>
       </div>
       <v-row dense>
         <v-col cols="6">
@@ -321,7 +338,7 @@ function copyLink() {
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">{{ tract.areaAcres.toLocaleString() }} ac</div>
-          <div class="text-caption text-medium-emphasis">Land area (water excluded)</div>
+          <div class="text-caption text-medium-emphasis">Census land area (water excluded)</div>
         </v-col>
         <v-col cols="6">
           <div class="text-subtitle-1 font-weight-medium">#{{ tract.rank }} of {{ total }}</div>
@@ -378,6 +395,7 @@ function copyLink() {
         </template>
         <p v-else class="text-body-2 snapshot-trees-unavailable">{{ snapshotCanopyUnavailable(snapshot) }}</p>
         <p class="text-caption mt-2 snapshot-mapping-note">{{ canopyHelper(meta) }}</p>
+        <p v-if="gapSentence" class="text-caption mt-2 snapshot-gap">{{ gapSentence }}</p>
         <span role="status" aria-live="polite" aria-atomic="true" class="d-sr-only snapshot-status">{{ snapshotStatus }}</span>
       </section>
 
@@ -416,8 +434,8 @@ function copyLink() {
       <v-list-subheader v-if="tract.pctShortSleep != null">Adults sleeping under 7 hours · {{ tract.pctShortSleep.toFixed(1) }}%<template v-if="tract.pctShortSleepLo != null && tract.pctShortSleepHi != null"> (95% CI {{ tract.pctShortSleepLo.toFixed(1) }}–{{ tract.pctShortSleepHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctUninsured != null">Adults 18–64 with no health insurance · {{ tract.pctUninsured.toFixed(1) }}%<template v-if="tract.pctUninsuredLo != null && tract.pctUninsuredHi != null"> (95% CI {{ tract.pctUninsuredLo.toFixed(1) }}–{{ tract.pctUninsuredHi.toFixed(1) }})</template> · model estimate</v-list-subheader>
       <v-list-subheader v-if="tract.pctLep != null">Residents 5+ with limited English · {{ tract.pctLep.toFixed(1) }}%<template v-if="tract.pctLepMoe != null"> (±{{ tract.pctLepMoe.toFixed(1) }})</template><template v-if="tract.popLep != null"> · {{ tract.popLep.toLocaleString() }} residents</template></v-list-subheader>
-      <v-list-subheader v-if="tract.plantNeed != null">Planting need · {{ tract.plantNeed.toFixed(1) }} / 100<template v-if="tract.plantNeedParts"> (canopy gap {{ tract.plantNeedParts.T.toFixed(1) }} · poverty {{ tract.plantNeedParts.P.toFixed(1) }}<template v-if="tract.plantNeedParts.A != null"> · asthma {{ tract.plantNeedParts.A.toFixed(1) }}</template>)</template> · relative within this city</v-list-subheader>
-      <p v-if="tract.plantNeed != null" class="text-caption px-4 pb-2">Canopy gap is a relative score within this city, not the percentage of land without trees.</p>
+      <v-list-subheader v-if="tract.plantNeed != null">Planting need · {{ tract.plantNeed.toFixed(1) }} / 100<template v-if="tract.plantNeedParts"> (relative low-canopy score {{ tract.plantNeedParts.T.toFixed(1) }} · poverty {{ tract.plantNeedParts.P.toFixed(1) }}<template v-if="tract.plantNeedParts.A != null"> · asthma {{ tract.plantNeedParts.A.toFixed(1) }}</template>)</template> · relative within this city</v-list-subheader>
+      <p v-if="tract.plantNeed != null" class="text-caption px-4 pb-2">The relative low-canopy score is a 0–100 input to Planting need. It is not Canopy gap (acres), does not use the selected canopy target, and is not a percentage of land without trees.</p>
       <v-list-subheader v-if="tract.pctSnap != null">Households receiving SNAP · {{ tract.pctSnap.toFixed(1) }}%<template v-if="tract.pctSnapMoe != null"> (±{{ tract.pctSnapMoe.toFixed(1) }})</template><template v-if="tract.hhSnap != null"> · {{ tract.hhSnap.toLocaleString() }} households</template></v-list-subheader>
       <v-list-subheader v-if="tract.pctRentBurden != null">Renters paying ≥30% of income · {{ tract.pctRentBurden.toFixed(1) }}%<template v-if="tract.pctRentBurdenMoe != null"> (±{{ tract.pctRentBurdenMoe.toFixed(1) }})</template><template v-if="tract.pctSevereRentBurden != null"> · ≥50% {{ tract.pctSevereRentBurden.toFixed(1) }}%</template><template v-if="tract.rentBurdenBase != null"> · n={{ tract.rentBurdenBase.toLocaleString() }} renters</template></v-list-subheader>
       <v-list-subheader v-if="tract.pctNoVehicle != null">Households with no vehicle · {{ tract.pctNoVehicle.toFixed(1) }}%<template v-if="tract.pctNoVehicleMoe != null"> (±{{ tract.pctNoVehicleMoe.toFixed(1) }})</template></v-list-subheader>

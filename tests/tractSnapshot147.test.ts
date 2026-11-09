@@ -18,9 +18,9 @@ const approximately = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-1
 const score = (id: MetricId, values: unknown[], selected: number) => snapshotMetric(id, selected, values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v)).sort((a, b) => a - b))!
 beforeEach(() => resetTractSnapshotCache())
 
-test('#147 explicit allowlist, five exclusions and replaceable canopy registry id', () => {
+test('#147 explicit allowlist, seven exclusions and replaceable canopy registry id', () => {
   assert.deepEqual(SNAPSHOT_CANDIDATE_METRICS, ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'])
-  assert.deepEqual(SNAPSHOT_EXCLUDED_METRICS, ['canopy', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
+  assert.deepEqual(SNAPSHOT_EXCLUDED_METRICS, ['canopy', 'canopyGap', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
   assert.equal(SNAPSHOT_CANOPY_METRIC, 'canopy')
   assert.equal(METRICS[SNAPSHOT_CANOPY_METRIC].valueKey, 'canopyPct')
   assert.deepEqual(METRIC_IDS.filter(id => !SNAPSHOT_CANDIDATE_METRICS.includes(id)).sort(), [...SNAPSHOT_EXCLUDED_METRICS].sort())

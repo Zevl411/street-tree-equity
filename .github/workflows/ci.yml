@@ -30,4 +30,6 @@ jobs:
         run: npm run test:a11y
       - name: Tract snapshot keyboard and interaction a11y (headless Chrome)
         run: npm run test:a11y:snapshot
+      - name: Canopy-gap scenario keyboard, downloads and layout a11y (headless Chrome)
+        run: npm run test:a11y:gap
       - run: npm run test:unit

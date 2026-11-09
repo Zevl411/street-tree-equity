@@ -5,7 +5,7 @@ import { METRIC_IDS, METRIC_SWITCH_ORDER } from '../src/utils/metrics.ts'
 
 test('#143/#144 METRIC_SWITCH_ORDER matches the locked AFTER list', () => {
   assert.deepEqual(METRIC_SWITCH_ORDER, [
-    'canopy', 'trees', 'plantNeed', 'parks', 'groceries', 'risk', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'age65', 'under18',
+    'canopy', 'canopyGap', 'trees', 'plantNeed', 'parks', 'groceries', 'risk', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'age65', 'under18',
     'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured',
   ])
   assert.equal(new Set(METRIC_SWITCH_ORDER).size, METRIC_IDS.length)
