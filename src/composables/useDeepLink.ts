@@ -1,5 +1,6 @@
-import { DEFAULT_METRIC, normalizeMetric, resolveMetric, type MetricId } from '@/utils/metrics'
-import { encodeDualParam, parseDualParam, type DualPair } from '@/utils/dualParam'
+import { parseGapTarget, type GapTargetMode } from '../utils/canopyGap.ts'
+import { DEFAULT_METRIC, normalizeMetric, resolveMetric, type MetricId } from '../utils/metrics.ts'
+import { encodeDualParam, parseDualParam, type DualPair } from '../utils/dualParam.ts'
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
 import type { ChoroplethMode } from '@/utils/choropleth'
 
@@ -75,6 +76,7 @@ export interface DeepLink {
   unit: DensityUnit | null
   /** #97: always a registered metric (unknown → trees) */
   metric: MetricId
+  gapTarget: GapTargetMode
   /** #70: `hc=1` → contrast ramp; null when absent (keep stored mode). */
   hc: boolean | null
   /** #70 stretch: `legend=0|1`; null when absent. */
@@ -101,16 +103,19 @@ export function readDeepLink(search: string = window.location.search): DeepLink 
     bin: ((b) => (b !== null && /^\d{1,2}$/.test(b) ? Number(b) : null))(q.get('bin')),
     // #97: unknown / missing → trees
     metric: normalizeMetric(q.get('metric')),
+    gapTarget: parseGapTarget(q.get('gapTarget')),
     dual: parseDualParam(q.get('dual'), resolveMetric),
     unit: ((u) => (u === 'acre' || u === 'km2' ? u : null))(q.get('unit')?.trim().toLowerCase()),
   }
 }
 
 /** Rewrite the view params in place (no reload). Drops invalid/stale ones like `tract`. */
-export interface ShareFlags { choroplethMode?: ChoroplethMode; legend?: boolean | null; bin?: number | null }
+export interface ShareFlags { gapTarget?: GapTargetMode; choroplethMode?: ChoroplethMode; legend?: boolean | null; bin?: number | null }
 
 /** #70: shared hc/legend rules for writeDeepLink + tractShareUrl. */
 export function applyShareFlags(q: URLSearchParams, v: ShareFlags): void {
+  q.delete('gapTarget')
+  if (parseGapTarget(v.gapTarget) === '30') q.set('gapTarget', '30')
   q.delete('hc')
   q.delete('legend')
   q.delete('bin')

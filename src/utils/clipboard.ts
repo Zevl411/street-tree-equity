@@ -1,5 +1,5 @@
-import { applyShareFlags, encodeLayers, type LayerFlags, type ShareFlags } from '@/composables/useDeepLink'
-import { DEFAULT_METRIC, type MetricId } from '@/utils/metrics'
+import { applyShareFlags, encodeLayers, type LayerFlags, type ShareFlags } from '../composables/useDeepLink.ts'
+import { DEFAULT_METRIC, type MetricId } from './metrics.ts'
 import type { Basemap, DensityUnit, ThemeName } from '@/stores/ui'
 
 /** #47: copy text; Clipboard API first, then legacy execCommand. Never throws. */

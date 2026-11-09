@@ -1,3 +1,4 @@
+import { GAP_COLUMNS, gapCells, scenarioProps, type GapTargetMode } from '@/utils/canopyGap'
 import { dataUrl } from '@/composables/useData'
 import { cityMedian } from '@/utils/densityBins'
 import { ACRES_PER_KM2 } from '@/stores/ui'
@@ -36,12 +37,12 @@ export async function fetchTracts(dataPath: string): Promise<TractCollection> {
 }
 
 /** GeoJSON with properties trimmed to the CSV fields (nearestParks/centroid dropped). */
-export function toGeoJson(fc: TractCollection, meta: Meta): string {
+export function toGeoJson(fc: TractCollection, meta: Meta, mode: GapTargetMode = 'p75'): string {
   return JSON.stringify({
     type: 'FeatureCollection',
     attribution: ODBL_NOTICE,
     features: fc.features.map((f) => {
-      const t = f.properties
+      const t = scenarioProps(f.properties,meta,mode)
       return {
         type: 'Feature', geometry: f.geometry,
         properties: {
@@ -56,6 +57,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           pct_poverty: t.pctPoverty ?? null, pct_poverty_moe: t.pctPovertyMoe ?? null, pct_no_vehicle: t.pctNoVehicle ?? null, pct_no_vehicle_moe: t.pctNoVehicleMoe ?? null, pct_rent_burden: t.pctRentBurden ?? null, pct_rent_burden_moe: t.pctRentBurdenMoe ?? null, pct_severe_rent_burden: t.pctSevereRentBurden ?? null, pct_under_18: t.pctUnder18 ?? null, pct_under_18_moe: t.pctUnder18Moe ?? null, pop_under_18: t.popUnder18 ?? null, pct_age_65_plus: t.pctAge65Plus ?? null, pct_age_65_plus_moe: t.pctAge65PlusMoe ?? null, pop_65_plus: t.pop65Plus ?? null, pct_asthma: t.pctAsthma ?? null, pct_asthma_ci_lo: t.pctAsthmaLo ?? null, pct_asthma_ci_hi: t.pctAsthmaHi ?? null, pct_diabetes: t.pctDiabetes ?? null, pct_diabetes_ci_lo: t.pctDiabetesLo ?? null, pct_diabetes_ci_hi: t.pctDiabetesHi ?? null, pct_obesity: t.pctObesity ?? null, pct_obesity_ci_lo: t.pctObesityLo ?? null, pct_obesity_ci_hi: t.pctObesityHi ?? null, pct_mental_health: t.pctMentalHealth ?? null, pct_mental_health_ci_lo: t.pctMentalHealthLo ?? null, pct_mental_health_ci_hi: t.pctMentalHealthHi ?? null, pct_physical_health: t.pctPhysicalHealth ?? null, pct_physical_health_ci_lo: t.pctPhysicalHealthLo ?? null, pct_physical_health_ci_hi: t.pctPhysicalHealthHi ?? null, pct_chd: t.pctChd ?? null, pct_chd_ci_lo: t.pctChdLo ?? null, pct_chd_ci_hi: t.pctChdHi ?? null, pct_bphigh: t.pctBpHigh ?? null, pct_bphigh_ci_lo: t.pctBpHighLo ?? null, pct_bphigh_ci_hi: t.pctBpHighHi ?? null, pct_inactivity: t.pctInactivity ?? null, pct_inactivity_ci_lo: t.pctInactivityLo ?? null, pct_inactivity_ci_hi: t.pctInactivityHi ?? null, pct_copd: t.pctCopd ?? null, pct_copd_ci_lo: t.pctCopdLo ?? null, pct_copd_ci_hi: t.pctCopdHi ?? null, pct_smoking: t.pctSmoking ?? null, pct_smoking_ci_lo: t.pctSmokingLo ?? null, pct_smoking_ci_hi: t.pctSmokingHi ?? null, pct_stroke: t.pctStroke ?? null, pct_stroke_ci_lo: t.pctStrokeLo ?? null, pct_stroke_ci_hi: t.pctStrokeHi ?? null, pct_disability: t.pctDisability ?? null, pct_disability_ci_lo: t.pctDisabilityLo ?? null, pct_disability_ci_hi: t.pctDisabilityHi ?? null, pct_short_sleep: t.pctShortSleep ?? null, pct_short_sleep_ci_lo: t.pctShortSleepLo ?? null, pct_short_sleep_ci_hi: t.pctShortSleepHi ?? null, pct_uninsured: t.pctUninsured ?? null, pct_uninsured_ci_lo: t.pctUninsuredLo ?? null, pct_uninsured_ci_hi: t.pctUninsuredHi ?? null, pct_lep: t.pctLep ?? null, pct_lep_moe: t.pctLepMoe ?? null, pop_lep: t.popLep ?? null, pct_snap: t.pctSnap ?? null, pct_snap_moe: t.pctSnapMoe ?? null, hh_snap: t.hhSnap ?? null, plant_need: t.plantNeed ?? null, plant_need_canopy: t.plantNeedParts?.T ?? null, plant_need_poverty: t.plantNeedParts?.P ?? null, plant_need_asthma: t.plantNeedParts?.A ?? null,
           bike_km: t.bikeKm ?? null, transit_stops: t.transitStopsInside ?? null,
           sidewalk_km: t.sidewalkKm ?? null, canopy_pct: t.canopyPct ?? null,
+          ...Object.fromEntries(GAP_COLUMNS.map((key,i)=>[key,gapCells(t)[i]])),
         },
       }
     }),
@@ -94,7 +96,7 @@ export const toFavoritesCsv = (tracts: TractProps[], cityId: string, unit: 'acre
   toHotspotsCsv(tracts, cityId, unit)
 
 /** #78: every pack tract, slim analysis table; rank asc (nullish last), geoid tie-break. */
-export function toAllTractsCsv(tracts: TractProps[], cityId: string, unit: 'acre' | 'km2', starredGeoids: Iterable<string>): string {
+export function toAllTractsCsv(tracts: TractProps[], cityId: string, unit: 'acre' | 'km2', starredGeoids: Iterable<string>, meta: Meta = {} as Meta, mode: GapTargetMode = 'p75'): string {
   const median = cityMedian({ type: 'FeatureCollection', features: tracts.map((properties) => ({ properties })) } as unknown as TractCollection)
   const km2 = unit === 'km2'
   const starred = new Set(starredGeoids)
@@ -113,10 +115,10 @@ export function toAllTractsCsv(tracts: TractProps[], cityId: string, unit: 'acre
       Number.isFinite(t.rank) ? t.rank : '',
       delta === null ? '' : signed(delta, delta.toFixed(4)),
       pct === null ? '' : signed(pct, String(pct)),
-      starred.has(t.geoid) ? 'true' : 'false',
+      starred.has(t.geoid) ? 'true' : 'false', ...gapCells(scenarioProps(t,meta,mode)),
     ].map(cell).join(',')
   })
-  return ['geoid,city_id,density,density_unit,rank,vs_median,vs_median_pct,favorite', ...lines].join('\r\n') + '\r\n'
+  return [['geoid,city_id,density,density_unit,rank,vs_median,vs_median_pct,favorite', ...GAP_COLUMNS].join(','), ...lines].join('\r\n') + '\r\n'
 }
 
 export const PLANT_HERE_HEADERS = ['city_id', 'geoid', 'street_name', 'highway', 'length_m', 'length_mi'] as const

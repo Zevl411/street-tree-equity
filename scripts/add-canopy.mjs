@@ -4,8 +4,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import {execFileSync} from 'node:child_process'
-import {projectedGeometry,snappedGrid,zonalCanopy} from './lib/canopy.mjs'
+import {projectedGeometry,snappedGrid,zonalCanopy,samplingLandAcres} from './lib/canopy.mjs'
 import {checkFile} from './lib/size-guard.mjs'
+import {packP75} from '../src/utils/canopyGap.ts'
 import {densityBreaks} from './lib/geo-utils.mjs'
 const TCC='https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_EDW_NLCD_TCC_CONUS/ImageServer'
 const LC='https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wcs'
@@ -41,11 +42,15 @@ for(const dir of dirs) {
  const qa=JSON.parse(execFileSync(PY,['scripts/lib/canopy.raster.py',tcc,lc,`${cache}/grid.json`],{encoding:'utf8'}))
  console.log(`[canopy] ${id} alignment: ${JSON.stringify(qa)}`)
  const canopy=fs.readFileSync(tcc+'.bin'),mask=fs.readFileSync(lc+'.bin')
- const results=projected.features.map(f=>({geoid:f.properties.geoid,...zonalCanopy(f.geometry,grid,canopy,mask)}))
- for(let i=0;i<fc.features.length;i++){fc.features[i].properties.canopyPct=results[i].canopyPct;fc.features[i].properties.canopyStatus=results[i].canopyStatus}
+ const results=projected.features.map(f=>{const r=zonalCanopy(f.geometry,grid,canopy,mask);return {geoid:f.properties.geoid,...r,landAcres:samplingLandAcres(r)}})
+ fs.writeFileSync(`${cache}/support-input.json`,JSON.stringify(results))
+ execFileSync(PY,['scripts/lib/canopy.support.py',`${cache}/projected.geojson`,`${cache}/support-input.json`,`${cache}/support-bounds.json`],{stdio:'inherit'})
+ for(let i=0;i<fc.features.length;i++){fc.features[i].properties.canopyPct=results[i].canopyPct;fc.features[i].properties.canopyStatus=results[i].canopyStatus;fc.features[i].properties.landAcres=results[i].landAcres}
  const valid=results.filter(r=>r.canopyStatus==='ok'),weightedSum=valid.reduce((s,r)=>s+r.weightedSum,0),landArea=valid.reduce((s,r)=>s+r.validLandArea,0)
  const sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
  meta.canopy={source:'USFS NLCD Tree Canopy Cover',vintage:2025,resolution:30,version:'2025.6',sourceUrl:'https://data.fs.usda.gov/geodata/rastergateway/treecanopycover/',imageServer:TCC,rasterId:80,sha256:sha(tcc),waterMask:{source:'Annual NLCD Land Cover',vintage:2025,collection:'1.2',waterClass:11,sourceUrl:'https://doi.org/10.5066/P143HE8T',serviceUrl:LC,sha256:sha(lc)},method:'EPSG:5070 equal-area 30 m CONUS grid; pixel centers; <10 valid land centers use exact polygon/pixel overlap; class 11 excluded; >=99% overlap water null; overall exact valid-land overlap weighted',qa:{...qa,valid:valid.length,missing:results.filter(r=>r.canopyStatus==='missing').length,mostlyWater:results.filter(r=>r.canopyStatus==='mostly-water').map(r=>r.geoid),lowLand:results.filter(r=>r.landPixels<10).map(r=>r.geoid),validLandAreaM2:landArea,unobservedAreaM2:results.reduce((s,r)=>s+r.unobservedArea,0),excludedFraction:1-landArea/results.reduce((s,r)=>s+r.tractArea,0),invalidLandAreaM2:results.reduce((s,r)=>s+r.invalidLandArea,0),bytes:fs.statSync(tcc).size+fs.statSync(lc).size}}
+ meta.canopy.landAreaMethod='landAcres is the NLCD non-water sampling support and differs from Census land area.'
+ meta.canopyGap={version:1,defaultTarget:'p75',p75:packP75(fc),percentile:{type:7,p:0.75,nValid:valid.length,weighted:false},fixedTarget:30,landArea:{field:'landAcres',squareMetresPerAcre:4046.8564224,method:'canopy-estimator-support',centers:'valid non-water landPixels * 900 m2 when count >= 10',smallTracts:'fractional valid non-water overlap when count < 10'}}
  meta.metricBreaks={...meta.metricBreaks,canopy:densityBreaks(valid.map(r=>r.canopyPct),5)};meta.overall.canopyPct=landArea?weightedSum/landArea:null
  for(const [name,value] of [['tracts-equity.geojson',fc],['meta.json',meta]]) { const text=JSON.stringify(value);checkFile(`${dir}/${name}`,Buffer.byteLength(text));fs.writeFileSync(`${dir}/${name}`,text) }
  const report={id,cache,grid,qa:meta.canopy.qa,min:Math.min(...valid.map(r=>r.canopyPct)),max:Math.max(...valid.map(r=>r.canopyPct)),breaks:meta.metricBreaks.canopy,results};reports.push(report)

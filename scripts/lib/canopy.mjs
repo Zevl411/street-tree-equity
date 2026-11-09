@@ -58,17 +58,21 @@ export function zonalCanopy(g,grid,tcc,lc) {
   const [x0,y0,,y1]=grid.bbox, {width:w,height:h}=grid, b=geometryBounds([g])
   const minCol=Math.max(0,Math.floor((b[0]-x0)/30)),maxCol=Math.min(w-1,Math.floor((b[2]-x0)/30))
   const minRow=Math.max(0,Math.floor((y1-b[3])/30)),maxRow=Math.min(h-1,Math.floor((y1-b[1])/30))
-  let waterArea=0,maskArea=0,validLandArea=0,weightedSum=0,count=0,sum=0
+  let waterArea=0,maskArea=0,validLandArea=0,weightedSum=0,count=0,sum=0,totalPixels=0,totalOverlap=0
   const tractArea=geometryArea(g)
   for(let row=minRow;row<=maxRow;row++)for(let col=minCol;col<=maxCol;col++) {
     const i=row*w+col,x=x0+col*30,y=y1-row*30, v=tcc[i],cls=lc[i]
-    const a=Math.max(0,overlap(g,[x,y-30,x+30,y]));if(a<=1e-8)continue
+    const a=Math.max(0,overlap(g,[x,y-30,x+30,y]));totalOverlap+=a;if(contains(g,x+15,y-15))totalPixels++;if(a<=1e-8)continue
     if(cls===11||LAND_CLASSES.has(cls))maskArea+=a
     if(cls===11)waterArea+=a
     if(LAND_CLASSES.has(cls)&&v<=100){validLandArea+=a;weightedSum+=a*v;if(contains(g,x+15,y-15)){count++;sum+=v}}
   }
   const status=canopyStatus(waterArea,tractArea,maskArea,validLandArea)
   return { canopyPct:status==='ok'?(count<10?weightedSum/validLandArea:sum/count):null,canopyStatus:status,
-    landPixels:count,areaWeighted:count<10,waterShare:waterArea/tractArea,tractArea,maskArea,validLandArea,weightedSum,
+    totalPixels,totalOverlap,landPixels:count,areaWeighted:count<10,waterShare:waterArea/tractArea,tractArea,maskArea,validLandArea,weightedSum,
     unobservedArea:Math.max(0,tractArea-maskArea),invalidLandArea:Math.max(0,maskArea-waterArea-validLandArea) }
+}
+
+export function samplingLandAcres(result) {
+  return result.canopyStatus==='missing' ? null : (result.landPixels>=10 ? result.landPixels*900 : result.validLandArea)/4046.8564224
 }

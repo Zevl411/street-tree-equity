@@ -28,9 +28,9 @@ test('single scope: header order, CI cols for PLACES metric, all tracts sorted b
   assert.ok(!/[^\r]\n/.test(csv), 'no bare LF')
   assert.notEqual(csv.charCodeAt(0), 0xfeff, 'no BOM')
   const [h, r1, r2] = body(csv)
-  assert.equal(h, 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,metric_id,metric_label,metric_value,metric_unit,metric_ci_lo,metric_ci_hi')
-  assert.equal(r1, '41051000100,Tract 41051000100,1.2346,trees_per_acre,,copd,COPD,7.0,%,,')
-  assert.equal(r2, '41051000200,Tract 41051000200,1.2346,trees_per_acre,,copd,COPD,6.0,%,5.5,6.6')
+  assert.equal(h, 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,land_acres,canopy_target_mode,canopy_target_pct,canopy_gap_pct,canopy_gap_acres,metric_id,metric_label,metric_value,metric_unit,metric_ci_lo,metric_ci_hi')
+  assert.equal(r1, '41051000100,Tract 41051000100,1.2346,trees_per_acre,,,p75,,,,copd,COPD,7.0,%,,')
+  assert.equal(r2, '41051000200,Tract 41051000200,1.2346,trees_per_acre,,,p75,,,,copd,COPD,6.0,%,5.5,6.6')
 })
 
 test('single scope: no CI / MOE columns when metric has none; MOE only for ACS metrics', () => {
@@ -39,17 +39,17 @@ test('single scope: no CI / MOE columns when metric has none; MOE only for ACS m
   assert.equal(metricHasCi('copd'), true)
   assert.equal(metricHasMoe('poverty'), true)
   const t = body(toCurrentViewCsv({ rows: v(tract('1')), metrics: ['trees'], unit: 'km2', comments: [] }))
-  assert.equal(t[0], 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,metric_id,metric_label,metric_value,metric_unit')
+  assert.equal(t[0], 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,land_acres,canopy_target_mode,canopy_target_pct,canopy_gap_pct,canopy_gap_acres,metric_id,metric_label,metric_value,metric_unit')
   // trees: canopy and metric_value intentionally duplicate (km² 2 dp)
-  assert.equal(t[1], '1,Tract 1,305.07,trees_per_km2,,trees,Mapped street trees (OSM),305.07,trees_per_km2')
+  assert.equal(t[1], '1,Tract 1,305.07,trees_per_km2,,,p75,,,,trees,Mapped street trees (OSM),305.07,trees_per_km2')
   const p = body(toCurrentViewCsv({ rows: v(tract('1', { pctPoverty: 12.34, pctPovertyMoe: 3.21 })), metrics: ['poverty'], unit: 'acre', comments: [] }))
-  assert.equal(p[0], 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,metric_id,metric_label,metric_value,metric_unit,metric_moe')
+  assert.equal(p[0], 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,land_acres,canopy_target_mode,canopy_target_pct,canopy_gap_pct,canopy_gap_acres,metric_id,metric_label,metric_value,metric_unit,metric_moe')
   assert.match(p[1], /,poverty,[^,]+,12\.3,%,3\.2$/)
 })
 
 test('null / non-finite → empty cells; currency integer USD without $ or grouping; percent share → points', () => {
   const r = body(toCurrentViewCsv({ rows: v(tract('1', { treesPerAcre: Number.NaN, treesPerKm2: null, medianIncome: 123456.7, medianIncomeMoe: 9876.4 })), metrics: ['income'], unit: 'acre', comments: [] }))[1]
-  assert.match(r, /^1,Tract 1,,trees_per_acre,,income,[^,]+,123457,USD,9876$/)
+  assert.match(r, /^1,Tract 1,,trees_per_acre,,,p75,,,,income,[^,]+,123457,USD,9876$/)
   const f = body(toCurrentViewCsv({ rows: v(tract('1', { foodAccessLowShare: 0.4567 })), metrics: ['foodAccess'], unit: 'acre', comments: [] }))[1]
   assert.match(f, /,45\.7,%$/)
   const missing = body(toCurrentViewCsv({ rows: v(tract('1')), metrics: ['copd'], unit: 'acre', comments: [] }))[1]
@@ -63,8 +63,8 @@ test('dual scope: a = left, b = right; CI slots emitted for both sides when eith
     metrics: ['trees', 'copd'], unit: 'acre', comments: [],
   })
   const [h, r] = body(csv)
-  assert.equal(h, 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,metric_a_id,metric_a_label,metric_a_value,metric_a_unit,metric_a_ci_lo,metric_a_ci_hi,metric_b_id,metric_b_label,metric_b_value,metric_b_unit,metric_b_ci_lo,metric_b_ci_hi')
-  assert.equal(r, '1,Tract 1,1.2346,trees_per_acre,,trees,Mapped street trees (OSM),1.2346,trees_per_acre,,,copd,COPD,6.0,%,5.5,6.6')
+  assert.equal(h, 'geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,land_acres,canopy_target_mode,canopy_target_pct,canopy_gap_pct,canopy_gap_acres,metric_a_id,metric_a_label,metric_a_value,metric_a_unit,metric_a_ci_lo,metric_a_ci_hi,metric_b_id,metric_b_label,metric_b_value,metric_b_unit,metric_b_ci_lo,metric_b_ci_hi')
+  assert.equal(r, '1,Tract 1,1.2346,trees_per_acre,,,p75,,,,trees,Mapped street trees (OSM),1.2346,trees_per_acre,,,copd,COPD,6.0,%,5.5,6.6')
   assert.equal(viewScope(['trees', 'copd']), 'view-trees-copd')
 })
 
@@ -79,7 +79,7 @@ test('compare scope: city_id + city_name lead; city A rows then city B (on-scree
     metrics: ['copd'], unit: 'acre', comments: [], compare: true,
   })
   const b = body(csv)
-  assert.equal(b[0], 'city_id,city_name,geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,metric_id,metric_label,metric_value,metric_unit,metric_ci_lo,metric_ci_hi')
+  assert.equal(b[0], 'city_id,city_name,geoid,tract_name,mapped_street_trees,mapped_street_trees_unit,canopy_pct,land_acres,canopy_target_mode,canopy_target_pct,canopy_gap_pct,canopy_gap_acres,metric_id,metric_label,metric_value,metric_unit,metric_ci_lo,metric_ci_hi')
   assert.deepEqual(b.slice(1).map((l) => l.split(',')[0] + ':' + l.match(/,(\d{11}),/)![1]), ['tampa-fl:12057000100', 'tampa-fl:12057000200', 'portland-or:41051000100', 'portland-or:41051000200'])
   // "Tampa, FL" / "Portland, OR" contain a comma → RFC 4180 quoted
   assert.ok(b[1].startsWith('tampa-fl,"Tampa, FL",12057000100,'))
@@ -103,8 +103,8 @@ test('formula-injection guard: text cells only; numeric -0.4 stays an unquoted n
   assert.equal(textCell('Tract 1'), 'Tract 1')
   const r = body(toCurrentViewCsv({ rows: v(tract('1', { name: '=HYPERLINK("x")', nriRiskScore: -0.4 })), metrics: ['risk'], unit: 'acre', comments: [] }))[1].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
   assert.equal(r[1], `"'=HYPERLINK(""x"")"`)
-  assert.equal(r[7], '-0.4')
-  assert.equal(r[8], 'score')
+  assert.equal(r[12], '-0.4')
+  assert.equal(r[13], 'score')
   const neg = body(toCurrentViewCsv({ rows: v(tract('1', { plantNeed: -3 })), metrics: ['plantNeed'], unit: 'acre', comments: [] }))[1]
   assert.match(neg, /,-3,index$/)
 })

@@ -118,6 +118,7 @@ function fillColor(): ExpressionSpecification {
   const colors = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value)
   const expr: unknown[] = ['step', ['to-number', ['get', pm.value.valueKey], -1], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
+  if (pm.value.id === 'canopyGap') return ['case', ['all', ['==', ['typeof', ['get', 'canopyGapAcres']], 'number'], ['>=', ['to-number', ['get', 'canopyGapAcres'], -1], 0], ['<=', ['to-number', ['get', 'canopyGapAcres'], -1], Number.MAX_VALUE]], expr, isDark.value ? '#666666' : '#b8b8b8'] as unknown as ExpressionSpecification
   if (pm.value.id === 'canopy') return ['case', ['all', ['==', ['typeof', ['get', 'canopyPct']], 'number'], ['>=', ['to-number', ['get', 'canopyPct'], -1], 0], ['<=', ['to-number', ['get', 'canopyPct'], 101], 100]], expr, isDark.value ? '#666666' : '#b8b8b8'] as unknown as ExpressionSpecification
   return expr as ExpressionSpecification
 }
@@ -708,7 +709,12 @@ watch(fillOpacity, refreshTractOpacity)
 watch(belowMedian, refreshTractOpacity)
 watch(densityBinIndex, refreshTractOpacity)
 watch(() => [props.hotspotsOpen, props.hotspotGeoids], refreshTractOpacity)
-watch(() => props.tracts, refreshTractOpacity)
+watch(() => props.tracts, fc => {
+  // Scenario-only data replacement preserves this map, feature-state, camera and selection.
+  const source=map?.getSource('tracts') as maplibregl.GeoJSONSource | undefined
+  source?.setData(fc)
+  refreshTractOpacity()
+})
 // #98: metric switch repaints fill + opacity (meta prop swaps breaks/colors).
 watch(() => [pm.value.id, props.meta], () => {
   if (map?.getLayer('tracts-fill')) map.setPaintProperty('tracts-fill', 'fill-color', fillColor())

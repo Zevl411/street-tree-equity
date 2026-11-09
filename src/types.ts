@@ -17,6 +17,11 @@ export interface TractProps {
   areaAcres: number
   areaKm2: number
   /** #148 satellite-model percent over non-water land; zero is valid, null is not zero. */
+  landAcres?: number | null
+  canopyGapAcres?: number | null
+  canopyGapPct?: number | null
+  canopyTargetPct?: number | null
+  canopyTargetMode?: 'p75' | '30'
   canopyPct?: number | null
   canopyStatus?: 'ok' | 'missing' | 'mostly-water'
   treesPerAcre: number
@@ -147,7 +152,7 @@ export interface TractProps {
   hhSnap?: number
   /** #124: 0–100 planting-need composite (pack min-max; equal weights) + rescaled parts */
   plantNeed?: number
-  /** T is the relative canopy-gap component (compatibility key, not mapped trees). */
+  /** T is the relative low-canopy score (compatibility key, not mapped trees). */
   plantNeedParts?: { T: number; P: number; A?: number }
   diabetesAdultPop?: number
   nriSoviScore?: number
@@ -226,12 +231,15 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; fountains?: number; postOffices?: number; playgrounds?: number; toilets?: number; benches?: number; pharmacies?: number; clinics?: number; hospitals?: number; fireStations?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
-  overall: { canopyPct?: number | null; treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctInactivity?: number | null; pctInactivityMedian?: number | null; pctCopd?: number | null; pctCopdMedian?: number | null; pctSmoking?: number | null; pctSmokingMedian?: number | null; pctStroke?: number | null; pctStrokeMedian?: number | null; pctDisability?: number | null; pctDisabilityMedian?: number | null; pctShortSleep?: number | null; pctShortSleepMedian?: number | null; pctUninsured?: number | null; pctUninsuredMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
+  overall: { canopyGapAcres?: number | null; canopyPct?: number | null; treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctInactivity?: number | null; pctInactivityMedian?: number | null; pctCopd?: number | null; pctCopdMedian?: number | null; pctSmoking?: number | null; pctSmokingMedian?: number | null; pctStroke?: number | null; pctStrokeMedian?: number | null; pctDisability?: number | null; pctDisabilityMedian?: number | null; pctShortSleep?: number | null; pctShortSleepMedian?: number | null; pctUninsured?: number | null; pctUninsuredMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { canopy?: number[]; parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; inactivity?: number[]; copd?: number[]; smoking?: number[]; stroke?: number[]; disability?: number[]; shortSleep?: number[]; uninsured?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
+  metricBreaks?: { canopyGap?: number[]; canopy?: number[]; parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; inactivity?: number[]; copd?: number[]; smoking?: number[]; stroke?: number[]; disability?: number[]; shortSleep?: number[]; uninsured?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
   /** #148 build-only provenance and coverage; no raw rasters ship. */
+  canopyGapTarget?: { mode: 'p75' | '30'; target: number | null; nValid: number }
+  canopyGap?: { version: 1; defaultTarget: 'p75'; p75: number | null; percentile: { type: 7; p: number; nValid: number; weighted: false }; fixedTarget: 30; landArea: { field: 'landAcres'; squareMetresPerAcre: number; method: 'canopy-estimator-support'; centers: string; smallTracts: string } }
   canopy?: {
+    landAreaMethod?: string
     source: string; vintage?: number; resolution?: number; version?: string; sourceUrl?: string
     imageServer?: string; rasterId?: number; sha256?: string; method?: string
     waterMask?: { source: string; vintage?: number; collection?: string; waterClass?: number; sourceUrl?: string; serviceUrl?: string; sha256?: string }

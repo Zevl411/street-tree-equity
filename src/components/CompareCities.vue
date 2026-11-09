@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canopyGapView } from '@/utils/canopyGap'
 import { computed, ref, watch } from 'vue'
 import { VBottomSheet, VDialog } from 'vuetify/components'
 import { storeToRefs } from 'pinia'
@@ -35,11 +36,13 @@ interface Stats {
 const loading = ref(false)
 const failed = ref(false)
 /** #139: each side also keeps its loaded meta + tract props for the compare-view CSV. */
+interface RawSide { id:string; name:string; meta:Meta; collection:TractCollection }
 interface Side { id: string; name: string; s: Stats; meta: Meta; props: TractProps[] }
-const result = ref<{ a: Side; b: Side } | null>(null)
+const rawResult = ref<{a:RawSide;b:RawSide}|null>(null)
+const result = computed(() => rawResult.value ? {a:deriveStats(rawResult.value.a),b:deriveStats(rawResult.value.b)} : null)
 
 function defaults() {
-  result.value = null
+  rawResult.value = null
   failed.value = false
   if (props.initial) { [a.value, b.value] = props.initial; return }
   const ids = ready.value.map((c) => c.id)
@@ -62,13 +65,18 @@ function medMean(xs: number[]): { median: number | null; mean: number | null } {
   return { median: v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2, mean: v.reduce((s, n) => s + n, 0) / v.length }
 }
 
-async function stats(id: string): Promise<Side> {
+async function stats(id: string): Promise<RawSide> {
   const c = ready.value.find((x) => x.id === id)
   if (!c) throw new Error('unknown city')
   const [meta, tracts] = await Promise.all([
     getJson<Meta>(dataUrl('meta.json', c.dataPath)),
     getJson<TractCollection>(dataUrl('tracts-equity.geojson', c.dataPath)),
   ])
+  return {id:c.id,name:c.cityName,meta,collection:tracts}
+}
+function deriveStats(side:RawSide):Side {
+  const view=canopyGapView(side.collection,side.meta,ui.canopyGapTarget)
+  const meta=view.meta,tracts=view.collection
   const props = tracts.features.map((f) => f.properties)
   // #98: stats follow the active metric value key (acre math; km² = × ACRES_PER_KM2).
   const key = ui.metric.valueKey
@@ -87,8 +95,8 @@ async function stats(id: string): Promise<Side> {
   const hasBq = props.some((p) => typeof p.bottomQuartile === 'boolean')
   const roads = props.map((p) => p.roadKm).filter((n): n is number => typeof n === 'number')
   return {
-    id: c.id,
-    name: c.cityName,
+    id: side.id,
+    name: side.name,
     meta,
     props,
     s: {
@@ -101,17 +109,16 @@ async function stats(id: string): Promise<Side> {
   }
 }
 
-// #98: re-run an open comparison when the metric flips.
-watch(() => ui.activeMetric, () => { if (result.value) compare() })
+// #149: target/metric changes derive from the loaded sides; no refetch or dialog changes.
 
 async function compare() {
   if (!canCompare.value) return
   loading.value = true
   failed.value = false
-  result.value = null
+  rawResult.value = null
   try {
     const [ra, rb] = await Promise.all([stats(a.value!), stats(b.value!)])
-    result.value = { a: ra, b: rb }
+    rawResult.value = { a: ra, b: rb }
   } catch {
     failed.value = true
   } finally {
@@ -162,10 +169,10 @@ function exportCompareCsv() {
     const url = new URL(window.location.href)
     url.searchParams.set('compare', `${r.a.id},${r.b.id}`)
     const csv = toCurrentViewCsv({
-      rows: [r.a, r.b].flatMap((side) => side.props.map((p) => ({ cityId: side.id, cityName: side.meta.cityName, props: p }))),
-      metrics: ids,
+      rows: [r.a, r.b].flatMap((side) => side.props.map((p) => ({ cityId: side.id, cityName: side.meta.cityName, meta: side.meta, props: p }))),
+      metrics: ids, gapTarget: ui.canopyGapTarget,
       unit: ui.densityUnit === 'km2' ? 'km2' : 'acre',
-      comments: currentViewComments([{ id: r.a.id, meta: r.a.meta }, { id: r.b.id, meta: r.b.meta }], ids, url.href),
+      comments: currentViewComments([{ id: r.a.id, meta: r.a.meta }, { id: r.b.id, meta: r.b.meta }], ids, url.href, undefined, ui.canopyGapTarget),
       compare: true,
     })
     const name = exportFilename(r.a.id, viewScope(ids, true), 'csv')
