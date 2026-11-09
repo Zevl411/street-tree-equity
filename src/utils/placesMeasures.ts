@@ -19,6 +19,7 @@ export const PLACES_MEASURES: Partial<Record<MetricId, PlacesEntry>> = {
   copd: ['COPD', 'Chronic obstructive pulmonary disease (COPD) among adults', 'COPD'],
   smoking: ['CSMOKING', 'Current cigarette smoking among adults', 'current cigarette smoking'],
   stroke: ['STROKE', 'Stroke among adults', 'stroke'],
+  disability: ['DISABILITY', 'Any disability among adults', 'any disability'],
 }
 
 /** PLACES metric ids in map (registry) order. */

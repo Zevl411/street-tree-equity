@@ -6,79 +6,12 @@ import type { Meta, TractCollection, TractProps } from '@/types'
 import { cell, ymd } from '@/utils/currentViewCsv'
 export { CSV_VIEW_TOOLTIP, cell, CRLF, toCurrentViewCsv, currentViewComments, viewScope, metricHasCi, metricHasMoe } from '@/utils/currentViewCsv'
 
-/** #23 client-side export. Blob download only — no server endpoint. */
-export const CSV_HEADERS = [
-  'geoid', 'tract_name', 'county', 'tree_count', 'trees_per_acre', 'trees_per_km2', 'area_acres', 'area_km2',
-  'rank', 'percentile', 'bottom_quartile', 'parks_inside', 'road_km', 'low_tree_road_km', 'low_tree_road_pct',
-  'city_name', 'subtitle', 'census_vintage', 'generated_at',
-  // #98 soft: parks metric (appended; trees columns unchanged)
-  'parks_per_acre', 'park_area_acres',
-  // #99 soft: groceries metric (appended)
-  'groceries_per_acre',
-  // #100 soft: FEMA NRI (appended)
-  'nri_risk_score', 'nri_risk_rating', 'nri_sovi_score', 'median_income',
-  // #106 soft: USDA SRAM 2025
-  'food_access_low_share', 'food_access_low_share_1mi', 'food_access_lila',
-  // #107 soft: ACS B17001
-  'pct_poverty', 'pct_poverty_moe',
-  // #109 soft: ACS B08201
-  'pct_no_vehicle', 'pct_no_vehicle_moe',
-  // #111 soft: ACS B25070
-  'pct_rent_burden', 'pct_rent_burden_moe', 'pct_severe_rent_burden',
-  // #115 soft: ACS B01001
-  'pct_under_18', 'pct_under_18_moe', 'pop_under_18', 'pct_age_65_plus', 'pct_age_65_plus_moe', 'pop_65_plus',
-  // #117 soft: CDC PLACES CASTHMA
-  'pct_asthma', 'pct_asthma_ci_lo', 'pct_asthma_ci_hi',
-  // #119 soft: CDC PLACES DIABETES
-  'pct_diabetes', 'pct_diabetes_ci_lo', 'pct_diabetes_ci_hi',
-  // #121 soft: CDC PLACES OBESITY
-  'pct_obesity', 'pct_obesity_ci_lo', 'pct_obesity_ci_hi',
-  // #125 soft: CDC PLACES MHLTH
-  'pct_mental_health', 'pct_mental_health_ci_lo', 'pct_mental_health_ci_hi',
-  // #127 soft: CDC PLACES PHLTH
-  'pct_physical_health', 'pct_physical_health_ci_lo', 'pct_physical_health_ci_hi',
-  // #129 soft: CDC PLACES CHD
-  'pct_chd', 'pct_chd_ci_lo', 'pct_chd_ci_hi',
-  // #131 soft: CDC PLACES BPHIGH
-  'pct_bphigh', 'pct_bphigh_ci_lo', 'pct_bphigh_ci_hi',
-  // #133 soft: CDC PLACES LPA / inactivity
-  'pct_inactivity', 'pct_inactivity_ci_lo', 'pct_inactivity_ci_hi',
-  // #136 soft: CDC PLACES COPD
-  'pct_copd', 'pct_copd_ci_lo', 'pct_copd_ci_hi',
-  // #138 soft: CDC PLACES CSMOKING
-  'pct_smoking', 'pct_smoking_ci_lo', 'pct_smoking_ci_hi',
-  // #141 soft: CDC PLACES STROKE
-  'pct_stroke', 'pct_stroke_ci_lo', 'pct_stroke_ci_hi',
-  // #120 soft: ACS B16004
-  'pct_lep', 'pct_lep_moe', 'pop_lep',
-  // #123 soft: ACS B22001
-  'pct_snap', 'pct_snap_moe', 'hh_snap', 'plant_need', 'plant_need_trees', 'plant_need_poverty', 'plant_need_asthma',
-  // #104 soft: mobility overlays
-  'bike_km', 'transit_stops',
-  // #110 soft
-  'sidewalk_km',
-] as const
+// #23 full CSV (headers + row) lives in the pure fullCsv module (node-testable); re-exported for callers.
+export { CSV_HEADERS, PLACES_EXPORT, csvRow, toCsv } from '@/utils/fullCsv'
 
 export const ODBL_NOTICE =
   'Includes OpenStreetMap-derived values (ODbL). © OSM contributors. Tracts: U.S. Census Bureau.'
 
-
-function row(t: TractProps, meta: Meta): string {
-  return [
-    t.geoid, t.name, t.county, t.treeCount, t.treesPerAcre, t.treesPerKm2, t.areaAcres, t.areaKm2,
-    t.rank, t.percentile, t.bottomQuartile, t.parksInside, t.roadKm, t.lowTreeRoadKm, t.lowTreeRoadPct,
-    meta.cityName, meta.subtitle, meta.censusVintage, meta.generatedAt,
-    t.parksPerAcre, t.parkAreaAcres, t.groceriesPerAcre,
-    t.nriRiskScore, t.nriRiskRating, t.nriSoviScore, t.medianIncome,
-    t.foodAccessLowShare, t.foodAccessLowShare1mi, t.foodAccessLila, t.pctPoverty, t.pctPovertyMoe, t.pctNoVehicle, t.pctNoVehicleMoe, t.pctRentBurden, t.pctRentBurdenMoe, t.pctSevereRentBurden, t.pctUnder18, t.pctUnder18Moe, t.popUnder18, t.pctAge65Plus, t.pctAge65PlusMoe, t.pop65Plus, t.pctAsthma, t.pctAsthmaLo, t.pctAsthmaHi, t.pctDiabetes, t.pctDiabetesLo, t.pctDiabetesHi, t.pctObesity, t.pctObesityLo, t.pctObesityHi, t.pctMentalHealth, t.pctMentalHealthLo, t.pctMentalHealthHi, t.pctPhysicalHealth, t.pctPhysicalHealthLo, t.pctPhysicalHealthHi, t.pctChd, t.pctChdLo, t.pctChdHi, t.pctLep, t.pctLepMoe, t.popLep, t.pctSnap, t.pctSnapMoe, t.hhSnap, t.plantNeed, t.plantNeedParts?.T, t.plantNeedParts?.P, t.plantNeedParts?.A,
-    t.bikeKm, t.transitStopsInside,
-    t.sidewalkKm,
-  ].map(cell).join(',')
-}
-
-/** Header row first (exact Designer order); ODbL notice is shown in the UI, not in the CSV. */
-export const toCsv = (tracts: TractProps[], meta: Meta) =>
-  [CSV_HEADERS.join(','), ...tracts.map((t) => row(t, meta))].join('\r\n') + '\r\n'
 
 export function exportFilename(cityId: string, scope: string, ext: 'csv' | 'geojson', d = new Date()): string {
   return `street-tree-equity_${cityId}_${scope}_${ymd(d)}.${ext}`
@@ -120,7 +53,7 @@ export function toGeoJson(fc: TractCollection, meta: Meta): string {
           parks_per_acre: t.parksPerAcre ?? null, park_area_acres: t.parkAreaAcres ?? null, groceries_per_acre: t.groceriesPerAcre ?? null,
           nri_risk_score: t.nriRiskScore ?? null, nri_risk_rating: t.nriRiskRating ?? null, nri_sovi_score: t.nriSoviScore ?? null, median_income: t.medianIncome ?? null,
           food_access_low_share: t.foodAccessLowShare ?? null, food_access_low_share_1mi: t.foodAccessLowShare1mi ?? null, food_access_lila: t.foodAccessLila ?? null,
-          pct_poverty: t.pctPoverty ?? null, pct_poverty_moe: t.pctPovertyMoe ?? null, pct_no_vehicle: t.pctNoVehicle ?? null, pct_no_vehicle_moe: t.pctNoVehicleMoe ?? null, pct_rent_burden: t.pctRentBurden ?? null, pct_rent_burden_moe: t.pctRentBurdenMoe ?? null, pct_severe_rent_burden: t.pctSevereRentBurden ?? null, pct_under_18: t.pctUnder18 ?? null, pct_under_18_moe: t.pctUnder18Moe ?? null, pop_under_18: t.popUnder18 ?? null, pct_age_65_plus: t.pctAge65Plus ?? null, pct_age_65_plus_moe: t.pctAge65PlusMoe ?? null, pop_65_plus: t.pop65Plus ?? null, pct_asthma: t.pctAsthma ?? null, pct_asthma_ci_lo: t.pctAsthmaLo ?? null, pct_asthma_ci_hi: t.pctAsthmaHi ?? null, pct_diabetes: t.pctDiabetes ?? null, pct_diabetes_ci_lo: t.pctDiabetesLo ?? null, pct_diabetes_ci_hi: t.pctDiabetesHi ?? null, pct_obesity: t.pctObesity ?? null, pct_obesity_ci_lo: t.pctObesityLo ?? null, pct_obesity_ci_hi: t.pctObesityHi ?? null, pct_mental_health: t.pctMentalHealth ?? null, pct_mental_health_ci_lo: t.pctMentalHealthLo ?? null, pct_mental_health_ci_hi: t.pctMentalHealthHi ?? null, pct_physical_health: t.pctPhysicalHealth ?? null, pct_physical_health_ci_lo: t.pctPhysicalHealthLo ?? null, pct_physical_health_ci_hi: t.pctPhysicalHealthHi ?? null, pct_chd: t.pctChd ?? null, pct_chd_ci_lo: t.pctChdLo ?? null, pct_chd_ci_hi: t.pctChdHi ?? null, pct_bphigh: t.pctBpHigh ?? null, pct_bphigh_ci_lo: t.pctBpHighLo ?? null, pct_bphigh_ci_hi: t.pctBpHighHi ?? null, pct_inactivity: t.pctInactivity ?? null, pct_inactivity_ci_lo: t.pctInactivityLo ?? null, pct_inactivity_ci_hi: t.pctInactivityHi ?? null, pct_copd: t.pctCopd ?? null, pct_copd_ci_lo: t.pctCopdLo ?? null, pct_copd_ci_hi: t.pctCopdHi ?? null, pct_smoking: t.pctSmoking ?? null, pct_smoking_ci_lo: t.pctSmokingLo ?? null, pct_smoking_ci_hi: t.pctSmokingHi ?? null, pct_stroke: t.pctStroke ?? null, pct_stroke_ci_lo: t.pctStrokeLo ?? null, pct_stroke_ci_hi: t.pctStrokeHi ?? null, pct_lep: t.pctLep ?? null, pct_lep_moe: t.pctLepMoe ?? null, pop_lep: t.popLep ?? null, pct_snap: t.pctSnap ?? null, pct_snap_moe: t.pctSnapMoe ?? null, hh_snap: t.hhSnap ?? null, plant_need: t.plantNeed ?? null, plant_need_trees: t.plantNeedParts?.T ?? null, plant_need_poverty: t.plantNeedParts?.P ?? null, plant_need_asthma: t.plantNeedParts?.A ?? null,
+          pct_poverty: t.pctPoverty ?? null, pct_poverty_moe: t.pctPovertyMoe ?? null, pct_no_vehicle: t.pctNoVehicle ?? null, pct_no_vehicle_moe: t.pctNoVehicleMoe ?? null, pct_rent_burden: t.pctRentBurden ?? null, pct_rent_burden_moe: t.pctRentBurdenMoe ?? null, pct_severe_rent_burden: t.pctSevereRentBurden ?? null, pct_under_18: t.pctUnder18 ?? null, pct_under_18_moe: t.pctUnder18Moe ?? null, pop_under_18: t.popUnder18 ?? null, pct_age_65_plus: t.pctAge65Plus ?? null, pct_age_65_plus_moe: t.pctAge65PlusMoe ?? null, pop_65_plus: t.pop65Plus ?? null, pct_asthma: t.pctAsthma ?? null, pct_asthma_ci_lo: t.pctAsthmaLo ?? null, pct_asthma_ci_hi: t.pctAsthmaHi ?? null, pct_diabetes: t.pctDiabetes ?? null, pct_diabetes_ci_lo: t.pctDiabetesLo ?? null, pct_diabetes_ci_hi: t.pctDiabetesHi ?? null, pct_obesity: t.pctObesity ?? null, pct_obesity_ci_lo: t.pctObesityLo ?? null, pct_obesity_ci_hi: t.pctObesityHi ?? null, pct_mental_health: t.pctMentalHealth ?? null, pct_mental_health_ci_lo: t.pctMentalHealthLo ?? null, pct_mental_health_ci_hi: t.pctMentalHealthHi ?? null, pct_physical_health: t.pctPhysicalHealth ?? null, pct_physical_health_ci_lo: t.pctPhysicalHealthLo ?? null, pct_physical_health_ci_hi: t.pctPhysicalHealthHi ?? null, pct_chd: t.pctChd ?? null, pct_chd_ci_lo: t.pctChdLo ?? null, pct_chd_ci_hi: t.pctChdHi ?? null, pct_bphigh: t.pctBpHigh ?? null, pct_bphigh_ci_lo: t.pctBpHighLo ?? null, pct_bphigh_ci_hi: t.pctBpHighHi ?? null, pct_inactivity: t.pctInactivity ?? null, pct_inactivity_ci_lo: t.pctInactivityLo ?? null, pct_inactivity_ci_hi: t.pctInactivityHi ?? null, pct_copd: t.pctCopd ?? null, pct_copd_ci_lo: t.pctCopdLo ?? null, pct_copd_ci_hi: t.pctCopdHi ?? null, pct_smoking: t.pctSmoking ?? null, pct_smoking_ci_lo: t.pctSmokingLo ?? null, pct_smoking_ci_hi: t.pctSmokingHi ?? null, pct_stroke: t.pctStroke ?? null, pct_stroke_ci_lo: t.pctStrokeLo ?? null, pct_stroke_ci_hi: t.pctStrokeHi ?? null, pct_disability: t.pctDisability ?? null, pct_disability_ci_lo: t.pctDisabilityLo ?? null, pct_disability_ci_hi: t.pctDisabilityHi ?? null, pct_lep: t.pctLep ?? null, pct_lep_moe: t.pctLepMoe ?? null, pop_lep: t.popLep ?? null, pct_snap: t.pctSnap ?? null, pct_snap_moe: t.pctSnapMoe ?? null, hh_snap: t.hhSnap ?? null, plant_need: t.plantNeed ?? null, plant_need_trees: t.plantNeedParts?.T ?? null, plant_need_poverty: t.plantNeedParts?.P ?? null, plant_need_asthma: t.plantNeedParts?.A ?? null,
           bike_km: t.bikeKm ?? null, transit_stops: t.transitStopsInside ?? null,
           sidewalk_km: t.sidewalkKm ?? null,
         },
