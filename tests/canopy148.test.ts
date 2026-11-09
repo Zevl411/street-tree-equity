@@ -34,12 +34,12 @@ function parse(csv:string):string[][] {
 }
 const polygon=(x0:number,y0:number,x1:number,y1:number)=>({type:'Polygon',coordinates:[[[x0,y0],[x1,y0],[x1,y1],[x0,y1],[x0,y0]]]})
 const score=(values:number[],x:number)=>snapshotMetric('canopy',x,[...values].sort((a,b)=>a-b))!
-test('#148 registry default, exact aliases, collisions and 30-id order',()=>{
+test('#148 registry default, exact aliases, collisions and 32-id order',()=>{
  assert.equal(DEFAULT_METRIC,'canopy');for(const s of [undefined,'unknown',''])assert.equal(normalizeMetric(s),'canopy')
  for(const a of ['canopy',' tree canopy ','TCC','shade'])assert.equal(resolveMetric(a),'canopy')
  assert.equal(resolveMetric('trees'),'trees');assert.equal(resolveMetric('tree'),null);assert.equal(resolveMetric('access'),null)
  assert.equal(resolveMetric('parks'),'parks');assert.equal(resolveMetric('need'),'plantNeed')
- assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,31);assert.equal(new Set(METRIC_SWITCH_ORDER).size,31)
+ assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,32);assert.equal(new Set(METRIC_SWITCH_ORDER).size,32)
  assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
  assert.equal(METRICS.canopy.usesDensityUnit,false);assert.equal(METRICS.canopy.valueKey,'canopyPct');assert.equal(metricHasCi('canopy'),false)
  assert.equal(METRICS.trees.shortLabel,'Mapped street trees (OSM)');assert.equal(METRICS.trees.valueKey,'treesPerAcre')
@@ -94,7 +94,7 @@ for(const [dir,total,fingerprint]of packs)test(`#148 ${dir}: complete outcomes, 
  const values=fc.features.map(f=>f.properties.canopyPct!);assert.ok(values.every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=100))
  const breaks=meta.metricBreaks!.canopy!;assert.ok(breaks.every((x,i)=>i===0||x>breaks[i-1]));assert.equal(metricMeta(meta,'canopy').colors.length,breaks.length+1)
  assert.deepEqual(meta.plantNeed!.inputs,['canopyPct','pctPoverty','pctAsthma?']);assert.equal(meta.plantNeed!.canopyVersion,'2025.6')
- const originals=structuredClone(fc);for(const f of originals.features){for(const k of ['pctDepression','pctDepressionLo','pctDepressionHi','depressionAdultPop'])delete (f.properties as unknown as Record<string,unknown>)[k];delete f.properties.landAcres;delete f.properties.canopyPct;delete f.properties.canopyStatus;delete f.properties.plantNeed;delete f.properties.plantNeedParts}
+ const originals=structuredClone(fc);for(const f of originals.features){for(const k of ['pctDepression','pctDepressionLo','pctDepressionHi','depressionAdultPop','pctGeneralHealth','pctGeneralHealthLo','pctGeneralHealthHi','generalHealthAdultPop'])delete (f.properties as unknown as Record<string,unknown>)[k];delete f.properties.landAcres;delete f.properties.canopyPct;delete f.properties.canopyStatus;delete f.properties.plantNeed;delete f.properties.plantNeedParts}
  assert.equal(createHash('sha256').update(JSON.stringify(originals)).digest('hex'),fingerprint)
 })
 test('#148 formula preserved: pack minmax inverted canopy, same poverty/asthma and rounding',()=>{
@@ -138,7 +138,7 @@ for(const [dir,geoid,value,n,L,H,display]of [
 })
 test('#148 parsed full/current/dual/compare CSV parity and row-by-row Miami mappings, units and null fixtures',()=>{
  const {fc,meta}=load('public/data/central-miami-fl'),rows=fc.features.map(f=>f.properties),[header,...full]=parse(toCsv(rows,meta))
- assert.equal(header.length,106);assert.equal(new Set(header).size,106);assert.equal(header.at(-1),'canopy_gap_acres');assert.ok(header.includes('plant_need_canopy')&&!header.includes('plant_need_trees'))
+ assert.equal(header.length,109);assert.equal(new Set(header).size,109);assert.equal(header.at(-1),'canopy_gap_acres');assert.ok(header.includes('plant_need_canopy')&&!header.includes('plant_need_trees'))
  for(let i=0;i<rows.length;i++){const t=rows[i],r=full[i];assert.equal(r.length,header.length);for(const [key,value]of Object.entries({tree_count:t.treeCount,trees_per_acre:t.treesPerAcre,trees_per_km2:t.treesPerKm2,canopy_pct:t.canopyPct,plant_need_canopy:t.plantNeedParts!.T,pct_uninsured:t.pctUninsured,sidewalk_km:t.sidewalkKm})){assert.equal(r[header.indexOf(key)],value==null?'':String(value))}}
  const fixtures=[...rows,{...rows[0],geoid:'zero',name:'Elm, "Oak"\nSt',canopyPct:0},{...rows[0],geoid:'water',canopyPct:null,canopyStatus:'mostly-water'},{...rows[0],geoid:'missing',canopyPct:null,canopyStatus:'missing'}] as TractProps[]
  for(const unit of ['acre','km2']as const)for(const metrics of [['canopy'],['canopy','uninsured'],['trees']] as const)for(const compare of [false,true]){

@@ -23,7 +23,7 @@ const at = (row: string[], h: string) => row[(CSV_HEADERS as readonly string[]).
 
 test('#143 full CSV row cell count === CSV_HEADERS.length', () => {
   assert.equal(cells(csvRow(tract, meta)).length, CSV_HEADERS.length)
-  assert.equal(CSV_HEADERS.length, 106)
+  assert.equal(CSV_HEADERS.length, 109)
   assert.equal(new Set(CSV_HEADERS).size, CSV_HEADERS.length)
 })
 
@@ -56,7 +56,7 @@ test('#143 disability triple appended right after stroke; export order unchanged
     'pct_smoking', 'pct_smoking_ci_lo', 'pct_smoking_ci_hi', 'pct_stroke', 'pct_stroke_ci_lo', 'pct_stroke_ci_hi',
     'pct_disability', 'pct_disability_ci_lo', 'pct_disability_ci_hi',
     'pct_short_sleep', 'pct_short_sleep_ci_lo', 'pct_short_sleep_ci_hi',
-    'pct_uninsured', 'pct_uninsured_ci_lo', 'pct_uninsured_ci_hi', 'pct_depression', 'pct_depression_ci_lo', 'pct_depression_ci_hi',
+    'pct_uninsured', 'pct_uninsured_ci_lo', 'pct_uninsured_ci_hi', 'pct_depression', 'pct_depression_ci_lo', 'pct_depression_ci_hi', 'pct_general_health', 'pct_general_health_ci_lo', 'pct_general_health_ci_hi',
   ])
   const lines = toCsv([tract], meta).trimEnd().split('\r\n')
   assert.equal(lines[0], CSV_HEADERS.join(','))

@@ -10,6 +10,8 @@ Choose Canopy gap (acres) in Layers to compare each tract with your city's leafi
 
 Depression history shows the CDC PLACES 2025 model estimate of adults aged 18+ who report ever being told by a doctor, nurse, or other health professional that they had a depressive disorder (BRFSS 2023). It describes lifetime history, not necessarily current depression or its severity or duration. Mental health is a separate measure: 14+ days of poor mental health in the past 30 days. Both are community estimates, not individual diagnoses or evidence that tree canopy causes a health outcome. Depression history can appear among the snapshot's three comparisons, where it is marked as a model estimate.
 
+Fair or poor health shows the CDC PLACES 2025 model estimate of adults aged 18+ who rate their overall health as fair or poor (BRFSS 2023). It is self-rated general health at survey time, not an objective health assessment. Physical health is a separate measure: 14+ days of poor physical health in the past 30 days. Both describe communities, not individual diagnoses or evidence that tree canopy causes a health outcome. Fair or poor health can appear among the snapshot's three comparisons, labelled as self-rated and marked as a model estimate.
+
 Use it as a conversation starter about where shade and greenery are missing, not as an official tree inventory. The app only covers cities that have been packaged ahead of time. It does not search the whole country live.
 
 ## Pick a city

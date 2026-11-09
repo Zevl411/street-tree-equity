@@ -1,0 +1,29 @@
+{
+  "registry": {
+    "id": "generalHealth",
+    "label": "Self-rated general health (fair or poor)",
+    "shortLabel": "Fair or poor health",
+    "valueKey": "pctGeneralHealth",
+    "overallKey": "pctGeneralHealth",
+    "legendTitle": "Adults rating their overall health as fair or poor",
+    "unitNoun": "fair-or-poor self-rated health share",
+    "spreadUnit": "%",
+    "bmCaption": "Dims tracts below this city’s median share of adults rating their overall health as fair or poor",
+    "bmSwitchLabel": "Above city median",
+    "fine": false,
+    "hotspotNoun": [
+      "tract with a higher share of adults rating health as fair or poor",
+      "tracts with higher shares of adults rating health as fair or poor"
+    ],
+    "hotspotTitle": "Highest share rating overall health as fair or poor",
+    "missingCaption": "This pack has no self-rated general-health estimate yet",
+    "tooltip": "Model-based share of adults aged 18+ who rate their overall health as fair or poor (CDC PLACES). This is self-rated general health, not an objective health assessment. Physical health (PHLTH) instead measures 14 or more days in the past 30 days when physical health, including illness or injury, was not good. Current refers to health at the time of the survey, not a live health reading. Community-need context — no causal or diagnostic claim.",
+    "higherIsBetter": false,
+    "usesDensityUnit": false,
+    "percentPoints": true
+  },
+  "methods": "Fair or poor health is the estimated share of adults aged 18+ who rate their overall health as fair or poor. It is self-rated general health at the time of the survey, not an objective health assessment. Physical health (PHLTH) is a separate measure: 14+ days of poor physical health in the past 30 days. These measures describe communities, not individuals.",
+  "citation": "Fair or poor self-rated health status among adults (tract) — CDC PLACES: Local Data for Better Health, 2025 release (BRFSS 2023 model-based estimates). Centers for Disease Control and Prevention, National Center for Chronic Disease Prevention and Health Promotion, Division of Population Health. This product uses CDC PLACES data but is not endorsed by CDC or HHS. Estimates are model-based small-area estimates of self-reported fair or poor general health, not diagnoses or direct measurements, and should not be used for clinical decisions.",
+  "docs": "Fair or poor health shows the CDC PLACES 2025 model estimate of adults aged 18+ who rate their overall health as fair or poor (BRFSS 2023). It is self-rated general health at survey time, not an objective health assessment. Physical health is a separate measure: 14+ days of poor physical health in the past 30 days. Both describe communities, not individual diagnoses or evidence that tree canopy causes a health outcome. Fair or poor health can appear among the snapshot's three comparisons, labelled as self-rated and marked as a model estimate.",
+  "changed": "Nov 2026: Added Fair or poor health (CDC PLACES 2025), a model estimate of adults rating their overall health as fair or poor. Physical health still shows 14+ days of poor physical health in the past 30 days."
+}

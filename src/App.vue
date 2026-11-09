@@ -35,7 +35,7 @@ import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '@/utils/metrics'
-import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation, DEPRESSION_METHODS } from '@/utils/placesMeasures'
+import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation, DEPRESSION_METHODS, GHLTH_METHODS } from '@/utils/placesMeasures'
 import { getTractSnapshotIndex, type TractSnapshotIndex } from '@/utils/tractSnapshot'
 import { useMenuButtonFocus, useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
@@ -271,6 +271,7 @@ const placesCitations = computed(() => {
   })
 })
 const depressionMethods = computed(() => meta.value?.cdcPlaces?.measures?.includes(PLACES_MEASURES.depression![0]) ? DEPRESSION_METHODS : null)
+const generalHealthMethods = computed(() => meta.value?.cdcPlaces?.measures?.includes(PLACES_MEASURES.generalHealth![0]) ? GHLTH_METHODS : null)
 const FARA_CITATION = 'Food Access Research Atlas (tract) — USDA ERS SNAP-authorized Retailer Access Map (SRAM) 2025. This product uses USDA Economic Research Service Food Access Research Atlas data but is not endorsed by USDA or ERS.'
 const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.osmTimestamp).toLocaleDateString() : ''))
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
@@ -288,6 +289,7 @@ const citationsText = computed(() => [
   ...(meta.value?.acsUnder18 ? [`- Residents under 18 (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsUnder18.table}, Sex by Age (${meta.value.acsUnder18.vintage}). Retrieved ${meta.value.acsUnder18.retrievedAt} from ${meta.value.acsUnder18.sourceUrl}. Public domain.`] : []),
   ...(meta.value?.cdcPlaces ? placesCitations.value.map((c) => `- ${c} Retrieved ${meta.value!.cdcPlaces!.retrievedAt} from ${meta.value!.cdcPlaces!.sourceUrl}`) : []),
   ...(depressionMethods.value ? [`- ${depressionMethods.value}`] : []),
+  ...(generalHealthMethods.value ? [`- ${generalHealthMethods.value}`] : []),
   ...(meta.value?.acsLep ? [`- Limited English proficiency (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsLep.table}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over (${meta.value.acsLep.vintage}). Retrieved ${meta.value.acsLep.retrievedAt} from ${meta.value.acsLep.sourceUrl}. Public domain. “Limited English” = speaks English less than “very well.”`] : []),
   ...(meta.value?.acsSnap ? [`- SNAP households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsSnap.table}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households (${meta.value.acsSnap.vintage}). Retrieved ${meta.value.acsSnap.retrievedAt} from ${meta.value.acsSnap.sourceUrl}. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.`] : []),
   ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs. The relative low-canopy score does not use the selected canopy-gap target.`] : []),
@@ -1329,6 +1331,7 @@ watch(drawerOpen, async (open) => {
           <p class="text-body-2 mb-2">Nov 2026: Canopy gap now shows estimated canopy acres short of your city's leafier neighborhoods, with an optional fixed 30% target. Tree canopy remains the default map. Planting need is unchanged; its canopy component is now labelled relative low-canopy score.</p>
           <p class="text-body-2 mb-2">Nov 2026: The default map now shows USFS tree-canopy estimates instead of mapped street-tree density. Planting need now uses canopy cover. OpenStreetMap tree counts remain available separately.</p>
           <p class="text-body-2 mb-2">Nov 2026: Added Depression history (CDC PLACES 2025), a model estimate of adults ever told they had a depressive disorder. Mental health still shows 14+ days of poor mental health in the past 30 days.</p>
+          <p class="text-body-2 mb-2">Nov 2026: Added Fair or poor health (CDC PLACES 2025), a model estimate of adults rating their overall health as fair or poor. Physical health still shows 14+ days of poor physical health in the past 30 days.</p>
           <p class="text-body-2 mb-2">Low counts can mean fewer trees <em>or</em> fewer trees mapped — treat it as a conversation starter, and consider adding trees on OSM.</p>
           <p class="text-body-2 mb-2">Orange streets have no mapped tree within {{ meta?.roadsBufferMeters ?? 20 }} m. Parks come from OSM <code>leisure=park</code>.</p>
           <p class="text-body-2 mb-4">Static data files and no-key basemaps — no database, no API keys.</p>
@@ -1348,6 +1351,7 @@ watch(drawerOpen, async (open) => {
             <li v-if="meta?.acsUnder18"><strong>Residents under 18 (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsUnder18.table }}, Sex by Age ({{ meta.acsUnder18.vintage }}). Retrieved {{ meta.acsUnder18.retrievedAt }} from <a :href="meta.acsUnder18.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsUnder18.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
             <template v-if="meta?.cdcPlaces"><li v-for="c in placesCitations" :key="c">{{ c }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li></template>
             <li v-if="depressionMethods">{{ depressionMethods }}</li>
+            <li v-if="generalHealthMethods">{{ generalHealthMethods }}</li>
             <li v-if="meta?.acsLep"><strong>Limited English proficiency (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsLep.table }}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over ({{ meta.acsLep.vintage }}). Retrieved {{ meta.acsLep.retrievedAt }} from <a :href="meta.acsLep.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsLep.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. “Limited English” = speaks English less than “very well.”</li>
             <li v-if="meta?.acsSnap"><strong>SNAP households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsSnap.table }}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households ({{ meta.acsSnap.vintage }}). Retrieved {{ meta.acsSnap.retrievedAt }} from <a :href="meta.acsSnap.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsSnap.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.</li>
             <li><strong>Canopy gap (tract)</strong> — {{ GAP_METHODS }} <span v-if="meta?.canopyGap">{{ meta.canopyGap.percentile.nValid }} valid tract estimates in this pack.</span></li>

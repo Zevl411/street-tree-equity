@@ -27,7 +27,7 @@ const sorted = <T>(xs: readonly T[]) => [...xs].map(String).sort()
 
 test('#144 PLACES_EXPORT, PLACES_MEASURES and add-cdc-places MEASURES list the same measures', () => {
   const script = scriptMeasures()
-  assert.equal(script.length, 15)
+  assert.equal(script.length, 16)
   assert.deepEqual(sorted(exportIds()), sorted(PLACES_METRIC_IDS))
   assert.deepEqual(sorted(script.map((m) => m.metricId)), sorted(PLACES_METRIC_IDS))
   assert.deepEqual(sorted(script.map((m) => m.measure)), sorted(PLACES_METRIC_IDS.map((id) => PLACES_MEASURES[id]![0])))
@@ -51,7 +51,7 @@ test('#144 CSV_HEADERS.length === csvRow cell count (every PLACES value + CI pop
   })
 })
 
-test('#144 every pack: years map covers all 15 measures from metadata; SLEEP resolves to 2022 (even-year core)', () => {
+test('#144 every pack: years map covers all 16 measures from metadata; SLEEP resolves to 2022 (even-year core)', () => {
   const script = scriptMeasures()
   for (const p of PACKS) {
     const meta = JSON.parse(readFileSync(new URL(`../public/data/${p ? `${p}/` : ''}meta.json`, import.meta.url), 'utf8'))
