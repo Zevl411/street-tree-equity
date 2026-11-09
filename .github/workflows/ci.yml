@@ -28,4 +28,6 @@ jobs:
       - run: npm run test:smoke
       - name: Menu-button keyboard a11y (headless Chrome)
         run: npm run test:a11y
+      - name: Tract snapshot keyboard and interaction a11y (headless Chrome)
+        run: npm run test:a11y:snapshot
       - run: npm run test:unit
