@@ -57,7 +57,8 @@ Press `?` in the app for the full shortcut list. The main ones:
 | Key | Action |
 |---|---|
 | `/` | Search tracts |
-| `d` | Toggle dark mode |
+| `d` | Toggle dual view |
+| `Shift+D` | Toggle dark mode |
 | `s` | Switch Streets / Satellite |
 | `h` | Toggle hotspots |
 | `*` | Star the selected tract |
