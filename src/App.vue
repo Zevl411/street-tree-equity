@@ -33,7 +33,7 @@ import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '@/utils/metrics'
 import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation } from '@/utils/placesMeasures'
-import { useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
+import { useMenuButtonFocus, useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, gardens, fountains, postOffices, playgrounds, toilets, benches, clinics, emergency, sidewalks, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
 /** #51: hide the trees switch when the pack ships no tree points. */
@@ -667,7 +667,7 @@ function exportPlantHere() {
 }
 /** #139: current-view CSV from the loaded pack (all tracts; active metric, or both dual panes). */
 const viewExportOpen = ref(false)
-useOverlayFocus(viewExportOpen, '#view-export-menu .v-list-item')
+useMenuButtonFocus(viewExportOpen, 'view-export-menu')
 const viewExportDisabled = computed(() => loading.value || !cityStore.cityId || !(tracts.value?.features.length))
 const viewMetricIds = computed<MetricId[]>(() => (ui.dualView ? [ui.dualLeft, ui.dualRight] : [ui.metric.id]))
 const viewCsvTitle = computed(() => `CSV – current view (${ui.metric.shortLabel})`)
@@ -889,7 +889,11 @@ watch(drawerOpen, async (open) => {
             <v-tooltip activator="parent" location="bottom">Basemap and layers</v-tooltip>
           </v-btn>
         </template>
-        <v-card id="layers-panel" :min-width="mdAndUp ? 260 : undefined" :max-width="mdAndUp ? undefined : '100%'">
+        <!-- #142: on desktop the panel is a VMenu with closeOnContentClick=false, and VMenu's content keydown
+             handler treats Enter as "move to next field" and calls preventDefault() on it. That cancels the
+             native Enter→click on every button in the panel (Export…, the CSV buttons, basemap toggle, …).
+             Keep Enter inside the panel so buttons get their native activation; Space was never affected. -->
+        <v-card id="layers-panel" @keydown.enter.stop :min-width="mdAndUp ? 260 : undefined" :max-width="mdAndUp ? undefined : '100%'">
           <v-card-title class="text-subtitle-1">Layers</v-card-title>
           <v-card-text class="pt-0">
             <div class="text-caption mb-1">Basemap</div>

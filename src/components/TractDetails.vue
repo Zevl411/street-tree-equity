@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, mergeProps, ref, watch } from 'vue'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
 import { ACRES_PER_KM2, useUiStore } from '@/stores/ui'
-import { useOverlayFocus } from '@/composables/useOverlayFocus'
+import { useMenuButtonFocus } from '@/composables/useOverlayFocus'
 import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { CSV_VIEW_TOOLTIP, ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
@@ -106,9 +106,9 @@ const roadsExpanded = ref(false)
 watch(() => props.tract.geoid, () => { roadsExpanded.value = false; fallbackOpen.value = false })
 const visibleRoads = computed(() => (roadsExpanded.value ? roadRows.value : roadRows.value.slice(0, ROAD_LIMIT)))
 
-// #39: Download menu lands on its first item; focus returns to the Download button on close.
+// #39/#142: Download menu lands on its first item; focus returns to the Download button on close.
 const downloadOpen = ref(false)
-useOverlayFocus(downloadOpen, '#download-menu .v-list-item')
+useMenuButtonFocus(downloadOpen, 'download-menu')
 
 const copied = ref(false)
 async function copyGeoid() {
@@ -388,7 +388,7 @@ function copyLink() {
         <template #activator="{ props: menu }">
           <v-tooltip text="Download data" location="top">
             <template #activator="{ props: tip }">
-              <v-btn v-bind="{ ...menu, ...tip }" prepend-icon="mdi-download" variant="tonal" class="touch-h44">Download…</v-btn>
+              <v-btn v-bind="mergeProps(menu, tip)" prepend-icon="mdi-download" variant="tonal" class="touch-h44">Download…</v-btn>
             </template>
           </v-tooltip>
         </template>
