@@ -41,7 +41,8 @@
     "add:places": "node scripts/add-cdc-places.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "report:sizes": "node scripts/report-pack-sizes.mjs",
     "slim:sidewalks": "node scripts/slim-sidewalks.mjs",
-    "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
+    "test:unit": "node --experimental-strip-types --test tests/*.test.ts",
+    "add:canopy": "node scripts/add-canopy.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -58,6 +59,7 @@
     "@vue/tsconfig": "^0.7.0",
     "adm-zip": "^0.5.16",
     "osmtogeojson": "^3.0.0-beta.5",
+    "proj4": "^2.22.0",
     "shapefile": "^0.6.6",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",

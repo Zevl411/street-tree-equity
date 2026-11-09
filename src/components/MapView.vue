@@ -118,6 +118,7 @@ function fillColor(): ExpressionSpecification {
   const colors = choroplethColors(props.meta, choroplethMode.value, choroplethPalette.value)
   const expr: unknown[] = ['step', ['to-number', ['get', pm.value.valueKey], -1], colors[0]]
   breaks.forEach((b, i) => expr.push(b, colors[i + 1]))
+  if (pm.value.id === 'canopy') return ['case', ['all', ['==', ['typeof', ['get', 'canopyPct']], 'number'], ['>=', ['to-number', ['get', 'canopyPct'], -1], 0], ['<=', ['to-number', ['get', 'canopyPct'], 101], 100]], expr, isDark.value ? '#666666' : '#b8b8b8'] as unknown as ExpressionSpecification
   return expr as ExpressionSpecification
 }
 

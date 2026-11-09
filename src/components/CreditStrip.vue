@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // #42: compact, always-visible basemap credit chip (bottom-right of map stage,
 // opposite the mobile legend). Replaces MapLibre's attribution control.
+import { CANOPY_URL, WATER_URL } from '@/utils/canopySource'
 import { storeToRefs } from 'pinia'
 import { useUiStore } from '@/stores/ui'
 
@@ -19,6 +20,7 @@ const { basemap } = storeToRefs(useUiStore())
       © <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a>
       · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap<span class="sr-only"> (opens in new tab)</span></a>
     </template>
+    · <a :href="CANOPY_URL" target="_blank" rel="noopener noreferrer">USFS canopy</a> · <a :href="WATER_URL" target="_blank" rel="noopener noreferrer">USGS NLCD water mask</a>
     · <a href="https://www.census.gov/geographies/mapping-files.html" target="_blank" rel="noopener noreferrer" title="Tract boundaries: U.S. Census Bureau">Census<span class="sr-only"> tract boundaries (opens in new tab)</span></a>
   </div>
 </template>

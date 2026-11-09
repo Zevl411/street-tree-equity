@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CANOPY_URL, WATER_URL, CC0_URL, USFS_CREDIT, canopyCitation, canopyCitationParts, canopyTooltip } from '@/utils/canopySource'
 import { CSV_VIEW_TOOLTIP, currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
@@ -89,9 +90,13 @@ const hotspotsOpen = ref(false)
 const vk = computed(() => ui.metric.valueKey)
 const viewMeta = computed(() => (meta.value ? metricMeta(meta.value, ui.metric.id) : null))
 // #99: per-metric availability (feature-detect pack fields); fall back to trees when missing.
+const canopyFallback = ref(false)
 const metricOk = computed(() => Object.fromEntries(METRIC_IDS.map((id) => [id, metricAvailable(id, meta.value, tracts.value)])) as Record<MetricId, boolean>)
 watch([metricOk, loading], ([ok, busy]) => {
-  if (!busy && meta.value && !ok[ui.activeMetric]) ui.setActiveMetric('trees')
+  if (!busy && meta.value) {
+    canopyFallback.value = !ok.canopy
+    if (!ok[ui.activeMetric]) ui.setActiveMetric('trees')
+  }
 })
 const hotspotGeoidList = computed(() => (loading.value ? [] : hotspotGeoids(tracts.value?.features, vk.value, hotspotAscending(ui.metric))))
 const favoritesOpen = ref(false)
@@ -250,6 +255,7 @@ const updated = computed(() => (meta.value?.osmTimestamp ? new Date(meta.value.o
 // #56 Copy citations (plain text, reuses #47 copyText fallback).
 const citationsText = computed(() => [
   'Street Tree Equity — data sources',
+  `- ${canopyCitation(meta.value)}`,
   `- Street trees, parks, groceries, schools, bike lanes & transit stops, libraries & community centres, community gardens & allotments, drinking fountains, post offices, playgrounds, public toilets, benches, mapped sidewalks & footpaths, pharmacies & clinics, hospitals & fire stations: © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright${updated.value ? `; OSM data as of ${updated.value}` : ''}`,
   `- Tract boundaries: U.S. Census Bureau cartographic boundary files (public domain)${meta.value?.censusVintage ? `; vintage ${meta.value.censusVintage}` : ''}`,
   ...(meta.value?.acs ? [`- Median household income (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acs.table} (${meta.value.acs.vintage}). Retrieved ${meta.value.acs.retrievedAt} from ${meta.value.acs.sourceUrl}. Public domain.`] : []),
@@ -261,7 +267,7 @@ const citationsText = computed(() => [
   ...(meta.value?.cdcPlaces ? placesCitations.value.map((c) => `- ${c} Retrieved ${meta.value!.cdcPlaces!.retrievedAt} from ${meta.value!.cdcPlaces!.sourceUrl}`) : []),
   ...(meta.value?.acsLep ? [`- Limited English proficiency (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsLep.table}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over (${meta.value.acsLep.vintage}). Retrieved ${meta.value.acsLep.retrievedAt} from ${meta.value.acsLep.sourceUrl}. Public domain. “Limited English” = speaks English less than “very well.”`] : []),
   ...(meta.value?.acsSnap ? [`- SNAP households (tract) — U.S. Census Bureau American Community Survey (ACS) 5-year table ${meta.value.acsSnap.table}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households (${meta.value.acsSnap.vintage}). Retrieved ${meta.value.acsSnap.retrievedAt} from ${meta.value.acsSnap.sourceUrl}. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.`] : []),
-  ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree density (fewer trees per acre = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), tree density is flipped so the sparsest tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.`] : []),
+  ...(meta.value?.plantNeed ? [`- Planting need (tract) — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.`] : []),
   ...(meta.value?.fara ? [`- ${FARA_CITATION} Retrieved ${meta.value.fara.retrievedAt} from ${meta.value.fara.sourceUrl}`] : []),
   ...(meta.value?.nri ? [`- National Risk Index (tract): FEMA NRI ${meta.value.nri.version}. ${NRI_DISCLAIMER} Retrieved ${meta.value.nri.retrievedAt} from ${meta.value.nri.sourceUrl}`] : []),
   '- Streets basemap: OpenFreeMap / OpenMapTiles / © OpenStreetMap contributors — https://openfreemap.org',
@@ -837,7 +843,7 @@ watch(hotspotsOpen, (open) => {
   const n = hotspotTracts(tracts.value?.features, vk.value, hotspotAscending(ui.metric)).length
   const hn = ui.metric.hotspotNoun
   if (hn) announceFilter(n ? plural(n, hn[0], hn[1]) : `No ${hn[1]}`)
-  else announceFilter(n ? plural(n, 'low-canopy hotspot', 'low-canopy hotspots') : 'No low-canopy hotspots')
+  else announceFilter(n ? plural(n, 'hotspot', 'hotspots') : 'No hotspots')
 })
 // #89 grouped cheat sheet — single source of truth for on-screen + print. Labels match useKeyboardShortcuts handlers.
 type ShortcutGroup = { id: string; title: string; rows: [string, string][]; caption?: string }
@@ -849,7 +855,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   ] },
   { id: 'filters', title: 'Filters', rows: [
     ['b', 'Toggle city-median filter'],
-    ['h', 'Low-canopy hotspots'],
+    ['h', 'Hotspots'],
     ['n', 'Next below-median tract'],
     ['p', 'Previous below-median tract'],
   ], caption: 'n / p need the city-median filter on.' },
@@ -1214,6 +1220,8 @@ watch(drawerOpen, async (open) => {
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="text-subtitle-2">{{ meta.cityName }}</div>
         <div v-if="meta.subtitle" class="text-caption text-medium-emphasis">{{ meta.subtitle }}</div>
+        <p class="text-caption mt-2">Updated Nov 2026: The default map is now Tree canopy. For the previous map, choose Mapped street trees (OSM) in Layers. Saved links with metric=trees still open that map.</p>
+        <p v-if="canopyFallback" class="text-caption mt-2">Tree canopy unavailable in this pack. Showing mapped street trees (OSM).</p>
         <div class="text-body-2 mt-1">
           <div><strong>{{ meta.counts.trees.toLocaleString() }}</strong> mapped trees · <strong>{{ meta.counts.tracts }}</strong> tracts</div>
           <div>Avg <strong>{{ overviewDensity }}</strong></div>
@@ -1226,7 +1234,7 @@ watch(drawerOpen, async (open) => {
           </div>
           <div v-if="plantHereStat">{{ plantHereStat }}</div>
         </div>
-        <DensityAreaScatter :tracts="tracts" :loading="loading" />
+        <DensityAreaScatter v-if="ui.metric.id === 'trees'" :tracts="tracts" :loading="loading" />
         <DensityHistogram :meta="viewMeta!" :tracts="tracts" :below-median="belowMedian && medianAvailable" />
         <div class="text-caption mt-1">Click a tract for details.</div>
         <div class="d-flex ga-1 mt-1">
@@ -1239,8 +1247,10 @@ watch(drawerOpen, async (open) => {
       <v-sheet v-if="meta && !selectedTract && !drawerOpen && !mdAndUp && !focusMode" class="overview-strip no-print pa-2 d-flex align-center" rounded elevation="2" color="surface"
         role="region" :aria-label="`${meta.cityName} overview`">
         <div class="flex-grow-1" style="min-width: 0">
+        <p class="text-caption mb-2">Updated Nov 2026: The default map is now Tree canopy. For the previous map, choose Mapped street trees (OSM) in Layers. Saved links with metric=trees still open that map.</p>
+        <p v-if="canopyFallback" class="text-caption mb-2">Tree canopy unavailable in this pack. Showing mapped street trees (OSM).</p>
         <div class="d-flex flex-wrap ga-1 text-caption">
-          <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} trees</v-chip>
+          <v-chip size="small" variant="tonal">{{ meta.counts.trees.toLocaleString() }} mapped trees (OSM)</v-chip>
           <v-chip size="small" variant="tonal">{{ meta.counts.tracts }} tracts</v-chip>
           <v-chip size="small" variant="tonal">avg {{ overviewDensity.replace(' / ', '/') }}</v-chip>
           <v-chip v-if="spread" size="small" variant="tonal" class="spread-chip" :aria-label="spread.aria"><span class="text-truncate">p10 {{ spread.p10 }} · med {{ spread.med }} · p90 {{ spread.p90 }}{{ spread.unit }}<template v-if="spread.ratio"> {{ spread.ratio }}</template></span></v-chip>
@@ -1253,7 +1263,7 @@ watch(drawerOpen, async (open) => {
         <DensityHistogram :meta="viewMeta!" :tracts="tracts" :below-median="belowMedian && medianAvailable" dense />
         </div>
         <v-btn icon="mdi-compare" variant="text" size="small" class="overview-icon" aria-label="Compare cities" @click="startCompare" />
-        <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Low-canopy hotspots" @click="hotspotsOpen = true" />
+        <v-btn v-if="tracts?.features.length" icon="mdi-tree-outline" variant="text" size="small" class="overview-icon" aria-label="Hotspots" @click="hotspotsOpen = true" />
         <v-btn icon="mdi-star-outline" variant="text" size="small" class="overview-icon" aria-label="Starred tracts" @click="favoritesOpen = true" />
         <v-btn icon="mdi-information-outline" variant="text" size="small" class="overview-icon" aria-label="About" @click="aboutOpen = true" />
       </v-sheet>
@@ -1288,13 +1298,17 @@ watch(drawerOpen, async (open) => {
       <v-card title="About this map">
         <v-card-text>
           <h3 class="text-subtitle-1 font-weight-bold mb-1">What it is</h3>
-          <p class="text-body-2 mb-2">Trees per acre of land by U.S. Census tract, counted from OpenStreetMap <code>natural=tree</code>.</p>
+          <p class="text-body-2 mb-2">The default map shows the share of non-water land under tree canopy, estimated from USFS satellite data. Mapped street trees (OSM) remains a separate metric and point layer; incomplete mapping is not proof that an area has no trees.</p>
+          <p class="text-body-2 mb-2">Nov 2026: The default map now shows USFS tree-canopy estimates instead of mapped street-tree density. Planting need now uses canopy cover. OpenStreetMap tree counts remain available separately.</p>
           <p class="text-body-2 mb-2">Low counts can mean fewer trees <em>or</em> fewer trees mapped — treat it as a conversation starter, and consider adding trees on OSM.</p>
           <p class="text-body-2 mb-2">Orange streets have no mapped tree within {{ meta?.roadsBufferMeters ?? 20 }} m. Parks come from OSM <code>leisure=park</code>.</p>
           <p class="text-body-2 mb-4">Static data files and no-key basemaps — no database, no API keys.</p>
 
           <h3 class="text-subtitle-1 font-weight-bold mb-1">Data sources</h3>
           <ul class="about-sources text-body-2 mb-4">
+            <li><a :href="CANOPY_URL" target="_blank" rel="noopener noreferrer">{{ canopyCitationParts(meta).tcc }}</a> Water mask: <a :href="WATER_URL" target="_blank" rel="noopener noreferrer">{{ canopyCitationParts(meta).mask }}</a> Both source datasets are <a :href="CC0_URL" target="_blank" rel="noopener noreferrer">CC0 public-domain data</a>. {{ canopyCitationParts(meta).references }}</li>
+            <li>{{ USFS_CREDIT }}</li>
+            <li>{{ canopyTooltip(meta) }}</li>
             <li><strong>Street trees, parks, groceries, schools, bike lanes &amp; transit stops, libraries &amp; community centres, community gardens &amp; allotments, drinking fountains, post offices, playgrounds, public toilets, benches, mapped sidewalks &amp; footpaths, pharmacies &amp; clinics, hospitals &amp; fire stations</strong> — © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL<span class="sr-only"> (opens in new tab)</span></a><span v-if="updated"> · OSM data as of {{ updated }}</span>. Sidewalk coverage reflects OpenStreetMap mapping and may be incomplete. OSM coverage of drinking fountains, post offices, playgrounds, public toilets and benches is uneven — absence on the map ≠ absence on the ground.</li>
             <li><strong>Tract boundaries</strong> — U.S. Census Bureau cartographic boundaries (public domain)<span v-if="meta?.censusVintage"> · {{ meta.censusVintage }}</span></li>
             <li v-if="meta?.acs"><strong>Median household income (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acs.table }} ({{ meta.acs.vintage }}). Retrieved {{ meta.acs.retrievedAt }} from <a :href="meta.acs.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acs.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain.</li>
@@ -1306,7 +1320,7 @@ watch(drawerOpen, async (open) => {
             <template v-if="meta?.cdcPlaces"><li v-for="c in placesCitations" :key="c">{{ c }} Retrieved {{ meta.cdcPlaces.retrievedAt }} from <a :href="meta.cdcPlaces.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.cdcPlaces.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li></template>
             <li v-if="meta?.acsLep"><strong>Limited English proficiency (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsLep.table }}, Age by Language Spoken at Home by Ability to Speak English for the Population 5 Years and Over ({{ meta.acsLep.vintage }}). Retrieved {{ meta.acsLep.retrievedAt }} from <a :href="meta.acsLep.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsLep.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. “Limited English” = speaks English less than “very well.”</li>
             <li v-if="meta?.acsSnap"><strong>SNAP households (tract)</strong> — U.S. Census Bureau American Community Survey (ACS) 5-year table {{ meta.acsSnap.table }}, Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Years and Over for Households ({{ meta.acsSnap.vintage }}). Retrieved {{ meta.acsSnap.retrievedAt }} from <a :href="meta.acsSnap.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.acsSnap.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a>. Public domain. Share of households that received Food Stamps/SNAP in the past 12 months.</li>
-            <li v-if="meta?.plantNeed"><strong>Planting need (tract)</strong> — a 0–100 score computed by this app from data already shown: tree density (fewer trees per acre = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), tree density is flipped so the sparsest tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.</li>
+            <li v-if="meta?.plantNeed"><strong>Planting need (tract)</strong> — a 0–100 score computed by this app from data already shown: tree-canopy cover (less canopy = more need), share of residents in poverty (ACS B17001), and, where available, adult asthma (CDC PLACES). Each is rescaled 0–100 within this city (lowest tract = 0, highest = 100), canopy cover is flipped so the lowest-canopy tract scores 100, and the parts are averaged with equal weight. Higher = more need. Compares tracts within one city only; not an official index. Inherits the sources and licenses of its inputs.</li>
             <li v-if="meta?.fara"><strong>Food access (tract)</strong> — {{ FARA_CITATION }} Retrieved {{ meta.fara.retrievedAt }} from <a :href="meta.fara.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.fara.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li v-if="meta?.nri"><strong>National Risk Index (tract)</strong> — FEMA NRI {{ meta.nri.version }}. {{ NRI_DISCLAIMER }} Retrieved {{ meta.nri.retrievedAt }} from <a :href="meta.nri.sourceUrl" target="_blank" rel="noopener noreferrer">{{ meta.nri.sourceUrl }}<span class="sr-only"> (opens in new tab)</span></a></li>
             <li><strong>Streets basemap</strong> — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap<span class="sr-only"> (opens in new tab)</span></a> · OpenMapTiles · OSM data</li>
