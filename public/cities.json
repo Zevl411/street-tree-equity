@@ -65,6 +65,19 @@
         28.59
       ],
       "status": "ready"
+    },
+    {
+      "id": "central-jacksonville-fl",
+      "cityName": "Jacksonville, FL",
+      "subtitle": "Central Jacksonville",
+      "dataPath": "data/central-jacksonville-fl",
+      "bbox": [
+        -81.73,
+        30.27,
+        -81.6,
+        30.37
+      ],
+      "status": "ready"
     }
   ]
 }
