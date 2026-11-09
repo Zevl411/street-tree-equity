@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, mergeProps, ref, watch } from 'vue'
+import { computed, mergeProps, nextTick, ref, watch } from 'vue'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { Meta, NearbyPark, TractProps } from '@/types'
 import { useCityStore } from '@/stores/city'
@@ -9,9 +9,10 @@ import { useFavorites } from '@/composables/useFavorites'
 import { copyText, tractShareUrl } from '@/utils/clipboard'
 import { CSV_VIEW_TOOLTIP, ODBL_NOTICE, currentViewComments, downloadBlob, exportFilename, fetchTracts, toCsv, toCurrentViewCsv, toGeoJson, viewScope } from '@/utils/exportData'
 import { METRICS, type MetricId } from '@/utils/metrics'
+import { SNAPSHOT_DUAL_NOTE, SNAPSHOT_MAPPING_NOTE, snapshotCityName, snapshotRow, snapshotMessage, snapshotCanopyUnavailable, type TractSnapshotIndex, type SnapshotRow } from '@/utils/tractSnapshot'
 
-const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null }>()
-const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature] }>()
+const props = defineProps<{ tract: TractProps; meta: Meta; total: number; roads?: FeatureCollection | null; cityMedianAcre?: number | null; snapshotIndex?: TractSnapshotIndex | null }>()
+const emit = defineEmits<{ close: []; flyToPark: [park: NearbyPark]; flyToRoad: [road: Feature]; selectMetric: [id: MetricId] }>()
 
 const vsCity = computed(() => {
   const city = props.meta.overall.treesPerAcre
@@ -121,6 +122,36 @@ async function copyGeoid() {
 
 // #23 export (Blob download only)
 const cityStore = useCityStore()
+// #147: no fetch, new store or dual-state writes. Only this selected pack's index is read.
+const snapshotSection = ref<HTMLElement | null>(null)
+const snapshotHeading = ref<HTMLElement | null>(null)
+const snapshotStatus = ref('')
+const snapshot = computed(() => props.snapshotIndex?.select(props.tract.geoid) ?? null)
+const snapshotCity = computed(() => snapshotCityName(props.meta.cityName, cityStore.city?.cityName))
+const snapshotRows = computed(() => snapshot.value?.worst.map(item => snapshotRow(item, snapshotCity.value, ui.densityUnit)) ?? [])
+const snapshotTrees = computed(() => snapshot.value?.canopy ? snapshotRow(snapshot.value.canopy, snapshotCity.value, ui.densityUnit) : null)
+const snapshotFew = computed(() => snapshot.value ? snapshotMessage(snapshot.value, snapshotCity.value) : null)
+watch([() => props.tract.geoid, () => props.snapshotIndex], () => { snapshotStatus.value = '' })
+async function activateSnapshot(row: SnapshotRow, event: MouseEvent) {
+  if (ui.dualView || !props.snapshotIndex) return
+  const button = event.currentTarget as HTMLButtonElement
+  const index = props.snapshotIndex, geoid = props.tract.geoid
+  snapshotStatus.value = ''
+  emit('selectMetric', row.metricId)
+  await nextTick()
+  if (ui.dualView || ui.activeMetric !== row.metricId || props.snapshotIndex !== index || props.tract.geoid !== geoid || !button.isConnected) return
+  if (document.activeElement !== button) button.focus({ preventScroll: true })
+  snapshotStatus.value = `Map now showing ${row.label}`
+}
+watch(() => ui.dualView, async dual => {
+  if (!dual || !snapshotSection.value?.contains(document.activeElement) || !document.activeElement?.matches('button.snapshot-button')) return
+  snapshotStatus.value = ''
+  await nextTick()
+  if (!ui.dualView || !snapshotHeading.value) return
+  snapshotHeading.value.focus({ preventScroll: true })
+  snapshotStatus.value = `Dual view is on. ${SNAPSHOT_DUAL_NOTE}`
+})
+
 // #45 star toggle (ste-favorites, per city).
 const fav = useFavorites()
 const favCity = computed(() => cityStore.city?.id ?? cityStore.cityId ?? null)
@@ -290,6 +321,55 @@ function copyLink() {
         </v-col>
       </v-row>
 
+      <section v-if="snapshot" ref="snapshotSection" class="tract-snapshot mt-4" aria-labelledby="tract-snapshot-heading">
+        <h3 id="tract-snapshot-heading" ref="snapshotHeading" tabindex="-1" class="text-subtitle-2">Community-need snapshot</h3>
+        <p class="text-body-2 mt-2">Up to 3 local comparisons that may help identify community needs.</p>
+        <p class="text-caption mt-2">Within the {{ snapshotCity }} pack only. Ties count halfway. Health values are model estimates.</p>
+        <details class="snapshot-help">
+          <summary>How to read these comparisons</summary>
+          <p>Only other tracts in the loaded {{ snapshotCity }} pack are compared; the pack may cover part of the city. Higher or lower describes a measure, not people.</p>
+          <p>Percentages are mid-ranks against other tracts, not changes in a measure. Half of equal-value tracts count on each side. Need-comparison percentages round down; street-tree percentages round to the nearest whole percent. Missing values are excluded. Each measure needs at least 10 tracts with data. Only measures higher-need than most other tracts appear.</p>
+          <p>Health values are CDC PLACES model estimates, not diagnoses. Ranks do not account for uncertainty and do not establish meaningful differences between tracts. These comparisons do not show what trees cause.</p>
+          <p>Street-tree density uses mapped OpenStreetMap trees, not tree-canopy cover. Missing map records are not proof that no trees or amenities exist.</p>
+        </details>
+        <p v-if="ui.dualView" class="text-body-2 mb-2 snapshot-dual-note">{{ SNAPSHOT_DUAL_NOTE }}</p>
+        <ol aria-label="Community-need comparisons" class="snapshot-list">
+          <li v-for="row in snapshotRows" :key="row.metricId">
+            <v-btn v-if="!ui.dualView" type="button" block variant="text" class="snapshot-item snapshot-button"
+              :data-snapshot-metric="row.metricId" :aria-label="row.ariaLabel"
+              :aria-current="ui.activeMetric === row.metricId ? 'true' : undefined"
+              :class="{ 'snapshot-current': ui.activeMetric === row.metricId }" @click="activateSnapshot(row, $event)">
+              <span class="snapshot-line1">{{ row.line1 }}</span>
+              <span v-if="row.line2" class="snapshot-line2">{{ row.line2 }}</span>
+              <span v-if="ui.activeMetric === row.metricId" class="snapshot-marker"><v-icon icon="mdi-check" size="small" aria-hidden="true" /> On map</span>
+            </v-btn>
+            <div v-else class="snapshot-item" :data-snapshot-metric="row.metricId">
+              <span class="snapshot-line1">{{ row.line1 }}</span>
+              <span v-if="row.line2" class="snapshot-line2">{{ row.line2 }}</span>
+            </div>
+          </li>
+        </ol>
+        <p v-if="snapshotFew" class="text-body-2 snapshot-few">{{ snapshotFew }}</p>
+        <v-divider class="my-2" />
+        <template v-if="snapshotTrees">
+          <v-btn v-if="!ui.dualView" type="button" block variant="text" class="snapshot-item snapshot-button snapshot-trees"
+            :data-snapshot-metric="snapshotTrees.metricId" :aria-label="snapshotTrees.ariaLabel"
+            :aria-current="ui.activeMetric === snapshotTrees.metricId ? 'true' : undefined"
+            :class="{ 'snapshot-current': ui.activeMetric === snapshotTrees.metricId }" @click="activateSnapshot(snapshotTrees, $event)">
+            <span class="snapshot-line1">{{ snapshotTrees.line1 }}</span>
+            <span v-if="snapshotTrees.line2" class="snapshot-line2">{{ snapshotTrees.line2 }}</span>
+            <span v-if="ui.activeMetric === snapshotTrees.metricId" class="snapshot-marker"><v-icon icon="mdi-check" size="small" aria-hidden="true" /> On map</span>
+          </v-btn>
+          <div v-else class="snapshot-item snapshot-trees" :data-snapshot-metric="snapshotTrees.metricId">
+            <span class="snapshot-line1">{{ snapshotTrees.line1 }}</span>
+            <span v-if="snapshotTrees.line2" class="snapshot-line2">{{ snapshotTrees.line2 }}</span>
+          </div>
+        </template>
+        <p v-else class="text-body-2 snapshot-trees-unavailable">{{ snapshotCanopyUnavailable(snapshot) }}</p>
+        <p class="text-caption mt-2 snapshot-mapping-note">{{ SNAPSHOT_MAPPING_NOTE }}</p>
+        <span role="status" aria-live="polite" aria-atomic="true" class="d-sr-only snapshot-status">{{ snapshotStatus }}</span>
+      </section>
+
       <div v-if="tract.lowTreeRoadPct !== null" class="mt-4" role="group"
         :aria-label="`${tract.lowTreeRoadPct}% of streets have no mapped tree within ${bufferM} m`">
         <div class="d-flex align-center justify-space-between mb-1">
@@ -429,6 +509,22 @@ function copyLink() {
 </template>
 
 <style scoped>
+.tract-snapshot { color: rgb(var(--v-theme-on-surface)); }
+.snapshot-help { margin: 8px 0; font-size: 0.875rem; }
+.snapshot-help summary { min-height: 44px; padding: 12px 0; cursor: pointer; }
+.snapshot-help p { margin-bottom: 8px; }
+.snapshot-list { padding-left: 24px; }
+.snapshot-list > li { margin-bottom: 8px; }
+.snapshot-item { display: block; width: 100%; min-height: 64px; height: auto; padding: 8px 12px; border: 1px solid rgba(var(--v-theme-on-surface), 0.55); border-radius: 4px; color: rgb(var(--v-theme-on-surface)); font-size: 0.875rem; line-height: 1.5; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.snapshot-button { text-transform: none; letter-spacing: normal; justify-content: flex-start; }
+.snapshot-button :deep(.v-btn__content) { display: block; width: 100%; white-space: normal; text-align: left; }
+.snapshot-line1 { display: block; font-weight: 500; }
+.snapshot-line2, .snapshot-marker { display: block; }
+.snapshot-line2 { font-weight: 400; }
+.snapshot-marker { margin-top: 4px; font-weight: 500; }
+.snapshot-current { background: rgba(var(--v-theme-primary), 0.12); }
+.snapshot-button:focus-visible, .snapshot-help summary:focus-visible, #tract-snapshot-heading:focus-visible { outline: 2px solid rgb(var(--v-theme-on-surface)); outline-offset: 2px; }
+
 .touch-44 { min-width: 44px !important; min-height: 44px !important; }
 .touch-h44 { min-height: 44px; }
 .touch-row { min-height: 48px; }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CSV_VIEW_TOOLTIP, currentViewComments, downloadBlob, exportFilename, toAllTractsCsv, toBelowMedianCsv, toCurrentViewCsv, toPlantHereCsv, viewScope } from '@/utils/exportData'
 import { useFavorites } from '@/composables/useFavorites'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 import { VBottomSheet, VMenu } from 'vuetify/components'
@@ -33,6 +33,7 @@ import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '@/utils/metrics'
 import { PLACES_MEASURES, PLACES_METRIC_IDS, placesMetricCitation } from '@/utils/placesMeasures'
+import { getTractSnapshotIndex, type TractSnapshotIndex } from '@/utils/tractSnapshot'
 import { useMenuButtonFocus, useOverlayFocus, firstFocusableIn, focusSoon } from '@/composables/useOverlayFocus'
 
 const { meta, tracts, parks, roads, bike, transit, trees, schools, libraries, gardens, fountains, postOffices, playgrounds, toilets, benches, clinics, emergency, sidewalks, loading, error, load, loadTrees, treesLoading, treesDeferred } = useData()
@@ -57,6 +58,21 @@ const packRows = computed<{ label: string; value: string; mono?: boolean }[]>(()
   return rows
 })
 const ui = useUiStore()
+// #147: warm the raw collection once when its successfully loaded metadata pair is ready.
+// Clearing synchronously prevents the previous city's index from reaching a replacement tract.
+const snapshotIndex = shallowRef<TractSnapshotIndex | null>(null)
+watch([tracts, meta, loading], ([collection, metadata, busy]) => {
+  snapshotIndex.value = !busy && collection && metadata ? getTractSnapshotIndex(toRaw(collection), toRaw(metadata)) : null
+}, { immediate: true, flush: 'sync' })
+function selectSnapshotMetric(id: MetricId) {
+  if (ui.dualView) return
+  const index = snapshotIndex.value
+  if (loading.value || !tracts.value || !meta.value || !selectedTract.value || !index ||
+    index.collection !== toRaw(tracts.value) || index.meta !== toRaw(meta.value) ||
+    !index.select(selectedTract.value.geoid) || !metricAvailable(id, meta.value, tracts.value)) return
+  ui.setActiveMetric(id)
+  syncUrl()
+}
 const { theme, isDark, basemap, fillOpacity, themeAnnounce, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showToilets, showBenches, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, aboutOpen, densityUnit, choroplethMode } = storeToRefs(ui)
 
 // #88: offline hint on pack-error (checked when the error renders).
@@ -1144,6 +1160,7 @@ watch(drawerOpen, async (open) => {
     <v-navigation-drawer v-model="drawerOpen" :location="mdAndUp ? 'right' : 'bottom'" :width="380" temporary
       :scrim="false" :class="{ 'bottom-drawer': !mdAndUp }">
       <TractDetails v-if="selectedTract && meta" :tract="selectedTract" :meta="meta" :city-median-acre="medianAcre"
+        :snapshot-index="snapshotIndex" @select-metric="selectSnapshotMetric"
         :roads="roads" :total="tracts?.features.length ?? 0" @fly-to-road="(f) => mapRef?.fitRoad(f)" @close="cityStore.select(null)" @fly-to-park="flyToPark" />
     </v-navigation-drawer>
 

@@ -19,6 +19,7 @@
     "typecheck": "vue-tsc --noEmit",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:a11y": "node scripts/a11y-menu-keys.mjs",
+    "test:a11y:snapshot": "node scripts/a11y-tract-snapshot.mjs",
     "add:nri": "node scripts/add-fema-nri.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "add:fara": "node scripts/add-usda-fara.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "add:income": "node scripts/add-acs-income.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
