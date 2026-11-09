@@ -33,6 +33,7 @@
     "add:fountains": "for d in public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl; do node scripts/add-fountains.mjs $d; done",
     "add:postoffices": "for d in public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl; do node scripts/add-postoffices.mjs $d; done",
     "add:playgrounds": "for d in public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl; do node scripts/add-playgrounds.mjs $d; done",
+    "add:toilets": "for d in public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl; do node scripts/add-toilets.mjs $d; done",
     "add:plantneed": "node scripts/add-plant-need.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "add:places": "node scripts/add-cdc-places.mjs public/data public/data/central-miami-fl public/data/melbourne-fl public/data/pembroke-pines-fl public/data/orlando-fl public/data/tampa-fl public/data/central-jacksonville-fl",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts"

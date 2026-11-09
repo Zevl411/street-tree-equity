@@ -70,6 +70,8 @@ const props = defineProps<{
   postOffices?: FeatureCollection | null
   /** #130: OSM leisure=playground points; null = pack has none (layer not added). */
   playgrounds?: FeatureCollection | null
+  /** #132: OSM amenity=toilets points; null = pack has none (layer not added). */
+  toilets?: FeatureCollection | null
   /** #112: OSM pharmacy + clinic/doctors points; null = pack has none (layer not added). */
   clinics?: FeatureCollection | null
   /** #116: OSM hospital + fire_station points; null = pack has none (layer not added). */
@@ -90,7 +92,7 @@ let applyingCamera = false
 const cityStore = useCityStore()
 const { selectedGeoid } = storeToRefs(cityStore)
 const ui = useUiStore()
-const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
+const { isDark, basemap, fillOpacity, choroplethMode, choroplethPalette, showTrees, showParks, showRoads, showSchools, showBike, showTransit, showLibraries, showGardens, showFountains, showPostOffices, showPlaygrounds, showToilets, showSidewalks, showClinics, showEmergency, highlightBottomQuartile, belowMedian, densityUnit, densityBinIndex } = storeToRefs(ui)
 /** #108 soft: community-centre ring width — heavier on dark/satellite for contrast. */
 function civicRingWidth() { return isDark.value || basemap.value === 'satellite' ? 2.75 : 2 }
 let scaleCtrl: maplibregl.ScaleControl | null = null
@@ -367,6 +369,21 @@ function addDataLayers(m: MlMap) {
       layout: { visibility: showPlaygrounds.value ? 'visible' : 'none' },
       paint: {
         'circle-color': '#ec407a',
+        'circle-opacity': 0.9,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 15, 6],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': civicRingWidth(),
+      },
+    }, before)
+  }
+  // #132: public toilets — blue-grey #546e7a solid dots, white stroke; no click handler, tract clicks pass through.
+  if (props.toilets?.features.length) {
+    m.addSource('toilets', { type: 'geojson', data: props.toilets })
+    m.addLayer({
+      id: 'toilets', type: 'circle', source: 'toilets',
+      layout: { visibility: showToilets.value ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#546e7a',
         'circle-opacity': 0.9,
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 15, 6],
         'circle-stroke-color': '#ffffff',
@@ -709,6 +726,8 @@ watch(showClinics, (v) => setVis('clinics', v))
 watch(showFountains, (v) => setVis('fountains', v))
 watch(showPostOffices, (v) => setVis('postoffices', v))
 watch(showPlaygrounds, (v) => setVis('playgrounds', v))
+watch(showToilets, (v) => setVis('toilets', v))
+watch([isDark, basemap], () => { if (map?.getLayer('toilets')) map.setPaintProperty('toilets', 'circle-stroke-width', civicRingWidth()) })
 watch([isDark, basemap], () => { if (map?.getLayer('playgrounds')) map.setPaintProperty('playgrounds', 'circle-stroke-width', civicRingWidth()) })
 watch([isDark, basemap], () => { if (map?.getLayer('postoffices')) map.setPaintProperty('postoffices', 'circle-stroke-width', civicRingWidth()) })
 watch([isDark, basemap], () => { if (map?.getLayer('fountains')) map.setPaintProperty('fountains', 'circle-stroke-width', civicRingWidth()) })
