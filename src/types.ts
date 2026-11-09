@@ -98,6 +98,11 @@ export interface TractProps {
   pctBpHighLo?: number
   pctBpHighHi?: number
   bpHighAdultPop?: number
+  /** #133: CDC PLACES 2025 LPA crude prevalence (no leisure-time physical activity, 0–100, 1 dp) + 95% CI + adult pop weight */
+  pctInactivity?: number
+  pctInactivityLo?: number
+  pctInactivityHi?: number
+  inactivityAdultPop?: number
   /** #120: ACS B16004 % residents 5+ speaking English less than "very well" (0–100, 1 dp) + derived MOE, count */
   pctLep?: number
   pctLepMoe?: number
@@ -181,10 +186,10 @@ export interface Meta {
   osmTimestamp: string | null
   censusVintage: string
   counts: { tracts: number; trees: number; parks: number; groceries?: number; schools?: number; bikeKm?: number; transitStops?: number; libraries?: number; communityCentres?: number; gardens?: number; allotments?: number; fountains?: number; postOffices?: number; playgrounds?: number; pharmacies?: number; clinics?: number; hospitals?: number; fireStations?: number; sidewalkKm?: number; lowTreeRoadSegments: number }
-  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
+  overall: { treesPerAcre: number; parksPerAcre?: number; groceriesPerAcre?: number; schoolsPerAcre?: number; nriRiskScore?: number | null; medianIncome?: number | null; foodAccessLowShare?: number | null; pctPoverty?: number | null; pctPovertyMedian?: number | null; pctNoVehicle?: number | null; pctNoVehicleMedian?: number | null; pctRentBurden?: number | null; pctRentBurdenMedian?: number | null; pctUnder18?: number | null; pctUnder18Median?: number | null; pctAge65Plus?: number | null; pctAge65PlusMedian?: number | null; pctAsthma?: number | null; pctAsthmaMedian?: number | null; pctDiabetes?: number | null; pctDiabetesMedian?: number | null; pctObesity?: number | null; pctObesityMedian?: number | null; pctMentalHealth?: number | null; pctMentalHealthMedian?: number | null; pctPhysicalHealth?: number | null; pctPhysicalHealthMedian?: number | null; pctChd?: number | null; pctChdMedian?: number | null; pctBpHigh?: number | null; pctBpHighMedian?: number | null; pctInactivity?: number | null; pctInactivityMedian?: number | null; pctLep?: number | null; pctLepMedian?: number | null; pctSnap?: number | null; pctSnapMedian?: number | null; plantNeed?: number | null; bottomQuartileMax: number }
   breaks: number[]
   /** #98: per-metric breaks (trees stay in `breaks`) */
-  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
+  metricBreaks?: { parks?: number[]; groceries?: number[]; risk?: number[]; income?: number[]; foodAccess?: number[]; poverty?: number[]; noVehicle?: number[]; rentBurden?: number[]; under18?: number[]; age65?: number[]; asthma?: number[]; diabetes?: number[]; obesity?: number[]; mentalHealth?: number[]; physicalHealth?: number[]; chd?: number[]; bphigh?: number[]; inactivity?: number[]; lep?: number[]; snap?: number[]; plantNeed?: number[] }
   /** #100: FEMA NRI provenance for About */
   nri?: { version: string; retrievedAt: string; sourceUrl: string }
   /** #106 USDA ERS SRAM provenance */
@@ -205,7 +210,7 @@ export interface Meta {
   /** #124 planting-need composite provenance */
   plantNeed?: { inputs: string[]; weights: 'equal'; scaling: 'pack min-max'; asthmaIncluded: boolean }
   /** #117 CDC PLACES provenance */
-  cdcPlaces?: { release: string; measure: string; measures?: string[]; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string> }
+  cdcPlaces?: { release: string; measure: string; measures?: string[]; dataYear: number; valueType: string; retrievedAt: string; sourceUrl: string; columns: Record<string, string>; years?: { LPA?: number; [measure: string]: number | undefined } }
   colors: string[]
   roadsBufferMeters: number | null
   attribution: { osm: string; census: string; fema?: string; acs?: string; usda?: string; acsPoverty?: string; acsNoVehicle?: string; acsRentBurden?: string; acsUnder18?: string; acsAge?: string; acsLep?: string; acsSnap?: string; cdcPlaces?: string }

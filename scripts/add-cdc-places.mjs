@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129) and BPHIGH (high blood pressure, #131) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) and LPA (no leisure-time physical activity / inactivity, #133) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -28,11 +28,15 @@
  *   pctBpHigh ← BPHIGH_CrudePrev  (#131; crude, 0–100 %)
  *   pctBpHighLo/Hi ← BPHIGH_Crude95CI
  *   bpHighAdultPop ← TotalPop18plus
+ *   pctInactivity ← LPA_CrudePrev  (#133; crude, 0–100 %)
+ *   pctInactivityLo/Hi ← LPA_Crude95CI
+ *   inactivityAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
+ *   #133: BRFSS year for LPA is read from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.LPA
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
  * falls back to median tract % if no pop, logged); meta.overall.pct*Median = median tract %.
- * City-pack recipe: run after the FEMA / USDA steps. Build-time only — no runtime CDC/Socrata calls.
+ * City-pack recipe: run after the FEMA / USDA steps. Build-time only — browser never calls CDC/Socrata; build may read column metadata for BRFSS year (#133).
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -45,6 +49,38 @@ const CSV = process.env.PLACES_CSV || path.join(DIR, 'places-tract-2025-gis.csv'
 const DOWNLOAD_URL = 'https://data.cdc.gov/api/views/yjkw-uj5s/rows.csv?accessType=DOWNLOAD'
 const SOURCE_URL = 'https://data.cdc.gov/500-Cities-Places/PLACES-Census-Tract-Data-GIS-Friendly-Format-2025-/yjkw-uj5s'
 const POP = 'totalpop18plus', JOIN = 'tractfips'
+/** #133: BRFSS data year for LPA from PLACES Socrata column metadata (never hardcode). */
+const COLUMNS_META_URL = 'https://data.cdc.gov/api/views/yjkw-uj5s/columns.json'
+const COLUMNS_CACHE = path.join(DIR, 'yjkw-uj5s-columns.json')
+async function resolveLpaYear() {
+  if (process.env.PLACES_LPA_YEAR) {
+    const y = Number(process.env.PLACES_LPA_YEAR)
+    if (!Number.isFinite(y)) throw new Error(`PLACES_LPA_YEAR must be a year, got ${process.env.PLACES_LPA_YEAR}`)
+    console.log(`[places] LPA BRFSS year ${y} (from PLACES_LPA_YEAR)`)
+    return y
+  }
+  let cols
+  try {
+    const res = await fetch(COLUMNS_META_URL)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    cols = await res.json()
+    try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(COLUMNS_CACHE, JSON.stringify(cols)) } catch { /* cache best-effort */ }
+  } catch (e) {
+    if (fs.existsSync(COLUMNS_CACHE)) {
+      cols = JSON.parse(fs.readFileSync(COLUMNS_CACHE, 'utf8'))
+      console.warn(`[places] LPA year: live metadata failed (${e.message}); using cache ${COLUMNS_CACHE}`)
+    } else {
+      throw new Error(`#133: could not read PLACES column metadata for LPA BRFSS year (${e.message}). Set PLACES_LPA_YEAR or cache ${COLUMNS_CACHE}.`)
+    }
+  }
+  const col = (cols || []).find((c) => String(c.fieldName || '').toLowerCase() === 'lpa_crudeprev')
+  const desc = col?.description || ''
+  const m = desc.match(/\b(19|20)\d{2}\b/)
+  if (!m) throw new Error(`#133: no BRFSS year in LPA_CrudePrev description: ${JSON.stringify(desc)}`)
+  const y = Number(m[0])
+  console.log(`[places] LPA BRFSS year ${y} (from Socrata column metadata: ${desc})`)
+  return y
+}
 // #119: measures in one pass (append-only). metricId → meta.metricBreaks key; key → TractProps prefix.
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
@@ -54,12 +90,14 @@ const MEASURES = [
   { measure: 'PHLTH', metricId: 'physicalHealth', key: 'pctPhysicalHealth', popKey: 'physicalHealthAdultPop', value: 'phlth_crudeprev', ci: 'phlth_crude95ci' },
   { measure: 'CHD', metricId: 'chd', key: 'pctChd', popKey: 'chdAdultPop', value: 'chd_crudeprev', ci: 'chd_crude95ci' },
   { measure: 'BPHIGH', metricId: 'bphigh', key: 'pctBpHigh', popKey: 'bpHighAdultPop', value: 'bphigh_crudeprev', ci: 'bphigh_crude95ci' },
+  { measure: 'LPA', metricId: 'inactivity', key: 'pctInactivity', popKey: 'inactivityAdultPop', value: 'lpa_crudeprev', ci: 'lpa_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
 if (!fs.existsSync(CSV)) throw new Error(`missing ${CSV} — curl -L -o ${CSV} '${DOWNLOAD_URL}'`)
 
 const packs = loadPacks(dirs)
+const lpaYear = await resolveLpaYear()
 const want = new Set(packs.flatMap((p) => p.fc.features.map(tractGeoid)))
 const { columns: cols, rows, total } = await readPlaces(CSV, [...MEASURES.flatMap((M) => [M.value, M.ci]), POP], want, JOIN)
 const columns = { join: cols[JOIN], adultPop: cols[POP] }
@@ -96,7 +134,7 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), LPA: lpaYear } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }
