@@ -27,7 +27,7 @@ const sorted = <T>(xs: readonly T[]) => [...xs].map(String).sort()
 
 test('#144 PLACES_EXPORT, PLACES_MEASURES and add-cdc-places MEASURES list the same measures', () => {
   const script = scriptMeasures()
-  assert.equal(script.length, 13)
+  assert.equal(script.length, 14)
   assert.deepEqual(sorted(exportIds()), sorted(PLACES_METRIC_IDS))
   assert.deepEqual(sorted(script.map((m) => m.metricId)), sorted(PLACES_METRIC_IDS))
   assert.deepEqual(sorted(script.map((m) => m.measure)), sorted(PLACES_METRIC_IDS.map((id) => PLACES_MEASURES[id]![0])))
@@ -49,7 +49,7 @@ test('#144 CSV_HEADERS.length === csvRow cell count (every PLACES value + CI pop
   })
 })
 
-test('#144 every pack: years map covers all 13 measures from metadata; SLEEP resolves to 2022 (even-year core)', () => {
+test('#144 every pack: years map covers all 14 measures from metadata; SLEEP resolves to 2022 (even-year core)', () => {
   const script = scriptMeasures()
   for (const p of PACKS) {
     const meta = JSON.parse(readFileSync(new URL(`../public/data/${p ? `${p}/` : ''}meta.json`, import.meta.url), 'utf8'))
@@ -60,5 +60,7 @@ test('#144 every pack: years map covers all 13 measures from metadata; SLEEP res
     for (const m of cdc.measures) if (m !== 'SLEEP') assert.equal(cdc.years[m], 2023, `${p || 'portland'} ${m}`)
     assert.equal('dataYear' in cdc, false)
     assert.ok(Array.isArray(meta.metricBreaks?.shortSleep), `${p || 'portland'} breaks`)
+    assert.ok(Array.isArray(meta.metricBreaks?.uninsured), `${p || 'portland'} uninsured breaks`)
+    assert.equal(cdc.weightsNote, 'Pack aggregates weight by adults 18+; ACCESS2 covers 18–64')
   }
 })

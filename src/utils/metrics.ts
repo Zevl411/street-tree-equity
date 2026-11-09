@@ -1,10 +1,10 @@
 import type { Meta, TractCollection } from '@/types'
 
 /** #97/#98: metric registry (trees + parks); unknown ids fall back to trees. */
-export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep'
+export type MetricId = 'trees' | 'parks' | 'groceries' | 'risk' | 'income' | 'foodAccess' | 'poverty' | 'noVehicle' | 'rentBurden' | 'under18' | 'asthma' | 'diabetes' | 'lep' | 'obesity' | 'snap' | 'plantNeed' | 'mentalHealth' | 'age65' | 'physicalHealth' | 'chd' | 'bphigh' | 'inactivity' | 'copd' | 'smoking' | 'stroke' | 'disability' | 'shortSleep' | 'uninsured'
 export type MetricUnit = 'acre' | 'km2'
 
-export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep'
+export type MetricValueKey = 'treesPerAcre' | 'parksPerAcre' | 'groceriesPerAcre' | 'nriRiskScore' | 'medianIncome' | 'foodAccessLowShare' | 'pctPoverty' | 'pctNoVehicle' | 'pctRentBurden' | 'pctUnder18' | 'pctAsthma' | 'pctDiabetes' | 'pctLep' | 'pctObesity' | 'pctSnap' | 'plantNeed' | 'pctMentalHealth' | 'pctAge65Plus' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
 
 export interface MetricDef {
   id: MetricId
@@ -423,6 +423,21 @@ export const METRICS: Record<MetricId, MetricDef> = {
     tooltip: 'Model-based share of adults who usually sleep under 7 hours in a 24-hour period (CDC PLACES). Short sleep is associated with higher risk of several chronic conditions. Community-need context — no causal or diagnostic claim.',
     higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
   },
+  // #146: CDC PLACES 2025 — ACCESS2 lack of health insurance, ages 18–64. Adults 18+ proxy weights.
+  // Registry appended after shortSleep; Layers switch after Short sleep. Age range and proxy are explicit in copy.
+  uninsured: {
+    id: 'uninsured',
+    shortLabel: 'No health insurance',
+    valueKey: 'pctUninsured',
+    legendTitle: () => 'Adults 18–64 with no health insurance',
+    unitNoun: 'uninsured share',
+    spreadUnit: () => '%',
+    bmCaption: 'Dims tracts below this city’s median share of adults 18–64 with no health insurance',
+    bmSwitchLabel: 'Above city median',
+    fine: false, overallKey: 'pctUninsured', hotspotNoun: ['high-uninsured tract', 'high-uninsured tracts'], hotspotTitle: 'Highest share of adults 18–64 with no health insurance', missingCaption: 'This pack has no uninsured metric yet',
+    tooltip: 'Model-based share of adults aged 18–64 with no current health insurance (CDC PLACES). Higher shares flag greater need for accessible care and community health resources. Prevalence is ages 18–64; city aggregates are weighted by adults 18+ (PLACES TotalPop18plus — no 18–64 denominator in the GIS file). Community-need context — no causal or diagnostic claim.',
+    higherIsBetter: false, usesDensityUnit: false, percentPoints: true,
+  },
 }
 
 /** #115: Hotspots ascending? Per-metric hotspotSort override, else polarity (higherIsBetter → lowest first). */
@@ -439,10 +454,10 @@ export function fmtUnitless(def: MetricDef, n: number): string {
 }
 
 export const METRIC_IDS = Object.keys(METRICS) as MetricId[]
-/** #124 Planting need after Trees; #125 Mental health after Obesity; #127 Physical health after Mental health; #143 cardio reorder: #131 Blood pressure after Physical health; #129 Heart disease after Blood pressure; #141 Stroke after Heart disease; #133 Inactivity after Stroke; #136 COPD after Inactivity; #138 Smoking after COPD; #143 Disability after Smoking; #144 Short sleep after Disability; rest in registry order. */
+/** #124 Planting need after Trees; #125 Mental health after Obesity; #127 Physical health after Mental health; #143 cardio reorder: #131 Blood pressure after Physical health; #129 Heart disease after Blood pressure; #141 Stroke after Heart disease; #133 Inactivity after Stroke; #136 COPD after Inactivity; #138 Smoking after COPD; #143 Disability after Smoking; #144 Short sleep after Disability; #146 Uninsured (ACCESS2) after Short sleep; rest in registry order. */
 /** #114: Age 65+ right after Rent burden, with Under 18 moved directly after Age 65+. */
-const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'age65' && id !== 'under18')
-  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep'] : [id]))]
+const BASE_SWITCH_ORDER: MetricId[] = ['trees', 'plantNeed', ...METRIC_IDS.filter((id) => id !== 'trees' && id !== 'plantNeed' && id !== 'mentalHealth' && id !== 'physicalHealth' && id !== 'chd' && id !== 'bphigh' && id !== 'inactivity' && id !== 'copd' && id !== 'smoking' && id !== 'stroke' && id !== 'disability' && id !== 'shortSleep' && id !== 'uninsured' && id !== 'age65' && id !== 'under18')
+  .flatMap((id): MetricId[] => (id === 'obesity' ? ['obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'] : [id]))]
 const RB = BASE_SWITCH_ORDER.indexOf('rentBurden')
 export const METRIC_SWITCH_ORDER: MetricId[] = [...BASE_SWITCH_ORDER.slice(0, RB + 1), 'age65', 'under18', ...BASE_SWITCH_ORDER.slice(RB + 1)]
 
@@ -478,6 +493,8 @@ const METRIC_BY_LOWER: Record<string, MetricId> = {
   age65plus: 'age65', seniors: 'age65',
   // #144 soft aliases (shortsleep comes from the lowercase id; first multi-word alias — exact trim+lowercase match)
   sleep: 'shortSleep', 'short sleep': 'shortSleep',
+  // #146 soft aliases (uninsured comes from the lowercase id); no vague access/healthcare alias.
+  insurance: 'uninsured', noinsurance: 'uninsured', 'no insurance': 'uninsured', access2: 'uninsured',
 }
 
 export function isMetricId(v: unknown): v is MetricId {

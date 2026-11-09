@@ -4,12 +4,12 @@
 import type { Meta, TractProps } from '@/types'
 import { cell } from './currentViewCsv.ts'
 
-type PlacesKey = 'pctAsthma' | 'pctDiabetes' | 'pctObesity' | 'pctMentalHealth' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep'
+type PlacesKey = 'pctAsthma' | 'pctDiabetes' | 'pctObesity' | 'pctMentalHealth' | 'pctPhysicalHealth' | 'pctChd' | 'pctBpHigh' | 'pctInactivity' | 'pctCopd' | 'pctSmoking' | 'pctStroke' | 'pctDisability' | 'pctShortSleep' | 'pctUninsured'
 /** [csv stem, TractProps value key] — invent-append order (NOT switch order); CI props are `<key>Lo` / `<key>Hi`. */
 export const PLACES_EXPORT: readonly (readonly [string, PlacesKey])[] = [
   ['asthma', 'pctAsthma'], ['diabetes', 'pctDiabetes'], ['obesity', 'pctObesity'], ['mental_health', 'pctMentalHealth'],
   ['physical_health', 'pctPhysicalHealth'], ['chd', 'pctChd'], ['bphigh', 'pctBpHigh'], ['inactivity', 'pctInactivity'],
-  ['copd', 'pctCopd'], ['smoking', 'pctSmoking'], ['stroke', 'pctStroke'], ['disability', 'pctDisability'], ['short_sleep', 'pctShortSleep'],
+  ['copd', 'pctCopd'], ['smoking', 'pctSmoking'], ['stroke', 'pctStroke'], ['disability', 'pctDisability'], ['short_sleep', 'pctShortSleep'], ['uninsured', 'pctUninsured'],
 ]
 const placesCells = (t: TractProps) => PLACES_EXPORT.flatMap(([, k]) => [t[k], t[`${k}Lo`], t[`${k}Hi`]])
 

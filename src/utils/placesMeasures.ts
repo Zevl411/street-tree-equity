@@ -21,6 +21,7 @@ export const PLACES_MEASURES: Partial<Record<MetricId, PlacesEntry>> = {
   stroke: ['STROKE', 'Stroke among adults', 'stroke'],
   disability: ['DISABILITY', 'Any disability among adults', 'any disability'],
   shortSleep: ['SLEEP', 'Short sleep duration among adults', 'short sleep duration'],
+  uninsured: ['ACCESS2', 'Current lack of health insurance among adults aged 18-64 years', 'current lack of health insurance among adults aged 18–64'],
 }
 
 /** PLACES metric ids in map (registry) order. */
