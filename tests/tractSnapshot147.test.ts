@@ -19,7 +19,7 @@ const score = (id: MetricId, values: unknown[], selected: number) => snapshotMet
 beforeEach(() => resetTractSnapshotCache())
 
 test('#147 explicit allowlist, seven exclusions and replaceable canopy registry id', () => {
-  assert.deepEqual(SNAPSHOT_CANDIDATE_METRICS, ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'])
+  assert.deepEqual(SNAPSHOT_CANDIDATE_METRICS, ['parks', 'groceries', 'income', 'foodAccess', 'poverty', 'noVehicle', 'rentBurden', 'asthma', 'diabetes', 'lep', 'snap', 'obesity', 'mentalHealth', 'depression', 'physicalHealth', 'bphigh', 'chd', 'stroke', 'inactivity', 'copd', 'smoking', 'disability', 'shortSleep', 'uninsured'])
   assert.deepEqual(SNAPSHOT_EXCLUDED_METRICS, ['canopy', 'canopyGap', 'trees', 'plantNeed', 'risk', 'age65', 'under18'])
   assert.equal(SNAPSHOT_CANOPY_METRIC, 'canopy')
   assert.equal(METRICS[SNAPSHOT_CANOPY_METRIC].valueKey, 'canopyPct')
@@ -29,15 +29,15 @@ test('#147 explicit allowlist, seven exclusions and replaceable canopy registry 
   assert.equal(METRICS.plantNeed.higherIsBetter, true)
   assert.equal(METRICS.plantNeed.hotspotSort, 'desc')
 })
-test('#147 every candidate gets polarity from the registry, and all 14 PLACES carry model markers', () => {
+test('#147 every candidate gets polarity from the registry, and all 15 PLACES carry model markers', () => {
   for (const id of SNAPSHOT_CANDIDATE_METRICS) {
     const s = score(id, [0,1,2,3,4,5,6,7,8,9], 9)
     assert.equal(s.badness, METRICS[id].higherIsBetter ? 0 : 100)
     assert.equal(s.modelEstimate, id in PLACES_MEASURES)
     assert.equal(snapshotRow(s, 'Example', 'acre').line1.includes('model estimate'), id in PLACES_MEASURES)
   }
-  assert.equal(Object.keys(PLACES_MEASURES).length, 15) // #150 staged data, no UI activation
-  assert.equal(PLACES_METRIC_IDS.length, 14)
+  assert.equal(Object.keys(PLACES_MEASURES).length, 15)
+  assert.equal(PLACES_METRIC_IDS.length, 15)
   assert.match(snapshotRow(score('uninsured', [0,1,2,3,4,5,6,7,8,9], 9), 'Example', 'acre').ariaLabel, /No health insurance \(ages 18–64\)/)
 })
 test('#147 TL synthetic half ties exclude self; invalid peers never enter n', () => {
@@ -216,7 +216,9 @@ const evidenceResults: typeof portableChecks = existsSync(evidence) ? JSON.parse
 for(const fixture of evidenceResults) test(`#147 real check-values: ${fixture.cityName} ${fixture.geoid} (rev3 zero-tree override)`,()=>{
   const p:TractCollection=JSON.parse(readFileSync(new URL(`../public/data/${fixture.cityId}/tracts-equity.geojson`,import.meta.url),'utf8'))
   const m:Meta=JSON.parse(readFileSync(new URL(`../public/data/${fixture.cityId}/meta.json`,import.meta.url),'utf8'))
-  const s=tractSnapshot(p,fixture.geoid,m)!
+  // #147 evidence predates #150; retain its historic candidate set without altering source data.
+  const historicMeta={...m,metricBreaks:{...m.metricBreaks}};delete historicMeta.metricBreaks.depression
+  const s=tractSnapshot(p,fixture.geoid,historicMeta)!
   assert.equal(p.features.length,fixture.total)
   assert.equal(s.eligibleCount,fixture.eligibleMetrics)
   assert.equal(s.aboveFloorCount,fixture.aboveFloor)

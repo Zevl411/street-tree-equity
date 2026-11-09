@@ -112,8 +112,8 @@ test('#149 WeakMap caches two immutable paired views; source identity invalidati
  for(const x of [v,v.collection,v.collection.features,v.collection.features[0].properties,v.meta,v.meta.overall])assert.ok(Object.isFrozen(x))
  for(const values of [[],[0,0],[1],[1,1,1],[0,1,2,3,4,5],[.00001,.00002,999999,Infinity,NaN],Array.from({length:464},(_,i)=>((i*19)%77)/13)])assert.deepEqual(gapBreaks(values),densityBreaks(values,5))
 })
-test('#149 registry 30-order/default/aliases, honest acres, all-zero availability and no 100-acre cap',()=>{
- assert.equal(DEFAULT_METRIC,'canopy');assert.equal(METRIC_SWITCH_ORDER.length,30);assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
+test('#149 registry 31-order/default/aliases, honest acres, all-zero availability and no 100-acre cap',()=>{
+ assert.equal(DEFAULT_METRIC,'canopy');assert.equal(METRIC_SWITCH_ORDER.length,31);assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
  for(const s of ['canopyGap','canopygap',' CANOPY GAP ','canopy deficit','tree canopy gap'])assert.equal(resolveMetric(s),'canopyGap')
  for(const s of ['gap','deficit'])assert.equal(resolveMetric(s),null)
  for(const s of ['canopy','tree canopy','tcc','shade'])assert.equal(resolveMetric(s),'canopy')
@@ -130,8 +130,8 @@ test('#149 actual MapLibre gap expression: neutral invalid/null, distinct zero a
  for(const x of [null,undefined,-1,'0',NaN,Infinity])assert.equal(val(x),neutral)
  assert.notEqual(val(0),neutral);assert.notEqual(val(99999),neutral);assert.notEqual(val(0),val(99999))}
 })
-test('#149 snapshot: seven exclusions, exact23 candidates and original cached ranking independent of mode; sentence null/zero/sub-acre/singular',()=>{
- assert.equal(SNAPSHOT_EXCLUDED_METRICS.length,7);assert.ok(SNAPSHOT_EXCLUDED_METRICS.includes('canopyGap'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,23)
+test('#149 snapshot: seven exclusions, exact24 candidates and original cached ranking independent of mode; sentence null/zero/sub-acre/singular',()=>{
+ assert.equal(SNAPSHOT_EXCLUDED_METRICS.length,7);assert.ok(SNAPSHOT_EXCLUDED_METRICS.includes('canopyGap'));assert.equal(SNAPSHOT_CANDIDATE_METRICS.length,24)
  const {fc,meta}=load('public/data/central-miami-fl'),index=getTractSnapshotIndex(fc,meta),before=index.select('12086002404')
  canopyGapView(fc,meta);canopyGapView(fc,meta,'30');assert.equal(getTractSnapshotIndex(fc,meta),index);assert.deepEqual(index.select('12086002404'),before)
  assert.equal(gapSnapshotSentence(0,'p75'),null);assert.equal(gapSnapshotSentence(null,'30'),null);assert.equal(gapSnapshotSentence(.1,'p75'),"Less than 1 acre of canopy short of the city's leafier neighborhoods");assert.equal(gapSnapshotSentence(.5,'30'),'About 1 acre of canopy short of the 30% canopy target')

@@ -91,7 +91,7 @@ export interface TractProps {
   pctMentalHealthLo?: number
   pctMentalHealthHi?: number
   mentalHealthAdultPop?: number
-  /** #150: CDC PLACES DEPRESSION crude prevalence (ever diagnosed, adults 18+) + 95% CI + adult weight */
+  /** #150: CDC PLACES 2025 DEPRESSION, lifetime self-reported professional diagnosis history among adults 18+, crude 0–100 %, 95% CI, adult-population weight */
   pctDepression?: number
   pctDepressionLo?: number
   pctDepressionHi?: number

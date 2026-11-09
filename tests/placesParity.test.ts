@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { METRICS, METRIC_IDS, type MetricId } from '../src/utils/metrics.ts'
-import { PLACES_MEASURES, PLACES_DATA_IDS, type PlacesMeasureId } from '../src/utils/placesMeasures.ts'
+import { PLACES_MEASURES, PLACES_METRIC_IDS } from '../src/utils/placesMeasures.ts'
 import { CSV_HEADERS, PLACES_EXPORT, csvRow } from '../src/utils/fullCsv.ts'
 import type { Meta, TractProps } from '../src/types.ts'
 
@@ -17,9 +17,9 @@ function scriptMeasures(): { measure: string; metricId: string; key: string }[] 
   assert.ok(block, 'MEASURES array not found in add-cdc-places.mjs')
   return [...block[1].matchAll(/measure: '([A-Z0-9]+)', metricId: '(\w+)', key: '(\w+)'/g)].map((m) => ({ measure: m[1], metricId: m[2], key: m[3] }))
 }
-const exportIds = (): PlacesMeasureId[] =>
+const exportIds = (): MetricId[] =>
   PLACES_EXPORT.map(([stem, key]) => {
-    const id = PLACES_DATA_IDS.find((m) => PLACES_MEASURES[m]?.[3]?.valueKey === key || (METRIC_IDS.includes(m as MetricId) && METRICS[m as MetricId].valueKey === key))
+    const id = METRIC_IDS.find((m) => METRICS[m].valueKey === key)
     assert.ok(id, `PLACES_EXPORT ${stem}: ${key} is not a shared/registered valueKey`)
     return id!
   })
@@ -28,14 +28,14 @@ const sorted = <T>(xs: readonly T[]) => [...xs].map(String).sort()
 test('#144 PLACES_EXPORT, PLACES_MEASURES and add-cdc-places MEASURES list the same measures', () => {
   const script = scriptMeasures()
   assert.equal(script.length, 15)
-  assert.deepEqual(sorted(exportIds()), sorted(PLACES_DATA_IDS))
-  assert.deepEqual(sorted(script.map((m) => m.metricId)), sorted(PLACES_DATA_IDS))
-  assert.deepEqual(sorted(script.map((m) => m.measure)), sorted(PLACES_DATA_IDS.map((id) => PLACES_MEASURES[id]![0])))
+  assert.deepEqual(sorted(exportIds()), sorted(PLACES_METRIC_IDS))
+  assert.deepEqual(sorted(script.map((m) => m.metricId)), sorted(PLACES_METRIC_IDS))
+  assert.deepEqual(sorted(script.map((m) => m.measure)), sorted(PLACES_METRIC_IDS.map((id) => PLACES_MEASURES[id]![0])))
   // same TractProps key per metric in the join script and the CSV list
   for (const m of script) assert.equal(PLACES_EXPORT.find(([, k]) => k === m.key)?.[1], m.key, `${m.measure} key ${m.key} missing from PLACES_EXPORT`)
-  // Keep the legacy CSV order; the shared data order places DEPRESSION after MHLTH.
-  assert.deepEqual(exportIds().filter((id) => id !== 'depression'), script.map((m) => m.metricId).filter((id) => id !== 'depression'))
-  assert.deepEqual(script.map((m) => m.metricId), PLACES_DATA_IDS)
+  // All data/export lists are append-only; the UI switch order is maintained separately.
+  assert.deepEqual(exportIds(), script.map((m) => m.metricId))
+  assert.deepEqual(script.map((m) => m.metricId), PLACES_METRIC_IDS)
 })
 
 test('#144 CSV_HEADERS.length === csvRow cell count (every PLACES value + CI populated)', () => {
@@ -44,12 +44,10 @@ test('#144 CSV_HEADERS.length === csvRow cell count (every PLACES value + CI pop
   const meta = { cityName: 'Miami FL', subtitle: 'x', censusVintage: '2023', generatedAt: 'g' } as unknown as Meta
   const cells = csvRow(t as unknown as TractProps, meta).split(',')
   assert.equal(cells.length, CSV_HEADERS.length)
-  PLACES_EXPORT.forEach(([stem, , ci = true], i) => {
-    assert.equal(cells[(CSV_HEADERS as readonly string[]).indexOf(ci ? `pct_${stem}` : stem)], String(i + 1), stem)
-    if (ci) {
+  PLACES_EXPORT.forEach(([stem], i) => {
+    assert.equal(cells[(CSV_HEADERS as readonly string[]).indexOf(`pct_${stem}`)], String(i + 1), stem)
       assert.equal(cells[(CSV_HEADERS as readonly string[]).indexOf(`pct_${stem}_ci_lo`)], String(i + 0.5), stem)
       assert.equal(cells[(CSV_HEADERS as readonly string[]).indexOf(`pct_${stem}_ci_hi`)], String(i + 1.5), stem)
-    }
   })
 })
 

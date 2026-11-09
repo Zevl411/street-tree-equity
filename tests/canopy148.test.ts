@@ -39,7 +39,7 @@ test('#148 registry default, exact aliases, collisions and 30-id order',()=>{
  for(const a of ['canopy',' tree canopy ','TCC','shade'])assert.equal(resolveMetric(a),'canopy')
  assert.equal(resolveMetric('trees'),'trees');assert.equal(resolveMetric('tree'),null);assert.equal(resolveMetric('access'),null)
  assert.equal(resolveMetric('parks'),'parks');assert.equal(resolveMetric('need'),'plantNeed')
- assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,30);assert.equal(new Set(METRIC_SWITCH_ORDER).size,30)
+ assert.deepEqual(defaultDualPair(METRIC_IDS),['trees','risk']);assert.equal(METRIC_SWITCH_ORDER.length,31);assert.equal(new Set(METRIC_SWITCH_ORDER).size,31)
  assert.deepEqual(METRIC_SWITCH_ORDER.slice(0,4),['canopy','canopyGap','trees','plantNeed'])
  assert.equal(METRICS.canopy.usesDensityUnit,false);assert.equal(METRICS.canopy.valueKey,'canopyPct');assert.equal(metricHasCi('canopy'),false)
  assert.equal(METRICS.trees.shortLabel,'Mapped street trees (OSM)');assert.equal(METRICS.trees.valueKey,'treesPerAcre')

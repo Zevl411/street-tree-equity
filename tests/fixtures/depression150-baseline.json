@@ -61,15 +61,15 @@
   "source": {
     "dataset": "yjkw-uj5s",
     "checkUrl": "https://data.cdc.gov/resource/yjkw-uj5s.json?$select=tractfips,depression_crudeprev,depression_crude95ci,totalpop18plus&$where=tractfips=%2712086002404%27",
-    "checkRow": {
-      "tractfips": "12086002404",
-      "depression_crudeprev": "14.1",
-      "depression_crude95ci": "(11.8, 16.4)",
-      "totalpop18plus": "4491"
-    },
-    "yearColumn": {
-      "fieldName": "depression_crudeprev",
-      "description": "Model-based estimate for crude prevalence of depression among adults, 2023"
+    "expected": {
+      "geoid": "12086002404",
+      "value": 14.1,
+      "ci": [
+        11.8,
+        16.4
+      ],
+      "adultPop": 4491,
+      "brfssYear": 2023
     }
   },
   "legacyCsvHeaders": [
