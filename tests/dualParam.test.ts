@@ -121,3 +121,11 @@ test('#138 smoking resolves with aliases tobacco/cigarettes and round-trips in ?
   assert.equal(resolveMetric('SMOKING'), 'smoking')
   assert.equal(encodeDualParam('smoking', 'trees'), 'smoking,trees')
 })
+
+test('#141 stroke resolves with alias cerebrovascular and round-trips in ?dual=', () => {
+  assert.deepEqual(p('trees,stroke'), { left: 'trees', right: 'stroke' })
+  assert.deepEqual(p('CEREBROVASCULAR,smoking'), { left: 'stroke', right: 'smoking' })
+  assert.equal(resolveMetric('cerebrovascular'), 'stroke')
+  assert.equal(resolveMetric('STROKE'), 'stroke')
+  assert.equal(encodeDualParam('stroke', 'trees'), 'stroke,trees')
+})
