@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * #117/#119/#121/#125: join CDC PLACES 2025 release (GIS-friendly tract file, Socrata yjkw-uj5s) → adults ≥18:
- *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133) and COPD (chronic obstructive pulmonary disease, #136) in one pass.
+ *   CASTHMA (current asthma, #117), DIABETES (diagnosed diabetes, #119), OBESITY (obesity, #121), MHLTH (frequent mental distress, #125) PHLTH (frequent physical distress, #127), CHD (coronary heart disease, #129), BPHIGH (high blood pressure, #131) LPA (no leisure-time physical activity / inactivity, #133), COPD (chronic obstructive pulmonary disease, #136) and CSMOKING (current cigarette smoking, #138) in one pass.
  *   node scripts/add-cdc-places.mjs public/data[/<city-id>] ...
  * Source (public domain, no key; download into gitignored data-raw/cdc-places/; NEVER commit the national CSV):
  *   curl -L -o data-raw/cdc-places/places-tract-2025-gis.csv \
@@ -34,8 +34,11 @@
  *   pctCopd ← COPD_CrudePrev  (#136; crude, 0–100 %)
  *   pctCopdLo/Hi ← COPD_Crude95CI
  *   copdAdultPop ← TotalPop18plus
+ *   pctSmoking ← CSMOKING_CrudePrev  (#138; crude, 0–100 %)
+ *   pctSmokingLo/Hi ← CSMOKING_Crude95CI
+ *   smokingAdultPop ← TotalPop18plus
  *   asthmaAdultPop / diabetesAdultPop ← TotalPop18plus (weights)
- *   #133/#136: BRFSS years for LPA/COPD from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.{LPA,COPD}
+ *   #133/#136/#138: BRFSS years for ALL measures from PLACES Socrata column metadata (not hardcoded) → meta.cdcPlaces.years.*
  * Blank / non-finite → prop absent (null ≠ 0).
  * meta.metricBreaks.{asthma,diabetes} = densityBreaks(values,5); meta.overall.pctAsthma/pctDiabetes = Σ(pct×pop18)/Σpop18 (adult-pop-weighted;
  * falls back to median tract % if no pop, logged); meta.overall.pct*Median = median tract %.
@@ -100,8 +103,6 @@ async function resolvePlacesMeasureYear(measure, fieldName, envKey) {
   console.log(`[places] ${measure} BRFSS year ${y} (from Socrata column metadata: ${desc})`)
   return y
 }
-async function resolveLpaYear() { return resolvePlacesMeasureYear('LPA', 'lpa_crudeprev', 'PLACES_LPA_YEAR') }
-async function resolveCopdYear() { return resolvePlacesMeasureYear('COPD', 'copd_crudeprev', 'PLACES_COPD_YEAR') }
 // #119: measures in one pass (append-only). metricId → meta.metricBreaks key; key → TractProps prefix.
 const MEASURES = [
   { measure: 'CASTHMA', metricId: 'asthma', key: 'pctAsthma', popKey: 'asthmaAdultPop', value: 'casthma_crudeprev', ci: 'casthma_crude95ci' },
@@ -113,14 +114,18 @@ const MEASURES = [
   { measure: 'BPHIGH', metricId: 'bphigh', key: 'pctBpHigh', popKey: 'bpHighAdultPop', value: 'bphigh_crudeprev', ci: 'bphigh_crude95ci' },
   { measure: 'LPA', metricId: 'inactivity', key: 'pctInactivity', popKey: 'inactivityAdultPop', value: 'lpa_crudeprev', ci: 'lpa_crude95ci' },
   { measure: 'COPD', metricId: 'copd', key: 'pctCopd', popKey: 'copdAdultPop', value: 'copd_crudeprev', ci: 'copd_crude95ci' },
+  { measure: 'CSMOKING', metricId: 'smoking', key: 'pctSmoking', popKey: 'smokingAdultPop', value: 'csmoking_crudeprev', ci: 'csmoking_crude95ci' },
 ]
 const dirs = process.argv.slice(2)
 if (!dirs.length) throw new Error('usage: add-cdc-places.mjs <packDir> [...]')
 if (!fs.existsSync(CSV)) throw new Error(`missing ${CSV} — curl -L -o ${CSV} '${DOWNLOAD_URL}'`)
 
 const packs = loadPacks(dirs)
-const lpaYear = await resolveLpaYear()
-const copdYear = await resolveCopdYear()
+const placesYears = {}
+for (const M of MEASURES) {
+  placesYears[M.measure] = await resolvePlacesMeasureYear(M.measure, M.value, `PLACES_${M.measure}_YEAR`)
+}
+console.log(`[places] BRFSS years ${JSON.stringify(placesYears)}`)
 const want = new Set(packs.flatMap((p) => p.fc.features.map(tractGeoid)))
 const { columns: cols, rows, total } = await readPlaces(CSV, [...MEASURES.flatMap((M) => [M.value, M.ci]), POP], want, JOIN)
 const columns = { join: cols[JOIN], adultPop: cols[POP] }
@@ -157,14 +162,16 @@ for (const p of packs) {
     console.log(`[places] ${p.dir} ${M.measure}: ${vals.length}/${p.fc.features.length} joined (${pct}%), ${noPop} without adult pop, breaks ${JSON.stringify(m.metricBreaks[M.metricId])}, overall ${m.overall[key]}% (median ${m.overall[`${key}Median`]}%)${sample ? `, Miami-Dade check ${sample}` : ''}`)
   }
   // Shared release fields; `measure` kept for #117 back-compat, `measures` lists all joined.
-  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), LPA: lpaYear, COPD: copdYear } }
+  m.cdcPlaces = { release: '2025', measure: 'CASTHMA', measures: MEASURES.map((M) => M.measure), dataYear: 2023, valueType: 'crude', retrievedAt, sourceUrl: SOURCE_URL, columns, years: { ...(m.cdcPlaces?.years ?? {}), ...placesYears } }
   m.attribution = { ...m.attribution, cdcPlaces: 'CDC PLACES 2025 release (not endorsed by CDC or HHS)' }
   writePack(p)
 }
-// #136 locked check row (central-miami-fl pack)
+// #136/#138 locked check row (central-miami-fl pack)
 for (const p of packs) {
   if (!p.dir.includes('central-miami')) continue
   const f = p.fc.features.find((x) => tractGeoid(x) === '12086002404')
-  if (f) console.log(`[places] #136 check 12086002404 pctCopd=${f.properties.pctCopd} CI=(${f.properties.pctCopdLo}, ${f.properties.pctCopdHi}) pop=${f.properties.copdAdultPop}`)
-  else console.warn('[places] #136 check tract 12086002404 not in pack', p.dir)
+  if (f) {
+    console.log(`[places] #136 check 12086002404 pctCopd=${f.properties.pctCopd} CI=(${f.properties.pctCopdLo}, ${f.properties.pctCopdHi}) pop=${f.properties.copdAdultPop}`)
+    console.log(`[places] #138 check 12086002404 pctSmoking=${f.properties.pctSmoking} CI=(${f.properties.pctSmokingLo}, ${f.properties.pctSmokingHi}) pop=${f.properties.smokingAdultPop}`)
+  } else console.warn('[places] #136/#138 check tract 12086002404 not in pack', p.dir)
 }
