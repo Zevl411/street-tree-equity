@@ -9,7 +9,7 @@ import { hotspotTracts } from '@/utils/hotspots'
 import { hotspotAscending } from '@/utils/metrics'
 import { downloadBlob, exportFilename, toHotspotsCsv } from '@/utils/exportData'
 
-/** #43 Low-canopy hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
+/** #43 Hotspots: the 10 lowest-density tracts from already-loaded GeoJSON. */
 const props = defineProps<{
   mobile: boolean
   tracts: TractFeature[] | null

@@ -270,7 +270,7 @@ function parseCsv(csv) {
 }
 async function canopyDownloads() {
  await ready(miami.replace('metric=copd','metric=canopy'))
- const dir=mkdtempSync(path.resolve('data-raw/canopy148/downloads-'))
+ const dir=mkdtempSync(path.join(tmpdir(),'ste-canopy148-downloads-'))
  await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:dir})
  await evaluate(`window.__originalClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download)window.__lastDownload=this.download;return window.__originalClick.call(this)}`)
  async function download(label) {
