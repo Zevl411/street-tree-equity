@@ -31,7 +31,7 @@ import { choroplethColors } from '@/utils/choropleth'
 import { readDeepLink, writeDeepLink, type LayerFlags } from '@/composables/useDeepLink'
 import { dualPairAvailable } from '@/utils/dualParam'
 import { isReady, type NearbyPark } from '@/types'
-import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import { isTypingTarget, useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { resetPrefsAndReload } from '@/utils/resetPrefs'
 import { hotspotGeoids, hotspotTracts } from '@/utils/hotspots'
 import { availableMetrics, defaultDualPair, fmtUnitless, hotspotAscending, metricAvailable, metricMeta, METRICS, METRIC_IDS, METRIC_SWITCH_ORDER, type MetricId } from '@/utils/metrics'
@@ -151,7 +151,8 @@ const dualAvailable = computed(() => availMetrics.value.length >= 2)
 const dualAnnounce = ref('')
 const dualOptions = computed(() => availMetrics.value.map((id) => ({ title: METRICS[id].shortLabel, value: id })))
 const dualLabel = (id: MetricId) => METRICS[id].shortLabel
-function setDual(on: boolean, reason?: string) {
+const layersFocusDual = ref(false)
+async function setDual(on: boolean, reason?: string) {
   if (on && !dualAvailable.value) return
   if (ui.dualView === on) return
   if (on) {
@@ -160,6 +161,18 @@ function setDual(on: boolean, reason?: string) {
       const pair = defaultDualPair(avail)!
       ui.dualLeft = pair[0]; ui.dualRight = pair[1]
     }
+  }
+  // #145: the toggle/panel survive the change. The dual selects (v-if) and map canvases
+  // do not. Move focus BEFORE removing a focused subtree, not after it has fallen to body.
+  const active = document.activeElement as HTMLElement | null
+  const removed = (!on && active?.closest('.dual-selects')) || active?.closest('#map-stage > .map, #map-stage > .dual')
+    || (on && active?.closest('.metric-toggle button, .map-legend-box'))
+  if (removed) {
+    // Focus mode hides Layers; expose the required fallback before removing the old target.
+    if (focusMode.value) setFocus(false)
+    layersFocusDual.value = true
+    layersOpen.value = true
+    if (!await focusSoon('#layers-panel .dual-switch input')) return
   }
   // Keep the camera across the single ↔ dual remount (session view is per-city).
   const v = readSessionView()
@@ -338,6 +351,9 @@ watch(error, (e, prev) => {
 
 async function init() {
   const link = readDeepLink()
+  // Mobile's deferred-tree watcher can sync the URL while the pack is loading; use
+  // the original request's presence, not a later location.search with dual stripped.
+  const hasDual = new URLSearchParams(window.location.search).has('dual')
   if (link.theme && link.theme !== ui.theme) ui.setTheme(link.theme)
   if (link.basemap) ui.setBasemap(link.basemap)
   if (link.layers) applyLayers(link.layers)
@@ -358,7 +374,7 @@ async function init() {
   if (link.geoid && inPack(link.geoid)) cityStore.select(link.geoid)
   else if (!link.geoid && stored?.cityId === cityStore.cityId && inPack(stored.geoid)) cityStore.select(stored.geoid!)
   watch(selectedGeoid, (g) => { if (cityStore.cityId) writeSessionView({ cityId: cityStore.cityId, geoid: g }) }, { immediate: true })
-  applyDualFromUrl(link)
+  await applyDualFromUrl(link, hasDual)
   syncUrl()
   openCompareFromUrl()
   openHotspotsFromUrl()
@@ -382,14 +398,15 @@ async function init() {
 }
 
 /** #118: restore a valid `?dual=` pair once the first pack is loaded; invalid → ignored (single map). */
-function applyDualFromUrl(link: ReturnType<typeof readDeepLink>) {
-  if (!new URLSearchParams(window.location.search).has('dual')) return
+async function applyDualFromUrl(link: ReturnType<typeof readDeepLink>, present = new URLSearchParams(window.location.search).has('dual')) {
+  if (!present) { await setDual(false); return }
   const avail = availMetrics.value
   if (!dualPairAvailable(link.dual, avail)) { console.debug('[dual] ignoring ?dual= (invalid or unavailable for this pack)'); return }
   ui.dualLeft = link.dual.left; ui.dualRight = link.dual.right
-  const v = readSessionView()
-  if (v && v.cityId === cityStore.cityId) initialView.value = v
-  ui.setDualView(true)
+  // On a fresh shared-link document there is no prior control to preserve. Use the stable
+  // map region, not a newly mounted select (and never leave the restored view on body).
+  if (document.activeElement === document.body) document.querySelector<HTMLElement>('#map-stage')?.focus()
+  await setDual(true)
   // Soft: metric= equal to the right side starts Hotspots primary = right.
   if (link.metric === link.dual.right) ui.dualPrimary = 'right'
   dualAnnounce.value = `Dual view on: ${dualLabel(link.dual.left)} and ${dualLabel(link.dual.right)}`
@@ -762,7 +779,14 @@ function selectShareUrl() {
   el?.focus(); el?.select()
 }
 
-onMounted(init)
+// #145: history/query changes do not remount the app; apply the dual param through the
+// same focus-safe transition as the checkbox. Invalid pairs retain #118's ignore behavior.
+function restoreDualFromHistory() {
+  if (!meta.value || loading.value) return
+  void applyDualFromUrl(readDeepLink())
+}
+onMounted(() => { window.addEventListener('popstate', restoreDualFromHistory); void init() })
+onBeforeUnmount(() => window.removeEventListener('popstate', restoreDualFromHistory))
 
 const satFallback = ref(false)
 
@@ -771,7 +795,8 @@ function skipToMap() {
   document.getElementById('map-stage')?.focus()
 }
 const findControl = () => (mdAndUp.value ? '#find-tract-btn' : '#more-actions-btn')
-useOverlayFocus(layersOpen, firstFocusableIn('#layers-panel'))
+useOverlayFocus(layersOpen, () => document.querySelector<HTMLElement>(layersFocusDual.value ? '#layers-panel .dual-switch input' : firstFocusableIn('#layers-panel')))
+watch(layersOpen, (open) => { if (!open) layersFocusDual.value = false })
 useOverlayFocus(finderOpen, '#tract-finder-panel input', findControl, () => !drawerOpen.value)
 useOverlayFocus(hotspotsOpen, '#hotspots-panel .hotspots-close', () => '#map-stage', () => !drawerOpen.value)
 useOverlayFocus(favoritesOpen, '#favorites-panel .favorites-close', () => '#map-stage', () => !drawerOpen.value)
@@ -796,6 +821,15 @@ useKeyboardShortcuts({
   },
   toggleFullscreen: () => { if (fsSupported && !anyOverlayOpen()) toggleFs() },
   toggleTheme: () => ui.toggleTheme(),
+  toggleDual: (target) => {
+    // d may exit the readonly metric selects, but never hijacks a text/search input or
+    // an open select menu. Layers itself is allowed so its switch keeps keyboard focus.
+    if (isTypingTarget(target) && !target?.closest('.dual-selects')) return false
+    if (!dualAvailable.value || (anyOverlayOpen() && !layersOpen.value)
+      || document.querySelector('.dual-selects input[aria-expanded="true"]')) return false
+    void setDual(!ui.dualView)
+    return true
+  },
   toggleBasemap: () => ui.setBasemap(basemap.value === 'satellite' ? 'streets' : 'satellite'),
   toggleHotspots: () => {
     if (hotspotsOpen.value) { hotspotsOpen.value = false; return }
@@ -876,7 +910,7 @@ watch(hotspotsOpen, (open) => {
 type ShortcutGroup = { id: string; title: string; rows: [string, string][]; caption?: string }
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   { id: 'map', title: 'Map', rows: [
-    ['s', 'Toggle satellite basemap'], ['d', 'Toggle dark mode'],
+    ['s', 'Toggle satellite basemap'], ['d', 'Toggle dual view'], ['Shift+D', 'Toggle dark mode'],
     ...(fsSupported ? [['f', 'Fullscreen'] as [string, string]] : []),
     ['Esc', 'Close panel, clear selection, or exit focus'],
   ] },

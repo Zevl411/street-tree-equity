@@ -1,10 +1,11 @@
 import { nextTick, watch, type Ref } from 'vue'
 
 /** Focus the first match of `selector` once an overlay has rendered (teleported content needs a frame). */
-export async function focusSoon(selector: string | (() => HTMLElement | null | undefined)) {
+export async function focusSoon(selector: string | (() => HTMLElement | null | undefined), current: () => boolean = () => true) {
   await nextTick()
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => requestAnimationFrame(() => r(null)))
+    if (!current()) return false
     const el = typeof selector === 'string' ? document.querySelector<HTMLElement>(selector) : selector()
     if (el && el.offsetParent !== null) {
       el.focus()
@@ -13,7 +14,7 @@ export async function focusSoon(selector: string | (() => HTMLElement | null | u
         // VDialog focuses its own content wrapper after the enter transition; win that race.
         setTimeout(() => {
           const a = document.activeElement
-          if (el.isConnected && (!a || a === document.body || a.classList.contains('v-overlay__content'))) el.focus()
+          if (current() && el.isConnected && (!a || a === document.body || a.classList.contains('v-overlay__content'))) el.focus()
         }, 350)
         return true
       }
@@ -30,32 +31,37 @@ const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), [tabindex="0"]
  */
 export function useOverlayFocus(
   open: Ref<boolean>,
-  initial: string,
+  initial: string | (() => HTMLElement | null | undefined),
   fallback?: () => string | null,
   /** Return false when another surface (e.g. the tract drawer) takes focus on close. */
   shouldRestore: () => boolean = () => true,
 ) {
-  watchOverlayFocus(open, () => focusSoon(initial), fallback, shouldRestore)
+  watchOverlayFocus(open, (current) => focusSoon(initial, current), fallback, shouldRestore)
 }
 
 function watchOverlayFocus(
   open: Ref<boolean>,
-  focusInitial: () => Promise<unknown>,
+  focusInitial: (current: () => boolean) => Promise<unknown>,
   fallback?: () => string | null,
   shouldRestore: () => boolean = () => true,
 ) {
   let opener: HTMLElement | null = null
+  // #145: an opening focus loop (or its post-transition callback) must not run after
+  // Escape has closed the overlay, or refocus a leaving item that is about to disappear.
+  let generation = 0
   watch(open, async (v) => {
+    const mine = ++generation
+    const current = () => mine === generation && open.value
     if (v) {
       const active = document.activeElement as HTMLElement | null
       opener = active && active !== document.body ? active : null
-      await focusInitial()
+      await focusInitial(current)
     } else {
       const el = opener
       opener = null
       await nextTick()
       setTimeout(() => {
-        if (!shouldRestore()) return
+        if (mine !== generation || open.value || !shouldRestore()) return
         if (el?.isConnected && el.offsetParent !== null) el.focus()
         else { const f = fallback?.(); if (f) void focusSoon(f) }
       }, 0)
@@ -75,11 +81,11 @@ const macrotask = () => new Promise((r) => setTimeout(r, 0))
  */
 export function useMenuButtonFocus(open: Ref<boolean>, menuId: string) {
   const inMenu = () => !!document.getElementById(menuId)?.contains(document.activeElement)
-  watchOverlayFocus(open, async () => {
+  watchOverlayFocus(open, async (current) => {
     await macrotask()
     await macrotask()
-    if (inMenu() || !open.value) return
-    await focusSoon(() => (inMenu() ? null : document.querySelector<HTMLElement>(`#${menuId} .v-list-item:not(.v-list-item--disabled)`)))
+    if (inMenu() || !current()) return
+    await focusSoon(() => (inMenu() ? null : document.querySelector<HTMLElement>(`#${menuId} .v-list-item:not(.v-list-item--disabled)`)), current)
   })
 }
 

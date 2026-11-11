@@ -5,6 +5,8 @@ export interface ShortcutHandlers {
   find: () => void
   escape: () => void
   toggleTheme: () => void
+  /** #145: return false to leave d to an editable target / another overlay. Shift+D keeps dark mode. */
+  toggleDual?: (target: HTMLElement | null) => boolean
   toggleBasemap: () => void
   toggleHotspots: () => void
   help: () => void
@@ -34,6 +36,12 @@ export function useKeyboardShortcuts(h: ShortcutHandlers): void {
   function onKey(e: KeyboardEvent) {
     if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return
     if (e.key === 'Escape') { h.escape(); return } // capture phase: runs before Vuetify closes an overlay, so open-state checks are accurate; never preventDefault
+    if (e.key.toLowerCase() === 'd' && !e.shiftKey && h.toggleDual) {
+      // Vuetify's metric-group typeahead also handles d. Once consumed here it must not
+      // refocus a metric button that the dual transition is about to disable.
+      if (h.toggleDual(document.activeElement as HTMLElement | null)) { e.preventDefault(); e.stopPropagation() }
+      return
+    }
     if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return
     switch (e.key === '?' ? '?' : e.key.toLowerCase()) {
       case '/': e.preventDefault(); h.find(); break
